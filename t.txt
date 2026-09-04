@@ -1,0 +1,1005 @@
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local TeleportService = game:GetService("TeleportService")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+local GAME_NAME = "Steal an Egg"
+local HUB_NAME = "Phantom Hub"
+local FULL_TITLE = HUB_NAME .. " | " .. GAME_NAME
+
+local OPEN_ICON = "rbxassetid://121715364276099"
+local SEARCH_ICON = "rbxassetid://73858257403039"
+local MAIN_ICON = "rbxassetid://139357095045310"
+local AUTO_BUY_ICON = "rbxassetid://110805385284419"
+local FARM_ICON = "rbxassetid://102352181267949"
+local CONFIG_ICON = "rbxassetid://114794077382466"
+local CREDITS_ICON = "rbxassetid://99243311837005"
+local CLICK_ICON = "rbxassetid://97594499544606"
+local PLAYER_ICON = "rbxassetid://102791662357524"
+
+local WHITE = Color3.fromRGB(245, 245, 245)
+local BLACK = Color3.fromRGB(10, 10, 10)
+local DARK = Color3.fromRGB(18, 18, 18)
+local PANEL = Color3.fromRGB(27, 27, 27)
+local PANEL_2 = Color3.fromRGB(34, 34, 34)
+local GRAY = Color3.fromRGB(68, 68, 68)
+local GRAY_2 = Color3.fromRGB(92, 92, 92)
+local MID = Color3.fromRGB(125, 125, 125)
+local BORDER = Color3.fromRGB(105, 105, 105)
+
+local function new(className, properties)
+    local object = Instance.new(className)
+    for property, value in pairs(properties or {}) do
+        object[property] = value
+    end
+    return object
+end
+
+local function corner(parent, radiusScale)
+    return new("UICorner", {
+        CornerRadius = UDim.new(radiusScale or 0, 0),
+        Parent = parent,
+    })
+end
+
+local function stroke(parent, thickness, transparency)
+    return new("UIStroke", {
+        Color = BORDER,
+        Thickness = thickness or 1,
+        Transparency = transparency or 0,
+        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+        Parent = parent,
+    })
+end
+
+local function textLabel(parent, text, size, position, color, font, align)
+    return new("TextLabel", {
+        BackgroundTransparency = 1,
+        Text = text,
+        Size = size,
+        Position = position,
+        TextColor3 = color or WHITE,
+        Font = font or Enum.Font.GothamMedium,
+        TextScaled = true,
+        TextWrapped = true,
+        TextXAlignment = align or Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Center,
+        BorderSizePixel = 0,
+        Parent = parent,
+    })
+end
+
+local screenGui = new("ScreenGui", {
+    Name = "PhantomHub_StealAnEgg",
+    ResetOnSpawn = false,
+    IgnoreGuiInset = false,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+    Parent = PlayerGui,
+})
+
+local rootScale = new("UIScale", {
+    Scale = 1,
+    Parent = screenGui,
+})
+
+local function updateResponsiveScale()
+    local camera = workspace.CurrentCamera
+    if not camera then
+        return
+    end
+    local viewport = camera.ViewportSize
+    local minAxis = math.min(viewport.X, viewport.Y)
+    rootScale.Scale = math.clamp(minAxis / 700, 0.82, 1.18)
+end
+
+workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+    task.defer(updateResponsiveScale)
+end)
+if workspace.CurrentCamera then
+    workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateResponsiveScale)
+end
+updateResponsiveScale()
+
+local opener = new("ImageButton", {
+    Name = "OpenButton",
+    AnchorPoint = Vector2.new(0, 0.5),
+    Position = UDim2.fromScale(0.025, 0.36),
+    Size = UDim2.fromScale(0.075, 0.075),
+    BackgroundColor3 = DARK,
+    AutoButtonColor = false,
+    Image = OPEN_ICON,
+    ImageColor3 = WHITE,
+    ScaleType = Enum.ScaleType.Fit,
+    BorderSizePixel = 0,
+    Parent = screenGui,
+})
+stroke(opener, 1.2, 0)
+new("UIAspectRatioConstraint", {
+    AspectRatio = 1,
+    DominantAxis = Enum.DominantAxis.Height,
+    Parent = opener,
+})
+
+local openerPadding = new("UIPadding", {
+    PaddingLeft = UDim.new(0.18, 0),
+    PaddingRight = UDim.new(0.18, 0),
+    PaddingTop = UDim.new(0.18, 0),
+    PaddingBottom = UDim.new(0.18, 0),
+    Parent = opener,
+})
+
+local menu = new("Frame", {
+    Name = "ModMenu",
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    Position = UDim2.fromScale(0.5, 0.5),
+    Size = UDim2.fromScale(0.74, 0.70),
+    BackgroundColor3 = PANEL,
+    BorderSizePixel = 0,
+    Visible = false,
+    Parent = screenGui,
+})
+stroke(menu, 1.25, 0)
+new("UIAspectRatioConstraint", {
+    AspectRatio = 1.45,
+    DominantAxis = Enum.DominantAxis.Width,
+    Parent = menu,
+})
+
+local menuMin = new("UISizeConstraint", {
+    MinSize = Vector2.new(0, 0),
+    MaxSize = Vector2.new(math.huge, math.huge),
+    Parent = menu,
+})
+
+local topBar = new("Frame", {
+    Name = "TopBar",
+    Size = UDim2.fromScale(1, 0.12),
+    Position = UDim2.fromScale(0, 0),
+    BackgroundColor3 = DARK,
+    BorderSizePixel = 0,
+    Parent = menu,
+})
+
+local title = textLabel(
+    topBar,
+    FULL_TITLE,
+    UDim2.fromScale(0.55, 0.68),
+    UDim2.fromScale(0.035, 0.16),
+    WHITE,
+    Enum.Font.GothamBold,
+    Enum.TextXAlignment.Left
+)
+
+local minimize = new("TextButton", {
+    Name = "Minimize",
+    Size = UDim2.fromScale(0.07, 0.66),
+    Position = UDim2.fromScale(0.79, 0.17),
+    BackgroundColor3 = PANEL_2,
+    AutoButtonColor = false,
+    Text = "—",
+    TextColor3 = WHITE,
+    Font = Enum.Font.GothamBold,
+    TextScaled = true,
+    BorderSizePixel = 0,
+    Parent = topBar,
+})
+stroke(minimize, 0.8, 0.12)
+
+local close = new("TextButton", {
+    Name = "Close",
+    Size = UDim2.fromScale(0.07, 0.66),
+    Position = UDim2.fromScale(0.895, 0.17),
+    BackgroundColor3 = PANEL_2,
+    AutoButtonColor = false,
+    Text = "X",
+    TextColor3 = WHITE,
+    Font = Enum.Font.GothamBold,
+    TextScaled = true,
+    BorderSizePixel = 0,
+    Parent = topBar,
+})
+stroke(close, 0.8, 0.12)
+
+local content = new("Frame", {
+    Name = "Content",
+    Size = UDim2.fromScale(1, 0.88),
+    Position = UDim2.fromScale(0, 0.12),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    Parent = menu,
+})
+
+local tabsPanel = new("Frame", {
+    Name = "TabsPanel",
+    Size = UDim2.fromScale(0.235, 1),
+    Position = UDim2.fromScale(0, 0),
+    BackgroundColor3 = DARK,
+    BorderSizePixel = 0,
+    Parent = content,
+})
+
+local tabsList = new("ScrollingFrame", {
+    Name = "Tabs",
+    Size = UDim2.fromScale(0.90, 0.92),
+    Position = UDim2.fromScale(0.05, 0.04),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ScrollBarThickness = 0,
+    CanvasSize = UDim2.fromScale(0, 1.02),
+    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    Parent = tabsPanel,
+})
+
+local tabsLayout = new("UIListLayout", {
+    FillDirection = Enum.FillDirection.Vertical,
+    HorizontalAlignment = Enum.HorizontalAlignment.Center,
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Padding = UDim.new(0.018, 0),
+    Parent = tabsList,
+})
+
+local pages = new("Frame", {
+    Name = "Pages",
+    Size = UDim2.fromScale(0.765, 1),
+    Position = UDim2.fromScale(0.235, 0),
+    BackgroundColor3 = PANEL,
+    BorderSizePixel = 0,
+    Parent = content,
+})
+
+local searchFrame = new("Frame", {
+    Name = "SearchBar",
+    Size = UDim2.fromScale(0.90, 0.10),
+    Position = UDim2.fromScale(0.05, 0.045),
+    BackgroundColor3 = PANEL_2,
+    BorderSizePixel = 0,
+    Parent = pages,
+})
+stroke(searchFrame, 0.85, 0.05)
+
+local searchIcon = new("ImageLabel", {
+    Name = "SearchIcon",
+    Size = UDim2.fromScale(0.075, 0.62),
+    Position = UDim2.fromScale(0.025, 0.19),
+    BackgroundTransparency = 1,
+    Image = SEARCH_ICON,
+    ImageColor3 = WHITE,
+    ScaleType = Enum.ScaleType.Fit,
+    Parent = searchFrame,
+})
+
+local searchBox = new("TextBox", {
+    Name = "SearchBox",
+    Size = UDim2.fromScale(0.77, 0.72),
+    Position = UDim2.fromScale(0.115, 0.14),
+    BackgroundTransparency = 1,
+    ClearTextOnFocus = false,
+    PlaceholderText = "Search...",
+    PlaceholderColor3 = MID,
+    Text = "",
+    TextColor3 = WHITE,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    Font = Enum.Font.GothamMedium,
+    TextScaled = true,
+    BorderSizePixel = 0,
+    Parent = searchFrame,
+})
+
+local clearSearch = new("TextButton", {
+    Name = "ClearSearch",
+    Size = UDim2.fromScale(0.075, 0.62),
+    Position = UDim2.fromScale(0.90, 0.19),
+    BackgroundTransparency = 1,
+    Text = "X",
+    TextColor3 = WHITE,
+    Font = Enum.Font.GothamBold,
+    TextScaled = true,
+    AutoButtonColor = false,
+    Visible = false,
+    BorderSizePixel = 0,
+    Parent = searchFrame,
+})
+
+local listArea = new("ScrollingFrame", {
+    Name = "ListArea",
+    Size = UDim2.fromScale(0.90, 0.80),
+    Position = UDim2.fromScale(0.05, 0.165),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ScrollBarThickness = 3,
+    ScrollBarImageColor3 = GRAY_2,
+    CanvasSize = UDim2.fromScale(0, 0),
+    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    Parent = pages,
+})
+
+local listLayout = new("UIListLayout", {
+    FillDirection = Enum.FillDirection.Vertical,
+    HorizontalAlignment = Enum.HorizontalAlignment.Center,
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Padding = UDim.new(0.018, 0),
+    Parent = listArea,
+})
+
+local listPadding = new("UIPadding", {
+    PaddingBottom = UDim.new(0.035, 0),
+    Parent = listArea,
+})
+
+local function makePage(name)
+    local page = new("Frame", {
+        Name = name,
+        Size = UDim2.fromScale(1, 1),
+        Position = UDim2.fromScale(0, 0),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        Visible = false,
+        Parent = listArea,
+    })
+    return page
+end
+
+local pageData = {
+    {Name = "Main", Icon = MAIN_ICON},
+    {Name = "Auto Buy", Icon = AUTO_BUY_ICON},
+    {Name = "Farm", Icon = FARM_ICON},
+    {Name = "Config", Icon = CONFIG_ICON},
+    {Name = "Credits", Icon = CREDITS_ICON},
+}
+
+local pageObjects = {}
+local tabButtons = {}
+
+local function makeTab(data, order)
+    local button = new("TextButton", {
+        Name = data.Name:gsub("%s+", ""),
+        Size = UDim2.fromScale(0.94, 0.16),
+        BackgroundColor3 = PANEL_2,
+        AutoButtonColor = false,
+        Text = "",
+        BorderSizePixel = 0,
+        LayoutOrder = order,
+        Parent = tabsList,
+    })
+    stroke(button, 0.8, 0.18)
+
+    local icon = new("ImageLabel", {
+        Name = "Icon",
+        Size = UDim2.fromScale(0.17, 0.60),
+        Position = UDim2.fromScale(0.07, 0.20),
+        BackgroundTransparency = 1,
+        Image = data.Icon,
+        ImageColor3 = WHITE,
+        ScaleType = Enum.ScaleType.Fit,
+        Parent = button,
+    })
+
+    textLabel(
+        button,
+        data.Name,
+        UDim2.fromScale(0.67, 0.65),
+        UDim2.fromScale(0.27, 0.17),
+        WHITE,
+        Enum.Font.GothamMedium,
+        Enum.TextXAlignment.Left
+    )
+
+    return button
+end
+
+for index, data in ipairs(pageData) do
+    pageObjects[data.Name] = makePage(data.Name:gsub("%s+", ""))
+    tabButtons[data.Name] = makeTab(data, index)
+end
+
+local function makeInfoCard(parent, heading, description)
+    local card = new("Frame", {
+        Size = UDim2.fromScale(1, 0.22),
+        BackgroundColor3 = PANEL_2,
+        BorderSizePixel = 0,
+        Parent = parent,
+    })
+    stroke(card, 0.8, 0.18)
+    textLabel(card, heading, UDim2.fromScale(0.86, 0.34), UDim2.fromScale(0.06, 0.13), WHITE, Enum.Font.GothamBold)
+    textLabel(card, description, UDim2.fromScale(0.86, 0.42), UDim2.fromScale(0.06, 0.49), MID, Enum.Font.GothamMedium)
+    return card
+end
+
+local mainLayout = new("UIListLayout", {
+    FillDirection = Enum.FillDirection.Vertical,
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Padding = UDim.new(0.03, 0),
+    Parent = pageObjects.Main,
+})
+makeInfoCard(pageObjects.Main, "Welcome", "Phantom Hub is ready. Select an option from the available tabs.").LayoutOrder = 1
+
+local autoBuyLayout = new("UIListLayout", {
+    FillDirection = Enum.FillDirection.Vertical,
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Padding = UDim.new(0.03, 0),
+    Parent = pageObjects.AutoBuy,
+})
+makeInfoCard(pageObjects.AutoBuy, "Auto Buy", "This tab is ready for automatic purchase options.").LayoutOrder = 1
+
+local farmLayout = new("UIListLayout", {
+    FillDirection = Enum.FillDirection.Vertical,
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Padding = UDim.new(0.03, 0),
+    Parent = pageObjects.Farm,
+})
+makeInfoCard(pageObjects.Farm, "Farm", "This tab is ready for farming options.").LayoutOrder = 1
+
+
+local function createCategory(parent, categoryName, iconId)
+    local category = new("Frame", {
+        Name = categoryName:gsub("%s+", ""),
+        Size = UDim2.fromScale(1, 0.13),
+        BackgroundColor3 = PANEL_2,
+        BorderSizePixel = 0,
+        Parent = parent,
+    })
+    stroke(category, 0.8, 0.15)
+
+    local icon = new("ImageLabel", {
+        Name = "CategoryIcon",
+        Size = UDim2.fromScale(0.08, 0.58),
+        Position = UDim2.fromScale(0.025, 0.21),
+        BackgroundTransparency = 1,
+        Image = iconId,
+        ImageColor3 = WHITE,
+        ScaleType = Enum.ScaleType.Fit,
+        Parent = category,
+    })
+
+    textLabel(category, categoryName, UDim2.fromScale(0.72, 0.55), UDim2.fromScale(0.13, 0.20), WHITE, Enum.Font.GothamBold)
+    return category
+end
+
+local allEntries = {}
+
+local function registerEntry(object, searchNames)
+    table.insert(allEntries, {
+        Object = object,
+        Terms = string.lower(searchNames or object.Name),
+    })
+end
+
+local modal = new("Frame", {
+    Name = "ConfirmModal",
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    Position = UDim2.fromScale(0.5, 0.5),
+    Size = UDim2.fromScale(0.48, 0.30),
+    BackgroundColor3 = PANEL,
+    BorderSizePixel = 0,
+    Visible = false,
+    ZIndex = 50,
+    Parent = screenGui,
+})
+stroke(modal, 1.15, 0)
+
+textLabel(modal, "Confirmation", UDim2.fromScale(0.82, 0.22), UDim2.fromScale(0.09, 0.10), WHITE, Enum.Font.GothamBold, Enum.TextXAlignment.Center).ZIndex = 51
+local modalDescription = textLabel(modal, "", UDim2.fromScale(0.84, 0.34), UDim2.fromScale(0.08, 0.34), MID, Enum.Font.GothamMedium, Enum.TextXAlignment.Center)
+modalDescription.ZIndex = 51
+
+local modalCancel = new("TextButton", {
+    Name = "Cancel",
+    Size = UDim2.fromScale(0.38, 0.23),
+    Position = UDim2.fromScale(0.08, 0.69),
+    BackgroundColor3 = GRAY,
+    AutoButtonColor = false,
+    Text = "Cancel",
+    TextColor3 = WHITE,
+    Font = Enum.Font.GothamBold,
+    TextScaled = true,
+    BorderSizePixel = 0,
+    ZIndex = 51,
+    Parent = modal,
+})
+stroke(modalCancel, 0.9, 0.12)
+
+local modalConfirm = new("TextButton", {
+    Name = "Confirm",
+    Size = UDim2.fromScale(0.38, 0.23),
+    Position = UDim2.fromScale(0.54, 0.69),
+    BackgroundColor3 = WHITE,
+    AutoButtonColor = false,
+    Text = "Confirm",
+    TextColor3 = BLACK,
+    Font = Enum.Font.GothamBold,
+    TextScaled = true,
+    BorderSizePixel = 0,
+    ZIndex = 51,
+    Parent = modal,
+})
+stroke(modalConfirm, 0.9, 0.12)
+
+local modalAction = nil
+local modalDefaultDescription = ""
+
+local function showModal(description, action)
+    modalDefaultDescription = description
+    modalDescription.Text = description
+    modalAction = action
+    modal.Visible = true
+end
+
+local function hideModal()
+    modal.Visible = false
+    modalAction = nil
+end
+
+modalCancel.Activated:Connect(hideModal)
+modalConfirm.Activated:Connect(function()
+    local action = modalAction
+    hideModal()
+    if action then
+        action()
+    end
+end)
+
+local function requestServerHop()
+    local placeId = game.PlaceId
+    local success = pcall(function()
+        TeleportService:Teleport(placeId, LocalPlayer)
+    end)
+    if not success then
+        modalDescription.Text = "Server teleport is unavailable in this session."
+        modal.Visible = true
+    end
+end
+
+local playerCategory = nil
+
+local function makeOption(parent, optionName, description, kind)
+    local option = new("Frame", {
+        Name = optionName:gsub("%s+", ""),
+        Size = UDim2.fromScale(1, 0.18),
+        BackgroundColor3 = PANEL_2,
+        BorderSizePixel = 0,
+        Parent = parent,
+    })
+    stroke(option, 0.8, 0.20)
+
+    textLabel(option, optionName, UDim2.fromScale(0.72, 0.29), UDim2.fromScale(0.045, 0.11), WHITE, Enum.Font.GothamBold)
+    textLabel(option, description, UDim2.fromScale(0.70, 0.33), UDim2.fromScale(0.045, 0.45), MID, Enum.Font.GothamMedium)
+
+    if kind == "click" then
+        local clickIcon = new("ImageLabel", {
+            Name = "ClickIcon",
+            Size = UDim2.fromScale(0.085, 0.47),
+            Position = UDim2.fromScale(0.86, 0.26),
+            BackgroundTransparency = 1,
+            Image = CLICK_ICON,
+            ImageColor3 = WHITE,
+            ScaleType = Enum.ScaleType.Fit,
+            Parent = option,
+        })
+        return option, clickIcon
+    end
+
+    local toggleButton = new("TextButton", {
+        Name = "Toggle",
+        Size = UDim2.fromScale(0.12, 0.44),
+        Position = UDim2.fromScale(0.83, 0.28),
+        BackgroundColor3 = GRAY,
+        AutoButtonColor = false,
+        Text = "",
+        BorderSizePixel = 0,
+        Parent = option,
+    })
+    stroke(toggleButton, 0.8, 0.10)
+    local knob = new("Frame", {
+        Name = "Knob",
+        Size = UDim2.fromScale(0.43, 0.72),
+        Position = UDim2.fromScale(0.06, 0.14),
+        BackgroundColor3 = WHITE,
+        BorderSizePixel = 0,
+        Parent = toggleButton,
+    })
+    corner(knob, 0.5)
+    corner(toggleButton, 0.5)
+
+    local state = false
+    local function setState(nextState)
+        state = nextState
+        local goalColor = state and GRAY_2 or GRAY
+        local goalPos = state and UDim2.fromScale(0.51, 0.14) or UDim2.fromScale(0.06, 0.14)
+        TweenService:Create(toggleButton, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = goalColor}):Play()
+        TweenService:Create(knob, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = goalPos}):Play()
+        return state
+    end
+
+    toggleButton.Activated:Connect(function()
+        setState(not state)
+        if optionName == "Anti AFK" then
+            if state then
+                enableAntiAFK()
+            else
+                disableAntiAFK()
+            end
+        elseif optionName == "Noclip" then
+            noclipEnabled = state
+            if not state then
+                restoreCollision()
+            end
+        end
+    end)
+
+    return option, toggleButton, setState
+end
+
+local antiAFK = false
+local antiAFKThread = nil
+
+local function getRootPart()
+    local character = LocalPlayer.Character
+    return character and character:FindFirstChild("HumanoidRootPart"), character and character:FindFirstChildOfClass("Humanoid")
+end
+
+function enableAntiAFK()
+    if antiAFK then return end
+    antiAFK = true
+    antiAFKThread = task.spawn(function()
+        while antiAFK do
+            task.wait(8)
+            if not antiAFK then break end
+            local root, humanoid = getRootPart()
+            if root and humanoid and humanoid.Health > 0 then
+                local original = humanoid.MoveDirection
+                humanoid:Move(Vector3.new(1, 0, 0), true)
+                task.wait(0.35)
+                humanoid:Move(Vector3.zero, true)
+                task.wait(0.35)
+                if original.Magnitude > 0 then
+                    humanoid:Move(original, true)
+                end
+            end
+            task.wait(8)
+        end
+    end)
+end
+
+function disableAntiAFK()
+    antiAFK = false
+    antiAFKThread = nil
+end
+
+local noclipEnabled = false
+local noclipConnection = RunService.Stepped:Connect(function()
+    if not noclipEnabled then return end
+    local character = LocalPlayer.Character
+    if not character then return end
+    for _, part in ipairs(character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = false
+        end
+    end
+end)
+
+function restoreCollision()
+    local character = LocalPlayer.Character
+    if not character then return end
+    for _, part in ipairs(character:GetDescendants()) do
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+            part.CanCollide = true
+        end
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(0.5)
+    if noclipEnabled then
+        local character = LocalPlayer.Character
+        if character then
+            for _, part in ipairs(character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end
+end)
+
+local dragState = {
+    active = false,
+    input = nil,
+    startPointer = nil,
+    startScale = nil,
+}
+
+local function getGuiPoint(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        return Vector2.new(input.Position.X, input.Position.Y)
+    end
+    return UserInputService:GetMouseLocation()
+end
+
+local cornerHandles = {}
+local cornerCoordinates = {
+    TL = Vector2.new(0, 0),
+    TR = Vector2.new(1, 0),
+    BL = Vector2.new(0, 1),
+    BR = Vector2.new(1, 1),
+}
+
+for key, anchor in pairs(cornerCoordinates) do
+    local handle = new("TextButton", {
+        Name = "DragCorner_" .. key,
+        AnchorPoint = anchor,
+        Position = UDim2.fromScale(anchor.X, anchor.Y),
+        Size = UDim2.fromScale(0.085, 0.105),
+        BackgroundTransparency = 1,
+        Text = "",
+        AutoButtonColor = false,
+        ZIndex = 15,
+        Parent = menu,
+    })
+    cornerHandles[key] = handle
+end
+
+local function startMenuDrag(input)
+    if modal.Visible then return end
+    if dragState.active then return end
+    local pointer = getGuiPoint(input)
+    dragState.active = true
+    dragState.input = input
+    dragState.startPointer = pointer
+    dragState.startScale = menu.Position
+end
+
+for _, handle in pairs(cornerHandles) do
+    handle.InputBegan:Connect(function(input)
+        local valid = input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch
+        if valid then
+            startMenuDrag(input)
+        end
+    end)
+end
+
+UserInputService.InputChanged:Connect(function(input)
+    if not dragState.active then return end
+    if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then
+        return
+    end
+
+    local camera = workspace.CurrentCamera
+    if not camera then return end
+
+    local pointer = getGuiPoint(input)
+    local deltaPixels = pointer - dragState.startPointer
+    local viewport = camera.ViewportSize
+    local dx = viewport.X > 0 and deltaPixels.X / viewport.X or 0
+    local dy = viewport.Y > 0 and deltaPixels.Y / viewport.Y or 0
+
+    local startPos = dragState.startScale
+    menu.Position = UDim2.fromScale(startPos.X.Scale + dx, startPos.Y.Scale + dy)
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if not dragState.active then return end
+    local sameTouch = dragState.input and input == dragState.input
+    local mouseRelease = input.UserInputType == Enum.UserInputType.MouseButton1
+    if sameTouch or mouseRelease then
+        dragState.active = false
+        dragState.input = nil
+        dragState.startPointer = nil
+        dragState.startScale = nil
+    end
+end)
+
+local function keepMenuRecoverable()
+    if not menu.Visible or dragState.active then return end
+    local camera = workspace.CurrentCamera
+    if not camera then return end
+
+    local viewport = camera.ViewportSize
+    local pos = menu.AbsolutePosition
+    local size = menu.AbsoluteSize
+
+    local fullyLeft = pos.X + size.X <= 0
+    local fullyRight = pos.X >= viewport.X
+    local fullyTop = pos.Y + size.Y <= 0
+    local fullyBottom = pos.Y >= viewport.Y
+
+    if not (fullyLeft or fullyRight or fullyTop or fullyBottom) then
+        return
+    end
+
+    local x = menu.Position.X.Scale
+    local y = menu.Position.Y.Scale
+
+    if fullyLeft then
+        x = math.clamp((size.X / 2) / math.max(viewport.X, 1), 0.01, 0.16)
+    elseif fullyRight then
+        x = 1 - math.clamp((size.X / 2) / math.max(viewport.X, 1), 0.01, 0.16)
+    end
+
+    if fullyTop then
+        y = math.clamp((size.Y / 2) / math.max(viewport.Y, 1), 0.01, 0.16)
+    elseif fullyBottom then
+        y = 1 - math.clamp((size.Y / 2) / math.max(viewport.Y, 1), 0.01, 0.16)
+    end
+
+    menu.Position = UDim2.fromScale(x, y)
+end
+
+RunService.RenderStepped:Connect(keepMenuRecoverable)
+
+local openerDrag = {
+    active = false,
+    moved = false,
+    pointer = nil,
+    startPointer = nil,
+    startPosition = nil,
+}
+
+local function getOpenerPosition()
+    return opener.Position.X.Scale, opener.Position.Y.Scale
+end
+
+opener.InputBegan:Connect(function(input)
+    if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
+        return
+    end
+    openerDrag.active = true
+    openerDrag.moved = false
+    openerDrag.pointer = input
+    openerDrag.startPointer = getGuiPoint(input)
+    openerDrag.startPosition = opener.Position
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if not openerDrag.active then return end
+    if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then
+        return
+    end
+    local camera = workspace.CurrentCamera
+    if not camera then return end
+
+    local point = getGuiPoint(input)
+    local delta = point - openerDrag.startPointer
+    if delta.Magnitude > math.min(camera.ViewportSize.X, camera.ViewportSize.Y) * 0.006 then
+        openerDrag.moved = true
+    end
+
+    local dx = camera.ViewportSize.X > 0 and delta.X / camera.ViewportSize.X or 0
+    local dy = camera.ViewportSize.Y > 0 and delta.Y / camera.ViewportSize.Y or 0
+    local start = openerDrag.startPosition
+    opener.Position = UDim2.fromScale(start.X.Scale + dx, start.Y.Scale + dy)
+end)
+
+local function recoverOpener()
+    local camera = workspace.CurrentCamera
+    if not camera then return end
+    local viewport = camera.ViewportSize
+    local pos = opener.AbsolutePosition
+    local size = opener.AbsoluteSize
+    local fullyLeft = pos.X + size.X <= 0
+    local fullyRight = pos.X >= viewport.X
+    local fullyTop = pos.Y + size.Y <= 0
+    local fullyBottom = pos.Y >= viewport.Y
+    if not (fullyLeft or fullyRight or fullyTop or fullyBottom) then
+        return
+    end
+
+    local x = opener.Position.X.Scale
+    local y = opener.Position.Y.Scale
+    local halfX = (size.X / math.max(viewport.X, 1)) / 2
+    local halfY = (size.Y / math.max(viewport.Y, 1)) / 2
+    if fullyLeft then x = math.clamp(halfX, 0.005, 0.08) end
+    if fullyRight then x = 1 - math.clamp(halfX, 0.005, 0.08) end
+    if fullyTop then y = math.clamp(halfY, 0.08, 0.18) end
+    if fullyBottom then y = 1 - math.clamp(halfY, 0.08, 0.18) end
+    opener.Position = UDim2.fromScale(x, y)
+end
+
+RunService.RenderStepped:Connect(recoverOpener)
+
+UserInputService.InputEnded:Connect(function(input)
+    if not openerDrag.active then return end
+    local sameTouch = openerDrag.pointer and input == openerDrag.pointer
+    local mouseRelease = input.UserInputType == Enum.UserInputType.MouseButton1
+    if sameTouch or mouseRelease then
+        local moved = openerDrag.moved
+        openerDrag.active = false
+        openerDrag.pointer = nil
+        if not moved then
+            menu.Visible = not menu.Visible
+        end
+    end
+end)
+
+local activeTab = "Main"
+
+local function styleTab(name)
+    for tabName, button in pairs(tabButtons) do
+        local selected = tabName == name
+        TweenService:Create(
+            button,
+            TweenInfo.new(0.13, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            {BackgroundColor3 = selected and GRAY or PANEL_2}
+        ):Play()
+    end
+end
+
+local function showTab(name)
+    activeTab = name
+    for pageName, page in pairs(pageObjects) do
+        page.Visible = false
+    end
+    pageObjects[name:gsub("%s+", "")].Visible = true
+    styleTab(name)
+    searchBox.Text = ""
+    clearSearch.Visible = false
+    refreshSearch()
+end
+
+for tabName, button in pairs(tabButtons) do
+    button.Activated:Connect(function()
+        showTab(tabName)
+    end)
+end
+
+function refreshSearch()
+    local query = string.lower(searchBox.Text or "")
+    clearSearch.Visible = query ~= ""
+
+    for _, entry in ipairs(allEntries) do
+        if entry.Object and entry.Object.Parent then
+            local belongsToActivePage = false
+            local ancestor = entry.Object
+            while ancestor and ancestor ~= pages do
+                if ancestor == pageObjects[activeTab:gsub("%s+", "")] then
+                    belongsToActivePage = true
+                    break
+                end
+                ancestor = ancestor.Parent
+            end
+            if query == "" then
+                entry.Object.Visible = true
+            else
+                entry.Object.Visible = belongsToActivePage and string.find(entry.Terms, query, 1, true) ~= nil
+            end
+        end
+    end
+end
+
+searchBox:GetPropertyChangedSignal("Text"):Connect(refreshSearch)
+clearSearch.Activated:Connect(function()
+    searchBox.Text = ""
+    searchBox:CaptureFocus()
+end)
+
+
+showTab("Main")
+
+close.Activated:Connect(function()
+    showModal("Confirming will remove the entire Phantom Hub from your screen.", function()
+        if antiAFK then
+            disableAntiAFK()
+        end
+        noclipEnabled = false
+        restoreCollision()
+        if noclipConnection then
+            noclipConnection:Disconnect()
+        end
+        screenGui:Destroy()
+    end)
+end)
+
+minimize.Activated:Connect(function()
+    menu.Visible = false
+end)
+
+if workspace.CurrentCamera then
+    workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+        updateResponsiveScale()
+        task.defer(keepMenuRecoverable)
+        task.defer(recoverOpener)
+    end)
+end
