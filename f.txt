@@ -699,6 +699,8 @@ local function showEmptyState(text)
 	}, Empty)
 end
 
+local renderResults
+
 local function createStandardRow(item, layoutOrder)
 	local Row = make("Frame", {
 		Name = "Option",
@@ -852,7 +854,7 @@ local function createCategoryHeader(category, layoutOrder)
 	return Row
 end
 
-local function renderResults()
+renderResults = function()
 	clearResults()
 	local items = getVisibleItems(currentTab, SearchBox.Text)
 	if #items == 0 then
