@@ -3410,80 +3410,54 @@ createSpecialButton("Auto Rejoin", "Config", function()
     TeleportService:Teleport(game.PlaceId)
 end)
 
-createOption("Anti AFK", false, "Config")
-createOption("Anti Cheat", false, "Config")
-createOption("Infinite Jump", false, "Config")
-createOption("Enable Speed", false, "Config", function(state)
-    if state then
-        speedValue = optionStates["Speed"]
+local antiAfkConnections = {}
+
+local function setAntiAFK(state)
+    for _, connection in ipairs(antiAfkConnections) do
+        pcall(function()
+            connection:Disconnect()
+        end)
     end
+    antiAfkConnections = {}
+
+    if not state then
+        return
+    end
+
+    local intervaloSegundos = 18
+    local ultimoMovimento = os.clock()
+
+    table.insert(antiAfkConnections, UserInputService.InputBegan:Connect(function()
+        ultimoMovimento = os.clock()
+    end))
+
+    table.insert(antiAfkConnections, UserInputService.InputChanged:Connect(function()
+        ultimoMovimento = os.clock()
+    end))
+
+    table.insert(antiAfkConnections, UserInputService.InputEnded:Connect(function()
+        ultimoMovimento = os.clock()
+    end))
+
+    table.insert(antiAfkConnections, RunService.Heartbeat:Connect(function()
+        if os.clock() - ultimoMovimento >= intervaloSegundos then
+            pcall(function()
+                UserInputService:SendMouseWheelEvent(0)
+            end)
+            ultimoMovimento = os.clock()
+        end
+    end))
+end
+
+createOption("Anti AFK", false, "Config", function(state)
+    setAntiAFK(state)
 end)
-createSlider("Speed", 1, 500, 32, "Config", function(value)
-    speedValue = value
-end)
+
 createOption("Fly", false, "Config")
 createSlider("Fly Speed", 1, 500, 32, "Config", function(value)
     flySpeed = value
 end)
 createOption("Noclip", false, "Config")
-createOption("Enable Shift Lock", false, "Config", function(state)
-    getgenv().ShiftLockEnabled = state
-end)
-
-createOption("Hide Robux Purchases", false, "Config", function(state)
-    if state then
-        task.spawn(function()
-            while optionStates["Hide Robux Purchases"] do
-                local coreGui = game:GetService("CoreGui")
-                local foundationOverlay = coreGui:FindFirstChild("FoundationOverlay")
-                if foundationOverlay then
-                    local safeAreaFrame = foundationOverlay:FindFirstChild("SafeAreaFrame")
-                    if safeAreaFrame then
-                        safeAreaFrame.Visible = false
-                    end
-                end
-                task.wait(0.1)
-            end
-        end)
-    else
-        local coreGui = game:GetService("CoreGui")
-        local foundationOverlay = coreGui:FindFirstChild("FoundationOverlay")
-        if foundationOverlay then
-            local safeAreaFrame = foundationOverlay:FindFirstChild("SafeAreaFrame")
-            if safeAreaFrame then
-                safeAreaFrame.Visible = true
-            end
-        end
-    end
-end)
-
-createOption("Remove Notifications", false, "Config", function(state)
-    if state then
-        local playerName = Player.Name
-        local guiPath = PlayerGui:FindFirstChild("GUI")
-        if guiPath then
-            local framesFolder = guiPath:FindFirstChild("Frames")
-            if framesFolder then
-                local notificationsFolder = framesFolder:FindFirstChild("Notifications")
-                if notificationsFolder then
-                    notificationsFolder.Visible = false
-                end
-            end
-        end
-    else
-        local playerName = Player.Name
-        local guiPath = PlayerGui:FindFirstChild("GUI")
-        if guiPath then
-            local framesFolder = guiPath:FindFirstChild("Frames")
-            if framesFolder then
-                local notificationsFolder = framesFolder:FindFirstChild("Notifications")
-                if notificationsFolder then
-                    notificationsFolder.Visible = true
-                end
-            end
-        end
-    end
-end)
 
 createInfoBox("By: Cleiton10HDx", "Script created by this user.", "Credits", false)
 createInfoBox("Discord", "My Discord Server", "Credits", true, "https://discord.gg/72P6NhC5Pf")
@@ -3624,29 +3598,11 @@ local shiftLockIcon = nil
 local shiftLockActive = false
 local shiftLockConnection = nil
 
-UserInputService.JumpRequest:Connect(function()
-    local value = optionStates["Infinite Jump"]
-    if type(value) == "function" then value = value() end
-    if value then
-        local char = LP.Character
-        if char then
-            local humanoid = char:FindFirstChildOfClass("Humanoid")
-            if humanoid then
-                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-            end
-        end
-    end
-end)
 
 task.spawn(function()
     while task.wait(0.1) do
-        local speedEnabled = optionStates["Enable Speed"]
-        if type(speedEnabled) == "function" then speedEnabled = speedEnabled() end
         local char = LP.Character
         local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid.WalkSpeed = speedEnabled and speedValue or 28
-        end
 
         if isFlyActive and bg and bv then
             local cam = workspace.CurrentCamera
@@ -3768,109 +3724,6 @@ task.spawn(function()
     end
 end)
 
-if type(hookmetamethod) == "function" and type(getnamecallmethod) == "function" then
-    local oldNamecall
-    oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
-        local antiCheat = optionStates["Anti Cheat"]
-        if type(antiCheat) == "function" then antiCheat = antiCheat() end
-        if antiCheat then
-            local method = getnamecallmethod()
-            if method == "FireServer" and tostring(self) == "Cheat" then
-                return nil
-            end
-        end
-        return oldNamecall(self, ...)
-    end)
-end
-
-local function createShiftLockUI()
-    if shiftLockScreenGui then return end
-
-    shiftLockScreenGui = Instance.new("ScreenGui")
-    shiftLockScreenGui.Name = "ShiftLockScreenGui"
-    shiftLockScreenGui.ResetOnSpawn = false
-    shiftLockScreenGui.DisplayOrder = 999998
-    shiftLockScreenGui.Parent = PlayerGui
-
-    shiftLockIcon = Instance.new("ImageLabel")
-    shiftLockIcon.Name = "ShiftLockIcon"
-    shiftLockIcon.Size = UDim2.new(0.05, 0, 0.1, 0)
-    shiftLockIcon.Position = UDim2.new(0.95, 0, 0.68, 0)
-    shiftLockIcon.BackgroundTransparency = 1
-    shiftLockIcon.Image = "rbxassetid://105987953182009"
-    shiftLockIcon.Parent = shiftLockScreenGui
-    shiftLockIcon.ZIndex = 999998
-
-    shiftLockIcon.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            shiftLockActive = not shiftLockActive
-            shiftLockIcon.Image = shiftLockActive and "rbxassetid://139211296111194" or "rbxassetid://105987953182009"
-        end
-    end)
-end
-
-local function destroyShiftLockUI()
-    if shiftLockScreenGui then
-        shiftLockScreenGui:Destroy()
-        shiftLockScreenGui = nil
-        shiftLockIcon = nil
-    end
-end
-
-task.spawn(function()
-    while task.wait(0.1) do
-        local shiftLockEnabled = optionStates["Enable Shift Lock"]
-        if type(shiftLockEnabled) == "function" then shiftLockEnabled = shiftLockEnabled() end
-
-        if shiftLockEnabled and not shiftLockScreenGui then
-            createShiftLockUI()
-        elseif not shiftLockEnabled and shiftLockScreenGui then
-            destroyShiftLockUI()
-            shiftLockActive = false
-            if shiftLockConnection then
-                shiftLockConnection:Disconnect()
-                shiftLockConnection = nil
-            end
-        end
-
-        if shiftLockScreenGui and shiftLockActive then
-            local char = LP.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                local root = char.HumanoidRootPart
-                local humanoid = char:FindFirstChildOfClass("Humanoid")
-                if humanoid then
-                    humanoid.AutoRotate = false
-                    if not shiftLockConnection then
-                        shiftLockConnection = RunService.RenderStepped:Connect(function()
-                            local currentChar = LP.Character
-                            if currentChar and currentChar:FindFirstChild("HumanoidRootPart") then
-                                local currentRoot = currentChar.HumanoidRootPart
-                                local camera = workspace.CurrentCamera
-                                if camera then
-                                    local lookVector = camera.CFrame.LookVector
-                                    currentRoot.CFrame = CFrame.new(currentRoot.Position, currentRoot.Position + Vector3.new(lookVector.X, 0, lookVector.Z))
-                                end
-                            end
-                        end)
-                    end
-                end
-            end
-        elseif shiftLockScreenGui and not shiftLockActive then
-            if shiftLockConnection then
-                shiftLockConnection:Disconnect()
-                shiftLockConnection = nil
-            end
-
-            local char = LP.Character
-            if char then
-                local humanoid = char:FindFirstChildOfClass("Humanoid")
-                if humanoid then
-                    humanoid.AutoRotate = true
-                end
-            end
-        end
-    end
-end)
 
 Player.CharacterAdded:Connect(function()
     if shiftLockConnection then
