@@ -7,6 +7,7 @@ local VirtualUser = game:GetService("VirtualUser")
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
 local TweenService = game:GetService("TweenService")
+local CoreGui = game:GetService("CoreGui")
 
 local BASE_VIEWPORT_SIZE = Vector2.new(1600, 720)
 
@@ -172,29 +173,15 @@ local function saveCurrentSettings()
     saveSettings()
 end
 
-local CoreGui = game:GetService("CoreGui")
-
-local function generateRandomFolderName(length)
-    local characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-    local result = table.create(length)
-
-    for i = 1, length do
-        local index = math.random(1, #characters)
-        result[i] = characters:sub(index, index)
-    end
-
-    return table.concat(result)
-end
-
-local CoreGuiFolder = Instance.new("Folder")
-CoreGuiFolder.Name = generateRandomFolderName(14)
-CoreGuiFolder.Parent = CoreGui
+local ModMenuFolder = Instance.new("Folder")
+ModMenuFolder.Name = "PH" .. HttpService:GenerateGUID(false):gsub("[^%w]", "")
+ModMenuFolder.Parent = CoreGui
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "PhantomHub_V2"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.DisplayOrder = 999999
-ScreenGui.Parent = CoreGuiFolder
+ScreenGui.Parent = ModMenuFolder
 
 local function disableAutoLocalize(guiObject)
     pcall(function()
@@ -2381,1101 +2368,11 @@ local autoTrainPowerActive = false
 local autoUpgradeBrainrotsAllActive = false
 local autoUpgradeBrainrotsSelectedActive = false
 local autoCollectMoneyActive = false
-
-createCategory("Main", "Progression", "99024336494762")
-
-createOption("Auto Rebirth", false, "Main", function(state)
-    autoRebirthActive = state
-    if state then
-        task.spawn(function()
-            while autoRebirthActive do
-                pcall(function()
-                    game:GetService("ReplicatedStorage").Events.RequestRebirth:FireServer()
-                end)
-                task.wait(0.5)
-            end
-        end)
-    end
-end)
-
-createOption("Auto Upgrades Brainrots ALL", false, "Main", function(state)
-    autoUpgradeBrainrotsAllActive = state
-    if state then
-        task.spawn(function()
-            while autoUpgradeBrainrotsAllActive do
-                local player = game.Players.LocalPlayer
-                local playerName = player.Name
-                local plotModel = workspace:FindFirstChild("Plot_" .. playerName)
-                
-                if plotModel then
-                    local ownedFloorsCount = 0
-                    local hasThreeComponents = false
-                    
-                    for floorNum = 1, 12 do
-                        local floorModel = plotModel:FindFirstChild("Floor" .. floorNum)
-                        if floorModel then
-                            local children = floorModel:GetChildren()
-                            local childCount = #children
-                            
-                            if childCount == 2 then
-                                ownedFloorsCount = floorNum
-                            elseif childCount == 3 then
-                                if not hasThreeComponents then
-                                    ownedFloorsCount = floorNum
-                                    hasThreeComponents = true
-                                else
-                                    break
-                                end
-                            end
-                        end
-                    end
-                    
-                    for floor = 1, ownedFloorsCount do
-                        if not autoUpgradeBrainrotsAllActive then break end
-                        for slot = 1, 10 do
-                            if not autoUpgradeBrainrotsAllActive then break end
-                            pcall(function()
-                                local args = {
-                                    [1] = "Floor" .. floor,
-                                    [2] = "Slot" .. slot
-                                }
-                                game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("RequestSlotUpgrade"):FireServer(unpack(args))
-                            end)
-                            task.wait(0.03)
-                        end
-                    end
-                end
-                task.wait(0.1)
-            end
-        end)
-    end
-end)
-
-createWorldSelector("Main", "ProgressionWorldSelector", "Select Floor")
-
-createOption("Auto Upgrade Brainrots Specific", false, "Main", function(state)
-    autoUpgradeBrainrotsSelectedActive = state
-    if state then
-        task.spawn(function()
-            while autoUpgradeBrainrotsSelectedActive do
-                local currentSelection = optionStates["ProgressionWorldSelector"]
-                if type(currentSelection) == "table" and #currentSelection > 0 then
-                    for _, floorStr in ipairs(currentSelection) do
-                        if not autoUpgradeBrainrotsSelectedActive then break end
-                        local floorNum = tonumber(floorStr:match("%d+"))
-                        if floorNum then
-                            for slot = 1, 10 do
-                                if not autoUpgradeBrainrotsSelectedActive then break end
-                                pcall(function()
-                                    local args = {
-                                        [1] = "Floor" .. floorNum,
-                                        [2] = "Slot" .. slot
-                                    }
-                                    game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("RequestSlotUpgrade"):FireServer(unpack(args))
-                                end)
-                                task.wait(0.03)
-                            end
-                        end
-                    end
-                else
-                    task.wait(0.5)
-                end
-            end
-        end)
-    end
-end)
-
-local cachedMoneyParts = {}
-local moneyLastApply = 0
-local moneyCooldown = 0.05
-
-local function refreshMoneyParts()
-    cachedMoneyParts = {}
-    local player = game.Players.LocalPlayer
-    if player then
-        local playerName = player.Name
-        local myMoneyPlot = workspace:FindFirstChild("Plot_" .. playerName)
-        if myMoneyPlot then
-            for _, child in pairs(myMoneyPlot:GetDescendants()) do
-                if child.Name == "Touch" and child:FindFirstChild("TouchInterest") then
-                    local parent = child.Parent
-                    local isInExcluded = false
-                    local currentParent = parent
-                    while currentParent do
-                        if currentParent.Name == "FloorButton" or currentParent.Name == "GamepassButtons" then
-                            isInExcluded = true
-                            break
-                        end
-                        currentParent = currentParent.Parent
-                    end
-                    if not isInExcluded then
-                        table.insert(cachedMoneyParts, child)
-                    end
-                end
-            end
-        end
-    end
-end
-
-createOption("Auto Collect Money", false, "Main", function(state)
-    autoCollectMoneyActive = state
-    if state then
-        task.spawn(function()
-            refreshMoneyParts()
-            while autoCollectMoneyActive and Player.Parent do
-                task.wait(0.05)
-                if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
-                    local currentTime = tick()
-                    if currentTime - moneyLastApply >= moneyCooldown then
-                        local char = Player.Character
-                        local root = char:FindFirstChild("HumanoidRootPart")
-                        if root then
-                            for _, v in pairs(cachedMoneyParts) do
-                                if v and v.Parent then
-                                    firetouchinterest(root, v, 0)
-                                    firetouchinterest(root, v, 1)
-                                end
-                            end
-                        end
-                        moneyLastApply = currentTime
-                    end
-                end
-            end
-        end)
-    end
-end)
-
 local autoBestBrainrotsActive = false
-
-
--- ✅ FUNÇÃO CORRIGIDA PARA DETECTAR O FORMATO: $[número][multiplicador]/s
-local function parseMoneyValue(valueStr)
-    if not valueStr or valueStr == "" then return 0 end
-    
-    -- FORMATO ESPERADO: $400Qi/s (ou qualquer outro multiplicador)
-    -- Padrão: $ (opcional) + números + multiplicador (2+ letras) + /s
-    local numStr, multiplier = valueStr:match("[$]?([%d.]+)([A-Za-z]+)/s")
-    
-    if not numStr or not multiplier then
-        -- Fallback para o método antigo se o novo formato não corresponder
-        numStr = valueStr:match("^[%d.]+")
-        if not numStr then return 0 end
-        multiplier = valueStr:lower()
-    else
-        multiplier = multiplier:lower()
-    end
-    
-    local num = tonumber(numStr) or 0
-    local lowerStr = multiplier
-    
-    -- Verificação por ORDEM: Do maior pro menor e de forma ESPECÍFICA
-    -- SEPTILLION (Sp) - Maior valor
-    if lowerStr:find("septillion") or lowerStr == "sp" then
-        return num * 1e42
-    end
-    
-    -- SEXTILLION (Sx)
-    if lowerStr:find("sextillion") or lowerStr == "sx" then
-        return num * 1e36
-    end
-    
-    -- QUINTILLION (Qi)
-    if lowerStr:find("quintillion") or lowerStr == "qi" then
-        return num * 1e18
-    end
-    
-    -- QUADRILLION (Qa)
-    if lowerStr:find("quadrillion") or lowerStr == "qa" then
-        return num * 1e15
-    end
-    
-    -- TRILLION (T)
-    if lowerStr:find("trillion") or lowerStr == "t" then
-        return num * 1e12
-    end
-    
-    -- BILLION (B)
-    if lowerStr:find("billion") or lowerStr == "b" then
-        return num * 1e9
-    end
-    
-    -- MILLION (M)
-    if lowerStr:find("million") or lowerStr == "m" then
-        return num * 1e6
-    end
-    
-    -- THOUSAND (K)
-    if lowerStr:find("thousand") or lowerStr == "k" then
-        return num * 1e3
-    end
-    
-    return num
-end
-
-
-createCategory("Farm", "Brainrots", "110922530046254")
-
-createOption("Auto Best Brainrots", false, "Farm", function(state)
-    autoBestBrainrotsActive = state
-    if state then
-        task.spawn(function()
-            local isFirstLoop = true
-            while autoBestBrainrotsActive do
-                if not isFirstLoop then
-                    task.wait(0.012)
-                end
-                
-                pcall(function()
-                    local player = game.Players.LocalPlayer
-                    if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                        local playerModel = workspace:FindFirstChild(player.Name)
-                        local hasBrainrot = false
-                        
-                        if playerModel then
-                            for _, child in pairs(playerModel:GetChildren()) do
-                                if child.Name == "CarriedLoot" then
-                                    hasBrainrot = true
-                                    break
-                                end
-                            end
-                        end
-                        
-                        if hasBrainrot then
-                            local rootPart = player.Character.HumanoidRootPart
-                            rootPart.CFrame = CFrame.new(0, 4.28999996, -605.5, 1, 0, 0, 0, 1, 0, 0, 0, 1)
-                        else
-                            local workspace = game:GetService("Workspace")
-                            local basesFolder = nil
-                            
-                            for _, child in pairs(workspace:GetChildren()) do
-                                if child.Name:lower() == "bases" then
-                                    basesFolder = child
-                                    break
-                                end
-                            end
-                            
-                            if basesFolder then
-                                local bestSpawnPart = nil
-                                local bestValue = 0
-                                local bestSpawnedItemModel = nil
-                                
-                                for _, baseModel in pairs(basesFolder:GetChildren()) do
-                                    if baseModel:IsA("Model") and baseModel.Name:lower():match("^base%d+$") then
-                                        local slotsFolder = nil
-                                        for _, slot in pairs(baseModel:GetChildren()) do
-                                            if slot:IsA("Folder") and slot.Name:lower() == "slots" then
-                                                slotsFolder = slot
-                                                break
-                                            end
-                                        end
-                                        
-                                        if slotsFolder then
-                                            for _, slotModel in pairs(slotsFolder:GetChildren()) do
-                                                if slotModel:IsA("Model") and slotModel.Name:lower():match("^slot%d+$") then
-                                                    local spawnPart = nil
-                                                    for _, part in pairs(slotModel:GetChildren()) do
-                                                        if part.Name == "Spawn" then
-                                                            spawnPart = part
-                                                            break
-                                                        end
-                                                    end
-                                                    
-                                                    if spawnPart then
-                                                        local spawnedItemModel = nil
-                                                        for _, child in pairs(spawnPart:GetChildren()) do
-                                                            if child.Name == "SpawnedItem" then
-                                                                spawnedItemModel = child
-                                                                break
-                                                            end
-                                                        end
-                                                        
-                                                        if spawnedItemModel then
-                                                            local infoGUI = nil
-                                                            for _, child in pairs(spawnedItemModel:GetChildren()) do
-                                                                if child.Name == "InfoGUI" then
-                                                                    infoGUI = child
-                                                                    break
-                                                                end
-                                                            end
-                                                            
-                                                            if infoGUI then
-                                                                local textLabelsFolder = nil
-                                                                for _, child in pairs(infoGUI:GetChildren()) do
-                                                                    if child.Name == "TextLabels" then
-                                                                        textLabelsFolder = child
-                                                                        break
-                                                                    end
-                                                                end
-                                                                
-                                                                if textLabelsFolder then
-                                                                    local earningsLabel = nil
-                                                                    for _, child in pairs(textLabelsFolder:GetChildren()) do
-                                                                        if child:IsA("TextLabel") and child.Name == "Earnings" then
-                                                                            earningsLabel = child
-                                                                            break
-                                                                        end
-                                                                    end
-                                                                    
-                                                                    if earningsLabel and earningsLabel.Text then
-                                                                        local moneyText = earningsLabel.Text
-                                                                        local value = parseMoneyValue(moneyText)
-                                                                        
-                                                                        if value > bestValue then
-                                                                            bestValue = value
-                                                                            bestSpawnPart = spawnPart
-                                                                            bestSpawnedItemModel = spawnedItemModel
-                                                                        end
-                                                                    end
-                                                                end
-                                                            end
-                                                        end
-                                                    end
-                                                end
-                                            end
-                                        end
-                                    end
-                                end
-                                
-                                if bestSpawnPart and bestValue > 0 and bestSpawnedItemModel then
-                                    local rootPart = player.Character.HumanoidRootPart
-                                    rootPart.CFrame = bestSpawnPart.CFrame
-                                    
-                                    task.wait(0.003)
-                                    
-                                    for _, prompt in pairs(bestSpawnedItemModel:GetDescendants()) do
-                                        if prompt:IsA("ProximityPrompt") and prompt.Enabled then
-                                            fireproximityprompt(prompt)
-                                            break
-                                        end
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end)
-                
-                isFirstLoop = false
-            end
-        end)
-    end
-end)
-
 local autoPlotUpgradeActive = false
 local autoBuyPowerActive = false
 local autoBuySpeedActive = false
-
-createCategory("Auto Buy", "Upgrades", "129977800846764")
-
-local powerSelectorFunction = function(stateName, labelText, callback)
-    optionCounter = optionCounter + 1
-
-    createOptionState(stateName, {})
-    local selectedPowers = optionStates[stateName]
-    if type(selectedPowers) ~= "table" then
-        selectedPowers = {}
-        optionStates[stateName] = selectedPowers
-    end
-    local isOpen = false
-
-    local MainContainer = Instance.new("Frame")
-    MainContainer.Size = getOptionFrameSize()
-    MainContainer.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-    MainContainer.Parent = MainContent
-    MainContainer.Name = tostring(optionCounter)
-    MainContainer.LayoutOrder = optionCounter
-    MainContainer.ZIndex = 999999
-    MainContainer.Visible = ("Auto Buy" == activeTab)
-
-    local UICorner = Instance.new("UICorner")
-    UICorner.CornerRadius = UDim.new(0, rpx(0))
-    UICorner.Parent = MainContainer
-
-    local ContainerStroke = Instance.new("UIStroke")
-    ContainerStroke.Color = Color3.fromRGB(60, 60, 60)
-    ContainerStroke.Thickness = 0
-    ContainerStroke.Parent = MainContainer
-
-    local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(0.58, 0, 1, 0)
-    Label.Position = UDim2.new(0.05, 0, 0, 0)
-    Label.Text = labelText
-    Label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Label.BackgroundTransparency = 1
-    Label.TextXAlignment = Enum.TextXAlignment.Left
-    Label.Font = Enum.Font.SourceSans
-    Label.TextSize = rpx(23)
-    Label.Parent = MainContainer
-    Label.ZIndex = 999999
-
-    local SelectButton = Instance.new("TextButton")
-    SelectButton.Size = UDim2.new(0.28, 0, 0.58, 0)
-    SelectButton.Position = UDim2.new(0.68, 0, 0.21, 0)
-    SelectButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    SelectButton.Text = "Select..."
-    SelectButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    SelectButton.TextSize = rpx(16)
-    SelectButton.Font = Enum.Font.SourceSansBold
-    SelectButton.Parent = MainContainer
-    SelectButton.AutoButtonColor = false
-    SelectButton.ZIndex = 999999
-
-    local SelectCorner = Instance.new("UICorner")
-    SelectCorner.CornerRadius = UDim.new(0, rpx(0))
-    SelectCorner.Parent = SelectButton
-
-    local SelectStroke = Instance.new("UIStroke")
-    SelectStroke.Color = Color3.fromRGB(70, 70, 70)
-    SelectStroke.Thickness = 1
-    SelectStroke.Parent = SelectButton
-
-    local SidePanel = Instance.new("Frame")
-    SidePanel.Name = stateName .. "Panel"
-    SidePanel.Size = UDim2.new(0.62, 0, 0.72, 0)
-    SidePanel.Position = UDim2.new(0.36, 0, 0.1, 0)
-    SidePanel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    SidePanel.BorderSizePixel = 0
-    SidePanel.Parent = ContentContainer
-    SidePanel.ZIndex = 1000004
-    SidePanel.Visible = false
-    SidePanel.ClipsDescendants = true
-
-    local SidePanelCorner = Instance.new("UICorner")
-    SidePanelCorner.CornerRadius = UDim.new(0, rpx(0))
-    SidePanelCorner.Parent = SidePanel
-
-    local SidePanelStroke = Instance.new("UIStroke")
-    SidePanelStroke.Color = Color3.fromRGB(110, 110, 110)
-    SidePanelStroke.Thickness = 1
-    SidePanelStroke.Parent = SidePanel
-
-    local OptionScroll = Instance.new("ScrollingFrame")
-    OptionScroll.Name = "OptionsScroll"
-    OptionScroll.Size = UDim2.new(1, -rpx(8), 1, -rpx(8))
-    OptionScroll.Position = UDim2.new(0, rpx(4), 0, rpx(4))
-    OptionScroll.BackgroundTransparency = 1
-    OptionScroll.BorderSizePixel = 0
-    OptionScroll.Parent = SidePanel
-    OptionScroll.ZIndex = 1000005
-    OptionScroll.ScrollBarThickness = 2
-    OptionScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-    OptionScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    OptionScroll.ClipsDescendants = true
-
-    local OptionListLayout = Instance.new("UIListLayout")
-    OptionListLayout.Padding = UDim.new(0, getDropdownPadding())
-    OptionListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    OptionListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    OptionListLayout.VerticalFlex = Enum.UIFlexAlignment.None
-    OptionListLayout.Parent = OptionScroll
-
-    local function setPanelVisible(visible)
-        isOpen = visible and "Auto Buy" == activeTab and MainContainer.Visible
-        SidePanel.Visible = isOpen
-    end
-
-    local function updateSwitch(switchButton, switchCircle, active, animated)
-        switchButton.BackgroundColor3 = active and Color3.fromRGB(100, 150, 200) or Color3.fromRGB(40, 40, 40)
-        local targetPosition = active and UDim2.new(0.56, 0, 0.12, 0) or UDim2.new(0.06, 0, 0.12, 0)
-        if animated then
-            switchCircle:TweenPosition(targetPosition, "Out", "Quad", 0.2, true)
-        else
-            switchCircle.Position = targetPosition
-        end
-    end
-
-    local powerOptions = {"Power 1", "Power 5", "Power 10"}
-    local optionControls = {}
-
-    local function refreshSelection(animated)
-        local selectedList = optionStates[stateName]
-        if type(selectedList) ~= "table" then
-            selectedList = {}
-            optionStates[stateName] = selectedList
-        end
-
-        SelectButton.Text = "Select..."
-
-        for index, controls in pairs(optionControls) do
-            local isSelected = false
-            for _, selected in ipairs(selectedList) do
-                if selected == powerOptions[index] then
-                    isSelected = true
-                    break
-                end
-            end
-            updateSwitch(controls.switchButton, controls.switchCircle, isSelected, animated)
-        end
-    end
-
-    for i, power in ipairs(powerOptions) do
-        local OptionBox = Instance.new("Frame")
-        OptionBox.Size = UDim2.new(1, -rpx(2), 0, getOptionFrameHeight())
-        OptionBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-        OptionBox.Parent = OptionScroll
-        OptionBox.ZIndex = 1000006
-        OptionBox.LayoutOrder = i
-
-        local OptionCorner = Instance.new("UICorner")
-        OptionCorner.CornerRadius = UDim.new(0, rpx(0))
-        OptionCorner.Parent = OptionBox
-
-        local OptionStroke = Instance.new("UIStroke")
-        OptionStroke.Color = Color3.fromRGB(110, 110, 110)
-        OptionStroke.Thickness = 1
-        OptionStroke.Parent = OptionBox
-
-        local OptionLabel = Instance.new("TextLabel")
-        OptionLabel.Size = UDim2.new(0.62, 0, 1, 0)
-        OptionLabel.Position = UDim2.new(0.05, 0, 0, 0)
-        OptionLabel.Text = power
-        OptionLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-        OptionLabel.BackgroundTransparency = 1
-        OptionLabel.TextXAlignment = Enum.TextXAlignment.Left
-        OptionLabel.Font = Enum.Font.SourceSans
-        OptionLabel.TextSize = rpx(23)
-        OptionLabel.Parent = OptionBox
-        OptionLabel.ZIndex = 1000007
-
-        local OptionSwitch = Instance.new("TextButton")
-        OptionSwitch.Name = "OptionSwitch"
-        OptionSwitch.Size = UDim2.new(0.15, 0, 0.45, 0)
-        OptionSwitch.Position = UDim2.new(0.8, 0, 0.275, 0)
-        OptionSwitch.Text = ""
-        OptionSwitch.Parent = OptionBox
-        OptionSwitch.AutoButtonColor = false
-        OptionSwitch.ZIndex = 1000007
-
-        local OptionSwitchCorner = Instance.new("UICorner")
-        OptionSwitchCorner.CornerRadius = UDim.new(0, rpx(0))
-        OptionSwitchCorner.Parent = OptionSwitch
-
-        local OptionSwitchStroke = Instance.new("UIStroke")
-        OptionSwitchStroke.Color = Color3.fromRGB(60, 60, 60)
-        OptionSwitchStroke.Thickness = 1
-        OptionSwitchStroke.Parent = OptionSwitch
-
-        local OptionCircle = Instance.new("Frame")
-        OptionCircle.Name = "OptionCircle"
-        OptionCircle.Size = UDim2.new(0.38, 0, 0.76, 0)
-        OptionCircle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        OptionCircle.Parent = OptionSwitch
-        OptionCircle.ZIndex = 1000008
-
-        local OptionCircleCorner = Instance.new("UICorner")
-        OptionCircleCorner.CornerRadius = UDim.new(0, rpx(0))
-        OptionCircleCorner.Parent = OptionCircle
-
-        optionControls[i] = {switchButton = OptionSwitch, switchCircle = OptionCircle}
-        refreshSelection(false)
-
-        local function toggleOption()
-            if createDebounce(power, 0.05) then
-                local selectedList = optionStates[stateName]
-                if type(selectedList) ~= "table" then
-                    selectedList = {}
-                    optionStates[stateName] = selectedList
-                end
-
-                local foundIndex = nil
-                for idx, selected in ipairs(selectedList) do
-                    if selected == power then
-                        foundIndex = idx
-                        break
-                    end
-                end
-
-                if foundIndex then
-                    table.remove(selectedList, foundIndex)
-                else
-                    table.insert(selectedList, power)
-                end
-
-                optionStates[stateName] = selectedList
-                setOptionState(stateName, selectedList)
-                refreshSelection(true)
-
-                if callback then
-                    task.spawn(function() callback(selectedList) end)
-                end
-                return true
-            end
-            return false
-        end
-
-        OptionSwitch.Activated:Connect(toggleOption)
-    end
-
-    SelectButton.Activated:Connect(function()
-        if createDebounce(stateName .. "Dropdown", 0.05) then
-            setPanelVisible(not isOpen)
-        end
-    end)
-
-    MainContainer:GetPropertyChangedSignal("Visible"):Connect(function()
-        if not MainContainer.Visible then
-            setPanelVisible(false)
-        end
-    end)
-
-    UserInputService.InputBegan:Connect(function(input)
-        if not isOpen then
-            return
-        end
-
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            local position = input.Position
-            if not isPointInsideGui(SidePanel, position) and not isPointInsideGui(SelectButton, position) then
-                setPanelVisible(false)
-            end
-        end
-    end)
-
-    registerElement("Auto Buy", MainContainer, labelText)
-end
-
-powerSelectorFunction("UpgradesWorldSelector1", "Select Upgrades Power")
-
-createOption("Auto Buy Power", false, "Auto Buy", function(state)
-    autoBuyPowerActive = state
-    if state then
-        task.spawn(function()
-            while autoBuyPowerActive do
-                local selectedPowers = optionStates["UpgradesWorldSelector1"]
-                if selectedPowers and type(selectedPowers) == "table" and #selectedPowers > 0 then
-                    table.sort(selectedPowers, function(a, b)
-                        local aNum = tonumber(a:match("%d+")) or 0
-                        local bNum = tonumber(b:match("%d+")) or 0
-                        return aNum < bNum
-                    end)
-                    for _, powerName in ipairs(selectedPowers) do
-                        if not autoBuyPowerActive then break end
-                        local powerMap = {
-                            ["Power 1"] = 1,
-                            ["Power 5"] = 5,
-                            ["Power 10"] = 10
-                        }
-                        local powerNum = powerMap[powerName]
-                        if powerNum then
-                            pcall(function()
-                                game:GetService("ReplicatedStorage").Events.PurchasePower:FireServer(powerNum)
-                            end)
-                            task.wait(0.05)
-                        end
-                    end
-                    task.wait(0.1)
-                else
-                    task.wait(0.5)
-                end
-            end
-        end)
-    end
-end)
-
-local speedSelectorFunction = function(stateName, labelText, callback)
-    optionCounter = optionCounter + 1
-
-    createOptionState(stateName, {})
-    local selectedSpeeds = optionStates[stateName]
-    if type(selectedSpeeds) ~= "table" then
-        selectedSpeeds = {}
-        optionStates[stateName] = selectedSpeeds
-    end
-    local isOpen = false
-
-    local MainContainer = Instance.new("Frame")
-    MainContainer.Size = getOptionFrameSize()
-    MainContainer.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-    MainContainer.Parent = MainContent
-    MainContainer.Name = tostring(optionCounter)
-    MainContainer.LayoutOrder = optionCounter
-    MainContainer.ZIndex = 999999
-    MainContainer.Visible = ("Auto Buy" == activeTab)
-
-    local UICorner = Instance.new("UICorner")
-    UICorner.CornerRadius = UDim.new(0, rpx(0))
-    UICorner.Parent = MainContainer
-
-    local ContainerStroke = Instance.new("UIStroke")
-    ContainerStroke.Color = Color3.fromRGB(60, 60, 60)
-    ContainerStroke.Thickness = 0
-    ContainerStroke.Parent = MainContainer
-
-    local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(0.58, 0, 1, 0)
-    Label.Position = UDim2.new(0.05, 0, 0, 0)
-    Label.Text = labelText
-    Label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Label.BackgroundTransparency = 1
-    Label.TextXAlignment = Enum.TextXAlignment.Left
-    Label.Font = Enum.Font.SourceSans
-    Label.TextSize = rpx(23)
-    Label.Parent = MainContainer
-    Label.ZIndex = 999999
-
-    local SelectButton = Instance.new("TextButton")
-    SelectButton.Size = UDim2.new(0.28, 0, 0.58, 0)
-    SelectButton.Position = UDim2.new(0.68, 0, 0.21, 0)
-    SelectButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    SelectButton.Text = "Select..."
-    SelectButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    SelectButton.TextSize = rpx(16)
-    SelectButton.Font = Enum.Font.SourceSansBold
-    SelectButton.Parent = MainContainer
-    SelectButton.AutoButtonColor = false
-    SelectButton.ZIndex = 999999
-
-    local SelectCorner = Instance.new("UICorner")
-    SelectCorner.CornerRadius = UDim.new(0, rpx(0))
-    SelectCorner.Parent = SelectButton
-
-    local SelectStroke = Instance.new("UIStroke")
-    SelectStroke.Color = Color3.fromRGB(70, 70, 70)
-    SelectStroke.Thickness = 1
-    SelectStroke.Parent = SelectButton
-
-    local SidePanel = Instance.new("Frame")
-    SidePanel.Name = stateName .. "Panel"
-    SidePanel.Size = UDim2.new(0.62, 0, 0.72, 0)
-    SidePanel.Position = UDim2.new(0.36, 0, 0.1, 0)
-    SidePanel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    SidePanel.BorderSizePixel = 0
-    SidePanel.Parent = ContentContainer
-    SidePanel.ZIndex = 1000004
-    SidePanel.Visible = false
-    SidePanel.ClipsDescendants = true
-
-    local SidePanelCorner = Instance.new("UICorner")
-    SidePanelCorner.CornerRadius = UDim.new(0, rpx(0))
-    SidePanelCorner.Parent = SidePanel
-
-    local SidePanelStroke = Instance.new("UIStroke")
-    SidePanelStroke.Color = Color3.fromRGB(110, 110, 110)
-    SidePanelStroke.Thickness = 1
-    SidePanelStroke.Parent = SidePanel
-
-    local OptionScroll = Instance.new("ScrollingFrame")
-    OptionScroll.Name = "OptionsScroll"
-    OptionScroll.Size = UDim2.new(1, -rpx(8), 1, -rpx(8))
-    OptionScroll.Position = UDim2.new(0, rpx(4), 0, rpx(4))
-    OptionScroll.BackgroundTransparency = 1
-    OptionScroll.BorderSizePixel = 0
-    OptionScroll.Parent = SidePanel
-    OptionScroll.ZIndex = 1000005
-    OptionScroll.ScrollBarThickness = 2
-    OptionScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-    OptionScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    OptionScroll.ClipsDescendants = true
-
-    local OptionListLayout = Instance.new("UIListLayout")
-    OptionListLayout.Padding = UDim.new(0, getDropdownPadding())
-    OptionListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    OptionListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    OptionListLayout.VerticalFlex = Enum.UIFlexAlignment.None
-    OptionListLayout.Parent = OptionScroll
-
-    local function setPanelVisible(visible)
-        isOpen = visible and "Auto Buy" == activeTab and MainContainer.Visible
-        SidePanel.Visible = isOpen
-    end
-
-    local function updateSwitch(switchButton, switchCircle, active, animated)
-        switchButton.BackgroundColor3 = active and Color3.fromRGB(100, 150, 200) or Color3.fromRGB(40, 40, 40)
-        local targetPosition = active and UDim2.new(0.56, 0, 0.12, 0) or UDim2.new(0.06, 0, 0.12, 0)
-        if animated then
-            switchCircle:TweenPosition(targetPosition, "Out", "Quad", 0.2, true)
-        else
-            switchCircle.Position = targetPosition
-        end
-    end
-
-    local speedOptions = {"Speed 1", "Speed 5", "Speed 10"}
-    local optionControls = {}
-
-    local function refreshSelection(animated)
-        local selectedList = optionStates[stateName]
-        if type(selectedList) ~= "table" then
-            selectedList = {}
-            optionStates[stateName] = selectedList
-        end
-
-        SelectButton.Text = "Select..."
-
-        for index, controls in pairs(optionControls) do
-            local isSelected = false
-            for _, selected in ipairs(selectedList) do
-                if selected == speedOptions[index] then
-                    isSelected = true
-                    break
-                end
-            end
-            updateSwitch(controls.switchButton, controls.switchCircle, isSelected, animated)
-        end
-    end
-
-    for i, speed in ipairs(speedOptions) do
-        local OptionBox = Instance.new("Frame")
-        OptionBox.Size = UDim2.new(1, -rpx(2), 0, getOptionFrameHeight())
-        OptionBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-        OptionBox.Parent = OptionScroll
-        OptionBox.ZIndex = 1000006
-        OptionBox.LayoutOrder = i
-
-        local OptionCorner = Instance.new("UICorner")
-        OptionCorner.CornerRadius = UDim.new(0, rpx(0))
-        OptionCorner.Parent = OptionBox
-
-        local OptionStroke = Instance.new("UIStroke")
-        OptionStroke.Color = Color3.fromRGB(110, 110, 110)
-        OptionStroke.Thickness = 1
-        OptionStroke.Parent = OptionBox
-
-        local OptionLabel = Instance.new("TextLabel")
-        OptionLabel.Size = UDim2.new(0.62, 0, 1, 0)
-        OptionLabel.Position = UDim2.new(0.05, 0, 0, 0)
-        OptionLabel.Text = speed
-        OptionLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-        OptionLabel.BackgroundTransparency = 1
-        OptionLabel.TextXAlignment = Enum.TextXAlignment.Left
-        OptionLabel.Font = Enum.Font.SourceSans
-        OptionLabel.TextSize = rpx(23)
-        OptionLabel.Parent = OptionBox
-        OptionLabel.ZIndex = 1000007
-
-        local OptionSwitch = Instance.new("TextButton")
-        OptionSwitch.Name = "OptionSwitch"
-        OptionSwitch.Size = UDim2.new(0.15, 0, 0.45, 0)
-        OptionSwitch.Position = UDim2.new(0.8, 0, 0.275, 0)
-        OptionSwitch.Text = ""
-        OptionSwitch.Parent = OptionBox
-        OptionSwitch.AutoButtonColor = false
-        OptionSwitch.ZIndex = 1000007
-
-        local OptionSwitchCorner = Instance.new("UICorner")
-        OptionSwitchCorner.CornerRadius = UDim.new(0, rpx(0))
-        OptionSwitchCorner.Parent = OptionSwitch
-
-        local OptionSwitchStroke = Instance.new("UIStroke")
-        OptionSwitchStroke.Color = Color3.fromRGB(60, 60, 60)
-        OptionSwitchStroke.Thickness = 1
-        OptionSwitchStroke.Parent = OptionSwitch
-
-        local OptionCircle = Instance.new("Frame")
-        OptionCircle.Name = "OptionCircle"
-        OptionCircle.Size = UDim2.new(0.38, 0, 0.76, 0)
-        OptionCircle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        OptionCircle.Parent = OptionSwitch
-        OptionCircle.ZIndex = 1000008
-
-        local OptionCircleCorner = Instance.new("UICorner")
-        OptionCircleCorner.CornerRadius = UDim.new(0, rpx(0))
-        OptionCircleCorner.Parent = OptionCircle
-
-        optionControls[i] = {switchButton = OptionSwitch, switchCircle = OptionCircle}
-        refreshSelection(false)
-
-        local function toggleOption()
-            if createDebounce(speed, 0.05) then
-                local selectedList = optionStates[stateName]
-                if type(selectedList) ~= "table" then
-                    selectedList = {}
-                    optionStates[stateName] = selectedList
-                end
-
-                local foundIndex = nil
-                for idx, selected in ipairs(selectedList) do
-                    if selected == speed then
-                        foundIndex = idx
-                        break
-                    end
-                end
-
-                if foundIndex then
-                    table.remove(selectedList, foundIndex)
-                else
-                    table.insert(selectedList, speed)
-                end
-
-                optionStates[stateName] = selectedList
-                setOptionState(stateName, selectedList)
-                refreshSelection(true)
-
-                if callback then
-                    task.spawn(function() callback(selectedList) end)
-                end
-                return true
-            end
-            return false
-        end
-
-        OptionSwitch.Activated:Connect(toggleOption)
-    end
-
-    SelectButton.Activated:Connect(function()
-        if createDebounce(stateName .. "Dropdown", 0.05) then
-            setPanelVisible(not isOpen)
-        end
-    end)
-
-    MainContainer:GetPropertyChangedSignal("Visible"):Connect(function()
-        if not MainContainer.Visible then
-            setPanelVisible(false)
-        end
-    end)
-
-    UserInputService.InputBegan:Connect(function(input)
-        if not isOpen then
-            return
-        end
-
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            local position = input.Position
-            if not isPointInsideGui(SidePanel, position) and not isPointInsideGui(SelectButton, position) then
-                setPanelVisible(false)
-            end
-        end
-    end)
-
-    registerElement("Auto Buy", MainContainer, labelText)
-end
-
-speedSelectorFunction("UpgradesWorldSelector2", "Select Speed Upgrades")
-
-createOption("Auto Buy Speed", false, "Auto Buy", function(state)
-    autoBuySpeedActive = state
-    if state then
-        task.spawn(function()
-            while autoBuySpeedActive do
-                local selectedSpeeds = optionStates["UpgradesWorldSelector2"]
-                if selectedSpeeds and type(selectedSpeeds) == "table" and #selectedSpeeds > 0 then
-                    table.sort(selectedSpeeds, function(a, b)
-                        local aNum = tonumber(a:match("%d+")) or 0
-                        local bNum = tonumber(b:match("%d+")) or 0
-                        return aNum < bNum
-                    end)
-                    for _, speedName in ipairs(selectedSpeeds) do
-                        if not autoBuySpeedActive then break end
-                        local speedMap = {
-                            ["Speed 1"] = 1,
-                            ["Speed 5"] = 5,
-                            ["Speed 10"] = 10
-                        }
-                        local speedNum = speedMap[speedName]
-                        if speedNum then
-                            pcall(function()
-                                game:GetService("ReplicatedStorage").Events.PurchaseSpeed:FireServer(speedNum)
-                            end)
-                            task.wait(0.05)
-                        end
-                    end
-                    task.wait(0.1)
-                else
-                    task.wait(0.5)
-                end
-            end
-        end)
-    end
-end)
-
-createCategory("Auto Buy", "Plot", "121151950440274")
-
-createOption("Auto Plot Upgrade", false, "Auto Buy", function(state)
-    autoPlotUpgradeActive = state
-    if state then
-        task.spawn(function()
-            while autoPlotUpgradeActive do
-                for floor = 2, 20 do
-                    if not autoPlotUpgradeActive then break end
-                    pcall(function()
-                        local args = {
-                            [1] = "Floor" .. floor
-                        }
-                        game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("RequestFloorPurchase"):FireServer(unpack(args))
-                    end)
-                    task.wait(0.03)
-                end
-            end
-        end)
-    end
-end)
-
 local autoCollectRewardsActive = false
-
-createCategory("Auto Buy", "Rewards", "101595456707553")
-
-createOption("Auto Collect Rewards", false, "Auto Buy", function(state)
-    autoCollectRewardsActive = state
-    if state then
-        task.spawn(function()
-            while autoCollectRewardsActive do
-                for rewardNum = 1, 12 do
-                    if not autoCollectRewardsActive then break end
-                    pcall(function()
-                        local args = {
-                            [1] = rewardNum
-                        }
-                        game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("ClaimPlaytimeReward"):InvokeServer(unpack(args))
-                    end)
-                    task.wait(0.03)
-                end
-            end
-        end)
-    end
-end)
-
-createCategory("Config", "Player", "102791662357524")
-
-createSpecialButton("Auto Rejoin", "Config", function()
-    TeleportService:Teleport(game.PlaceId)
-end)
-
-local antiAfkConnections = {}
-
-local function setAntiAFK(state)
-    for _, connection in ipairs(antiAfkConnections) do
-        pcall(function()
-            connection:Disconnect()
-        end)
-    end
-    antiAfkConnections = {}
-
-    if not state then
-        return
-    end
-
-    local intervaloSegundos = 18
-    local ultimoMovimento = os.clock()
-
-    table.insert(antiAfkConnections, UserInputService.InputBegan:Connect(function()
-        ultimoMovimento = os.clock()
-    end))
-
-    table.insert(antiAfkConnections, UserInputService.InputChanged:Connect(function()
-        ultimoMovimento = os.clock()
-    end))
-
-    table.insert(antiAfkConnections, UserInputService.InputEnded:Connect(function()
-        ultimoMovimento = os.clock()
-    end))
-
-    table.insert(antiAfkConnections, RunService.Heartbeat:Connect(function()
-        if os.clock() - ultimoMovimento >= intervaloSegundos then
-            pcall(function()
-                UserInputService:SendMouseWheelEvent(0)
-            end)
-            ultimoMovimento = os.clock()
-        end
-    end))
-end
-
-createOption("Anti AFK", false, "Config", function(state)
-    setAntiAFK(state)
-end)
-
-createOption("Fly", false, "Config")
-createSlider("Fly Speed", 1, 500, 32, "Config", function(value)
-    flySpeed = value
-end)
-createOption("Noclip", false, "Config")
 
 createInfoBox("By: Cleiton10HDx", "Script created by this user.", "Credits", false)
 createInfoBox("Discord", "My Discord Server", "Credits", true, "https://discord.gg/72P6NhC5Pf")
@@ -3616,11 +2513,29 @@ local shiftLockIcon = nil
 local shiftLockActive = false
 local shiftLockConnection = nil
 
+UserInputService.JumpRequest:Connect(function()
+    local value = optionStates["Infinite Jump"]
+    if type(value) == "function" then value = value() end
+    if value then
+        local char = LP.Character
+        if char then
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end
+    end
+end)
 
 task.spawn(function()
     while task.wait(0.1) do
+        local speedEnabled = optionStates["Enable Speed"]
+        if type(speedEnabled) == "function" then speedEnabled = speedEnabled() end
         local char = LP.Character
         local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = speedEnabled and speedValue or 28
+        end
 
         if isFlyActive and bg and bv then
             local cam = workspace.CurrentCamera
@@ -3742,6 +2657,109 @@ task.spawn(function()
     end
 end)
 
+if type(hookmetamethod) == "function" and type(getnamecallmethod) == "function" then
+    local oldNamecall
+    oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+        local antiCheat = optionStates["Anti Cheat"]
+        if type(antiCheat) == "function" then antiCheat = antiCheat() end
+        if antiCheat then
+            local method = getnamecallmethod()
+            if method == "FireServer" and tostring(self) == "Cheat" then
+                return nil
+            end
+        end
+        return oldNamecall(self, ...)
+    end)
+end
+
+local function createShiftLockUI()
+    if shiftLockScreenGui then return end
+
+    shiftLockScreenGui = Instance.new("ScreenGui")
+    shiftLockScreenGui.Name = "ShiftLockScreenGui"
+    shiftLockScreenGui.ResetOnSpawn = false
+    shiftLockScreenGui.DisplayOrder = 999998
+    shiftLockScreenGui.Parent = PlayerGui
+
+    shiftLockIcon = Instance.new("ImageLabel")
+    shiftLockIcon.Name = "ShiftLockIcon"
+    shiftLockIcon.Size = UDim2.new(0.05, 0, 0.1, 0)
+    shiftLockIcon.Position = UDim2.new(0.95, 0, 0.68, 0)
+    shiftLockIcon.BackgroundTransparency = 1
+    shiftLockIcon.Image = "rbxassetid://105987953182009"
+    shiftLockIcon.Parent = shiftLockScreenGui
+    shiftLockIcon.ZIndex = 999998
+
+    shiftLockIcon.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            shiftLockActive = not shiftLockActive
+            shiftLockIcon.Image = shiftLockActive and "rbxassetid://139211296111194" or "rbxassetid://105987953182009"
+        end
+    end)
+end
+
+local function destroyShiftLockUI()
+    if shiftLockScreenGui then
+        shiftLockScreenGui:Destroy()
+        shiftLockScreenGui = nil
+        shiftLockIcon = nil
+    end
+end
+
+task.spawn(function()
+    while task.wait(0.1) do
+        local shiftLockEnabled = optionStates["Enable Shift Lock"]
+        if type(shiftLockEnabled) == "function" then shiftLockEnabled = shiftLockEnabled() end
+
+        if shiftLockEnabled and not shiftLockScreenGui then
+            createShiftLockUI()
+        elseif not shiftLockEnabled and shiftLockScreenGui then
+            destroyShiftLockUI()
+            shiftLockActive = false
+            if shiftLockConnection then
+                shiftLockConnection:Disconnect()
+                shiftLockConnection = nil
+            end
+        end
+
+        if shiftLockScreenGui and shiftLockActive then
+            local char = LP.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local root = char.HumanoidRootPart
+                local humanoid = char:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    humanoid.AutoRotate = false
+                    if not shiftLockConnection then
+                        shiftLockConnection = RunService.RenderStepped:Connect(function()
+                            local currentChar = LP.Character
+                            if currentChar and currentChar:FindFirstChild("HumanoidRootPart") then
+                                local currentRoot = currentChar.HumanoidRootPart
+                                local camera = workspace.CurrentCamera
+                                if camera then
+                                    local lookVector = camera.CFrame.LookVector
+                                    currentRoot.CFrame = CFrame.new(currentRoot.Position, currentRoot.Position + Vector3.new(lookVector.X, 0, lookVector.Z))
+                                end
+                            end
+                        end)
+                    end
+                end
+            end
+        elseif shiftLockScreenGui and not shiftLockActive then
+            if shiftLockConnection then
+                shiftLockConnection:Disconnect()
+                shiftLockConnection = nil
+            end
+
+            local char = LP.Character
+            if char then
+                local humanoid = char:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    humanoid.AutoRotate = true
+                end
+            end
+        end
+    end
+end)
 
 Player.CharacterAdded:Connect(function()
     if shiftLockConnection then
