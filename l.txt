@@ -423,15 +423,16 @@ local ResultsScroll = make("ScrollingFrame", {
 	ScrollBarImageColor3 = COLORS.Gray3,
 	ScrollBarImageTransparency = 0.05,
 	CanvasSize = UDim2.new(0, 0, 0, 0),
-	AutomaticCanvasSize = Enum.AutomaticSize.Y,
+	AutomaticCanvasSize = Enum.AutomaticSize.None,
 	ScrollingDirection = Enum.ScrollingDirection.Y,
 	ScrollingEnabled = true,
 	Active = true,
 	ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
+	VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
 	ZIndex = 4,
 }, Content)
 
-make("UIListLayout", {
+local ResultsLayout = make("UIListLayout", {
 	Padding = UDim.new(0, 7),
 	SortOrder = Enum.SortOrder.LayoutOrder,
 	HorizontalAlignment = Enum.HorizontalAlignment.Center,
@@ -442,70 +443,14 @@ local ResultsPadding = make("UIPadding", {
 	PaddingBottom = UDim.new(0, 8),
 }, ResultsScroll)
 
-local resultsGestureActive = false
-local resultsGestureMoved = false
-local resultsGestureInput = nil
-local resultsGestureStart = nil
-local resultsGestureStartCanvasY = 0
-
-local function updateResultsCanvasPosition(y)
-	local maxY = math.max(0, ResultsScroll.AbsoluteCanvasSize.Y - ResultsScroll.AbsoluteSize.Y)
-	ResultsScroll.CanvasPosition = Vector2.new(
-		ResultsScroll.CanvasPosition.X,
-		math.clamp(y, 0, maxY)
-	)
+-- Keep the scrollable canvas synchronized with the real rendered content.
+-- This makes vertical scrolling work reliably for every tab and expanded category.
+local function updateResultsCanvas()
+	local contentHeight = ResultsLayout.AbsoluteContentSize.Y + ResultsPadding.PaddingTop.Offset + ResultsPadding.PaddingBottom.Offset
+	ResultsScroll.CanvasSize = UDim2.new(0, 0, 0, math.ceil(contentHeight))
 end
 
-local function beginResultsGesture(input)
-	if input.UserInputType ~= Enum.UserInputType.Touch
-		and input.UserInputType ~= Enum.UserInputType.MouseButton1 then
-		return
-	end
-	local position = ResultsScroll.AbsolutePosition
-	local size = ResultsScroll.AbsoluteSize
-	local point = input.Position
-	if point.X < position.X or point.X > position.X + size.X
-		or point.Y < position.Y or point.Y > position.Y + size.Y then
-		return
-	end
-
-	resultsGestureActive = true
-	resultsGestureMoved = false
-	resultsGestureInput = input
-	resultsGestureStart = input.Position
-	resultsGestureStartCanvasY = ResultsScroll.CanvasPosition.Y
-end
-
-local function updateResultsGesture(input)
-	if not resultsGestureActive or input ~= resultsGestureInput or not resultsGestureStart then
-		return
-	end
-
-	local deltaY = input.Position.Y - resultsGestureStart.Y
-	if math.abs(deltaY) < 6 then
-		return
-	end
-
-	resultsGestureMoved = true
-	updateResultsCanvasPosition(resultsGestureStartCanvasY - deltaY)
-end
-
-local function endResultsGesture(input)
-	if not resultsGestureActive or input ~= resultsGestureInput then
-		return
-	end
-
-	resultsGestureActive = false
-	resultsGestureInput = nil
-	resultsGestureStart = nil
-
-	if resultsGestureMoved then
-		-- Keep the drag from being treated as a click by row handlers.
-		task.defer(function()
-			resultsGestureMoved = false
-		end)
-	end
-end
+ResultsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateResultsCanvas)
 
 local NotificationContainer = make("Frame", {
 	Name = "NotificationContainer",
@@ -910,9 +855,6 @@ local function createCategoryRow(category, layoutOrder, searchQuery)
 	end)
 
 	Hit.Activated:Connect(function()
-		if resultsGestureMoved then
-			return
-		end
 		if searchQuery ~= "" then
 			category.Expanded = true
 		else
@@ -1028,9 +970,6 @@ createStandardRow = function(item, layoutOrder)
 		updateToggle(false)
 
 		ToggleButton.Activated:Connect(function()
-			if resultsGestureMoved then
-				return
-			end
 			setToggleState(item, not (toggleStates[item] == true))
 			updateToggle(true)
 		end)
@@ -1052,18 +991,8 @@ createStandardRow = function(item, layoutOrder)
 	Hit.MouseEnter:Connect(function() tween(Row, 0.10, {BackgroundColor3 = COLORS.DarkGray}) end)
 	Hit.MouseLeave:Connect(function() tween(Row, 0.10, {BackgroundColor3 = COLORS.Black2}) end)
 	if item.Action then
-		Hit.Activated:Connect(function()
-			if resultsGestureMoved then
-				return
-			end
-			item.Action()
-		end)
-		Right.Activated:Connect(function()
-			if resultsGestureMoved then
-				return
-			end
-			item.Action()
-		end)
+		Hit.Activated:Connect(item.Action)
+		Right.Activated:Connect(item.Action)
 	end
 	return Row
 end
@@ -1071,6 +1000,7 @@ end
 renderResults = function()
 	local previousScrollY = ResultsScroll.CanvasPosition.Y
 	clearResults()
+	updateResultsCanvas()
 	local query = SearchBox.Text
 	local items = getVisibleItems(currentTab, query)
 	if #items == 0 then
@@ -1083,6 +1013,7 @@ renderResults = function()
 		else
 			showEmptyState("This tab has no options yet.")
 		end
+		updateResultsCanvas()
 		setResultsScrollPositionY(0)
 		return
 	end
@@ -1095,6 +1026,7 @@ renderResults = function()
 			createStandardRow(item, layoutIndex)
 		end
 		task.defer(function()
+			updateResultsCanvas()
 			setResultsScrollPositionY(previousScrollY)
 		end)
 		return
@@ -1113,6 +1045,7 @@ renderResults = function()
 	end
 
 	task.defer(function()
+		updateResultsCanvas()
 		setResultsScrollPositionY(previousScrollY)
 	end)
 end
@@ -1665,22 +1598,6 @@ SearchClear.Activated:Connect(function()
 	SearchBox:CaptureFocus()
 end)
 
-local resultsInputBeganConnection = UserInputService.InputBegan:Connect(function(input)
-	beginResultsGesture(input)
-end)
-
-local resultsInputChangedConnection = UserInputService.InputChanged:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-		updateResultsGesture(input)
-	end
-end)
-
-local resultsInputEndedConnection = UserInputService.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		endResultsGesture(input)
-	end
-end)
-
 applyEnglishOnly(ScreenGui)
 
 setTab("Main")
@@ -1710,7 +1627,4 @@ registerCleanup(function()
 	inputEndedConnection:Disconnect()
 	searchTextConnection:Disconnect()
 	renderSteppedConnection:Disconnect()
-	resultsInputBeganConnection:Disconnect()
-	resultsInputChangedConnection:Disconnect()
-	resultsInputEndedConnection:Disconnect()
 end)
