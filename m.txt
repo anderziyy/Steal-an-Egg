@@ -4,6 +4,7 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
+local Lighting = game:GetService("Lighting")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -419,13 +420,13 @@ local ResultsScroll = make("ScrollingFrame", {
 	Size = UDim2.fromScale(0.93, 0.815),
 	BackgroundTransparency = 1,
 	BorderSizePixel = 0,
-	ScrollBarThickness = 4,
+	ScrollBarThickness = 0,
 	ScrollBarImageColor3 = COLORS.Gray3,
 	ScrollBarImageTransparency = 0.05,
 	CanvasSize = UDim2.new(0, 0, 0, 0),
-	AutomaticCanvasSize = Enum.AutomaticSize.Y,
+	AutomaticCanvasSize = Enum.AutomaticSize.None,
 	ScrollingDirection = Enum.ScrollingDirection.Y,
-	ScrollingEnabled = true,
+	ScrollingEnabled = false,
 	Active = true,
 	Selectable = false,
 	ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
@@ -445,33 +446,42 @@ local ResultsPadding = make("UIPadding", {
 	PaddingBottom = UDim.new(0, 8),
 }, ResultsScroll)
 
--- Same scrolling pattern used by the older menu, adapted to this menu's
--- Results/ResultsLayout names. The canvas is refreshed from the actual
--- content height whenever the list changes.
-local function refreshResultsCanvas()
-	task.defer(function()
-		if not ResultsScroll.Parent then
-			return
-		end
+-- Keep the original row size. Scrolling activates only after six
+-- rendered entries; the category header counts as one entry.
+local MAX_VISIBLE_RESULTS = 6
+local currentRenderedResultCount = 0
 
-		local contentHeight = ResultsLayout.AbsoluteContentSize.Y
-		local topPadding = ResultsPadding.PaddingTop.Offset
-		local bottomPadding = ResultsPadding.PaddingBottom.Offset
-		ResultsScroll.CanvasSize = UDim2.new(
-			0,
-			0,
-			0,
-			contentHeight + topPadding + bottomPadding
-		)
-	end)
+local function updateResultsCanvas(renderedCount)
+	if renderedCount ~= nil then
+		currentRenderedResultCount = math.max(0, renderedCount)
+	end
+
+	local contentHeight = ResultsLayout.AbsoluteContentSize.Y
+	local topPadding = ResultsPadding.PaddingTop.Offset
+	local bottomPadding = ResultsPadding.PaddingBottom.Offset
+	local totalHeight = contentHeight + topPadding + bottomPadding
+	local shouldScroll = currentRenderedResultCount > MAX_VISIBLE_RESULTS
+	local viewportHeight = math.max(0, ResultsScroll.AbsoluteSize.Y)
+
+	ResultsScroll.ScrollingEnabled = shouldScroll
+	ResultsScroll.ScrollBarThickness = shouldScroll and 4 or 0
+
+	if shouldScroll then
+		ResultsScroll.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
+	else
+		ResultsScroll.CanvasSize = UDim2.new(0, 0, 0, viewportHeight)
+		ResultsScroll.CanvasPosition = Vector2.new(ResultsScroll.CanvasPosition.X, 0)
+	end
 end
 
-local resultsLayoutConnection = ResultsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(refreshResultsCanvas)
+local resultsLayoutConnection = ResultsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+	updateResultsCanvas()
+end)
 registerCleanup(function()
 	resultsLayoutConnection:Disconnect()
 end)
 
-refreshResultsCanvas()
+updateResultsCanvas(0)
 
 local NotificationContainer = make("Frame", {
 	Name = "NotificationContainer",
@@ -699,6 +709,13 @@ local datasets = {
 					Enabled = false,
 					Compact = true,
 				},
+				{
+					Title = "Low Mode",
+					Description = "Reduce visual effects, textures, lighting and other rendering details to make the game as light as possible.",
+					Toggle = true,
+					Enabled = false,
+					Compact = true,
+				},
 			},
 		},
 	},
@@ -728,7 +745,8 @@ local function clearResults()
 			child:Destroy()
 		end
 	end
-	refreshResultsCanvas()
+	currentRenderedResultCount = 0
+	updateResultsCanvas()
 end
 
 local function setResultsScrollPositionY(y)
@@ -902,31 +920,191 @@ local function getHumanoid()
 	return character and character:FindFirstChildOfClass("Humanoid") or nil
 end
 
-local function setToggleState(item, enabled)
-	toggleStates[item] = enabled
-	if item.Title ~= "Idle Movement" then return end
+-- Low Mode snapshots every property it changes and restores those
+-- exact values when the toggle is switched off.
+local lowModeSnapshot = nil
+local lowModeAddedConnection = nil
 
-	if toggleConnections[item] then
-		toggleConnections[item]:Disconnect()
-		toggleConnections[item] = nil
+local function saveAndSet(snapshot, instance, property, value)
+	if not instance or not instance.Parent then
+		return
 	end
 
-	if enabled then
-		local running = true
-		local connection = {Disconnect = function() running = false end}
-		toggleConnections[item] = connection
-		task.spawn(function()
-			while running and not cleanedUp do
-				task.wait(60)
-				if not running or cleanedUp then break end
-				local humanoid = getHumanoid()
-				if humanoid and humanoid.Health > 0 then
-					humanoid:Move(Vector3.new(1, 0, 0), true)
-					task.wait(0.18)
-					humanoid:Move(Vector3.zero, true)
-				end
+	local properties = snapshot[instance]
+	if not properties then
+		properties = {}
+		snapshot[instance] = properties
+	end
+
+	if properties[property] == nil then
+		local ok, original = pcall(function()
+			return instance[property]
+		end)
+		if not ok then
+			return
+		end
+		properties[property] = original
+	end
+
+	pcall(function()
+		instance[property] = value
+	end)
+end
+
+local function optimizeInstance(instance, snapshot)
+	if instance:IsA("BasePart") then
+		saveAndSet(snapshot, instance, "Material", Enum.Material.SmoothPlastic)
+		saveAndSet(snapshot, instance, "Reflectance", 0)
+		saveAndSet(snapshot, instance, "CastShadow", false)
+
+		if instance:IsA("MeshPart") then
+			saveAndSet(snapshot, instance, "RenderFidelity", Enum.RenderFidelity.Performance)
+		end
+	end
+
+	if instance:IsA("Decal") or instance:IsA("Texture") then
+		saveAndSet(snapshot, instance, "Transparency", 1)
+	end
+
+	if instance:IsA("ParticleEmitter")
+		or instance:IsA("Trail")
+		or instance:IsA("Beam")
+		or instance:IsA("Smoke")
+		or instance:IsA("Fire")
+		or instance:IsA("Sparkles") then
+		saveAndSet(snapshot, instance, "Enabled", false)
+	end
+
+	if instance:IsA("PointLight")
+		or instance:IsA("SpotLight")
+		or instance:IsA("SurfaceLight") then
+		saveAndSet(snapshot, instance, "Enabled", false)
+	end
+
+	if instance:IsA("PostEffect") then
+		saveAndSet(snapshot, instance, "Enabled", false)
+	end
+
+	if instance:IsA("Atmosphere") then
+		saveAndSet(snapshot, instance, "Density", 0)
+		saveAndSet(snapshot, instance, "Haze", 0)
+		saveAndSet(snapshot, instance, "Glare", 0)
+	end
+end
+
+local function beginLowMode()
+	if lowModeSnapshot then
+		return
+	end
+
+	local snapshot = {}
+	lowModeSnapshot = snapshot
+
+	saveAndSet(snapshot, Lighting, "GlobalShadows", false)
+	saveAndSet(snapshot, Lighting, "EnvironmentDiffuseScale", 0)
+	saveAndSet(snapshot, Lighting, "EnvironmentSpecularScale", 0)
+
+	local terrain = workspace:FindFirstChildOfClass("Terrain")
+	if terrain then
+		saveAndSet(snapshot, terrain, "Decoration", false)
+		saveAndSet(snapshot, terrain, "WaterWaveSize", 0)
+		saveAndSet(snapshot, terrain, "WaterWaveSpeed", 0)
+		saveAndSet(snapshot, terrain, "WaterReflectance", 0)
+	end
+
+	local descendants = workspace:GetDescendants()
+	for index, instance in ipairs(descendants) do
+		optimizeInstance(instance, snapshot)
+
+		if index % 300 == 0 then
+			task.wait()
+			if lowModeSnapshot ~= snapshot then
+				return
+			end
+		end
+	end
+
+	if lowModeSnapshot ~= snapshot then
+		return
+	end
+
+	lowModeAddedConnection = workspace.DescendantAdded:Connect(function(instance)
+		if lowModeSnapshot ~= snapshot then
+			return
+		end
+		task.defer(function()
+			if lowModeSnapshot == snapshot then
+				optimizeInstance(instance, snapshot)
 			end
 		end)
+	end)
+end
+
+local function endLowMode()
+	local snapshot = lowModeSnapshot
+	if not snapshot then
+		return
+	end
+
+	lowModeSnapshot = nil
+
+	if lowModeAddedConnection then
+		lowModeAddedConnection:Disconnect()
+		lowModeAddedConnection = nil
+	end
+
+	for instance, properties in pairs(snapshot) do
+		if instance and instance.Parent then
+			for property, originalValue in pairs(properties) do
+				pcall(function()
+					instance[property] = originalValue
+				end)
+			end
+		end
+	end
+end
+
+local function setToggleState(item, enabled)
+	toggleStates[item] = enabled
+
+	if item.Title == "Anti AFK" then
+		if toggleConnections[item] then
+			toggleConnections[item]:Disconnect()
+			toggleConnections[item] = nil
+		end
+
+		if enabled then
+			local running = true
+			local connection = {
+				Disconnect = function()
+					running = false
+				end,
+			}
+			toggleConnections[item] = connection
+
+			task.spawn(function()
+				while running and not cleanedUp do
+					task.wait(60)
+					if not running or cleanedUp then
+						break
+					end
+
+					local humanoid = getHumanoid()
+					if humanoid and humanoid.Health > 0 then
+						humanoid:Move(Vector3.new(1, 0, 0), true)
+						task.wait(0.18)
+						humanoid:Move(Vector3.zero, true)
+					end
+				end
+			end)
+		end
+
+	elseif item.Title == "Low Mode" then
+		if enabled then
+			beginLowMode()
+		else
+			endLowMode()
+		end
 	end
 end
 
@@ -1024,6 +1202,7 @@ renderResults = function()
 	clearResults()
 	local query = SearchBox.Text
 	local items = getVisibleItems(currentTab, query)
+
 	if #items == 0 then
 		if query ~= "" then
 			showEmptyState("No matching options found.")
@@ -1034,20 +1213,23 @@ renderResults = function()
 		else
 			showEmptyState("This tab has no options yet.")
 		end
-		refreshResultsCanvas()
+		updateResultsCanvas(1)
 		setResultsScrollPositionY(0)
 		return
 	end
 
 	local layoutIndex = 0
+	local renderedCount = 0
+
 	if query ~= "" then
 		-- Global search results are option-only; categories are never rendered.
 		for _, item in ipairs(items) do
 			layoutIndex += 1
+			renderedCount += 1
 			createStandardRow(item, layoutIndex)
 		end
 		task.defer(function()
-			refreshResultsCanvas()
+			updateResultsCanvas(renderedCount)
 			setResultsScrollPositionY(previousScrollY)
 		end)
 		return
@@ -1055,10 +1237,15 @@ renderResults = function()
 
 	for _, item in ipairs(items) do
 		layoutIndex += 1
+		renderedCount += 1 -- The category itself counts as one entry.
+
 		if item.Type == "Category" then
+			local childCount = #(item.Items or {})
 			createCategoryRow(item, layoutIndex, query)
+
 			if item.Expanded then
-				layoutIndex += #(item.Items or {})
+				layoutIndex += childCount
+				renderedCount += childCount
 			end
 		else
 			createStandardRow(item, layoutIndex)
@@ -1066,7 +1253,7 @@ renderResults = function()
 	end
 
 	task.defer(function()
-		refreshResultsCanvas()
+		updateResultsCanvas(renderedCount)
 		setResultsScrollPositionY(previousScrollY)
 	end)
 end
@@ -1635,6 +1822,7 @@ registerCleanup(function()
 	for _, connection in pairs(toggleConnections) do
 		if connection and connection.Disconnect then connection:Disconnect() end
 	end
+	endLowMode()
 end)
 
 registerCleanup(function()
