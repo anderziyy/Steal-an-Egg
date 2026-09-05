@@ -16,7 +16,7 @@ local IMAGE_CONFIG = "rbxassetid://114794077382466"
 local IMAGE_CREDITS = "rbxassetid://99243311837005"
 local IMAGE_CLICK = "rbxassetid://97594499544606"
 local IMAGE_DISCORD_COPIED = "rbxassetid://132744109593099"
-local IMAGE_PLAYER_CATEGORY = "rbxassetid://102791662357524"
+local IMAGE_PLAYER = "rbxassetid://102791662357524"
 local DISCORD_LINK = "https://discord.gg/72P6NhC5Pf"
 
 local COLORS = {
@@ -565,23 +565,28 @@ local function showCopiedNotification()
 	end)
 end
 
+local categoryExpandedStates = {}
+
 local datasets = {
 	Main = {},
 	["Auto Buy"] = {},
 	Farm = {},
 	Config = {
 		{
-			Type = "Category",
 			Title = "Player",
-			Icon = IMAGE_PLAYER_CATEGORY,
+			Icon = IMAGE_PLAYER,
+			IsCategory = true,
 			Items = {
 				{
 					Title = "Auto Rejoin",
-					Description = "",
-					Compact = true,
+					Description = "Automatically rejoin the server.",
 					Icon = IMAGE_CLICK,
 					Action = function()
-						showAutoRejoinConfirm()
+						openConfirm("Are you sure you want to change server?", function()
+							if typeof(game:GetService("TeleportService").Teleport) == "function" then
+								game:GetService("TeleportService"):Teleport(game.PlaceId, LocalPlayer)
+							end
+						end)
 					end,
 				},
 			},
@@ -606,113 +611,6 @@ local datasets = {
 	},
 }
 
-local AutoRejoinConfirm = make("Frame", {
-	Name = "AutoRejoinConfirm",
-	Position = UDim2.fromScale(0, 0),
-	Size = UDim2.fromScale(1, 1),
-	BackgroundColor3 = COLORS.Black,
-	BackgroundTransparency = 0.42,
-	BorderSizePixel = 0,
-	Visible = false,
-	Active = true,
-	ZIndex = 1000,
-}, ScreenGui)
-
-local AutoRejoinPanel = make("Frame", {
-	Name = "AutoRejoinPanel",
-	AnchorPoint = Vector2.new(0.5, 0.5),
-	Position = UDim2.fromScale(0.5, 0.5),
-	Size = UDim2.fromScale(0.44, 0.25),
-	BackgroundColor3 = COLORS.Black2,
-	BorderSizePixel = 0,
-	Active = true,
-	ZIndex = 1001,
-}, AutoRejoinConfirm)
-make("UIAspectRatioConstraint", {AspectRatio = 1.75}, AutoRejoinPanel)
-make("UIStroke", {
-	Thickness = 1.4,
-	Color = COLORS.Gray3,
-	Transparency = 0.08,
-}, AutoRejoinPanel)
-
-local AutoRejoinDescription = make("TextLabel", {
-	Position = UDim2.fromScale(0.08, 0.10),
-	Size = UDim2.fromScale(0.84, 0.45),
-	BackgroundTransparency = 1,
-	Text = "Are you sure you would like to change servers?",
-	TextColor3 = COLORS.White,
-	Font = Enum.Font.Gotham,
-	TextSize = 12,
-	TextWrapped = true,
-	TextXAlignment = Enum.TextXAlignment.Center,
-	TextYAlignment = Enum.TextYAlignment.Center,
-	ZIndex = 1002,
-}, AutoRejoinPanel)
-
-local AutoRejoinCancel = make("TextButton", {
-	Position = UDim2.fromScale(0.08, 0.66),
-	Size = UDim2.fromScale(0.39, 0.20),
-	BackgroundColor3 = COLORS.Gray,
-	BorderSizePixel = 0,
-	AutoButtonColor = false,
-	Active = true,
-	Selectable = false,
-	Text = "Cancel",
-	TextColor3 = Color3.fromRGB(220, 75, 75),
-	Font = Enum.Font.GothamBold,
-	TextSize = 12,
-	ZIndex = 1003,
-}, AutoRejoinPanel)
-
-local AutoRejoinOK = make("TextButton", {
-	Position = UDim2.fromScale(0.53, 0.66),
-	Size = UDim2.fromScale(0.39, 0.20),
-	BackgroundColor3 = COLORS.Gray,
-	BorderSizePixel = 0,
-	AutoButtonColor = false,
-	Active = true,
-	Selectable = false,
-	Text = "Confirm",
-	TextColor3 = Color3.fromRGB(75, 190, 105),
-	Font = Enum.Font.GothamBold,
-	TextSize = 12,
-	ZIndex = 1003,
-}, AutoRejoinPanel)
-
-local function showAutoRejoinConfirm()
-	if cleanedUp or not ScreenGui.Parent then
-		return
-	end
-	AutoRejoinConfirm.Visible = true
-end
-
-local function hideAutoRejoinConfirm()
-	if cleanedUp or not ScreenGui.Parent then
-		return
-	end
-	AutoRejoinConfirm.Visible = false
-end
-
-AutoRejoinCancel.Activated:Connect(hideAutoRejoinConfirm)
-AutoRejoinOK.Activated:Connect(function()
-	hideAutoRejoinConfirm()
-	game:GetService("TeleportService"):Teleport(game.PlaceId, LocalPlayer)
-end)
-
-AutoRejoinCancel.MouseEnter:Connect(function()
-	tween(AutoRejoinCancel, 0.12, {BackgroundColor3 = COLORS.Gray3, BackgroundTransparency = 0})
-end)
-AutoRejoinCancel.MouseLeave:Connect(function()
-	tween(AutoRejoinCancel, 0.12, {BackgroundColor3 = COLORS.Gray, BackgroundTransparency = 0.18})
-end)
-
-AutoRejoinOK.MouseEnter:Connect(function()
-	tween(AutoRejoinOK, 0.12, {BackgroundColor3 = COLORS.Gray3, BackgroundTransparency = 0})
-end)
-AutoRejoinOK.MouseLeave:Connect(function()
-	tween(AutoRejoinOK, 0.12, {BackgroundColor3 = COLORS.Gray, BackgroundTransparency = 0.18})
-end)
-
 local function clearResults()
 	for _, child in ipairs(ResultsScroll:GetChildren()) do
 		if not child:IsA("UIListLayout") and not child:IsA("UIPadding") then
@@ -720,8 +618,6 @@ local function clearResults()
 		end
 	end
 end
-
-local categoryStates = {}
 
 local function getVisibleItems(tabName, query)
 	local items = datasets[tabName] or {}
@@ -731,14 +627,10 @@ local function getVisibleItems(tabName, query)
 	end
 	local filtered = {}
 	for _, item in ipairs(items) do
-		if item.Type == "Category" then
+		local title = string.lower(item.Title or "")
+		local description = string.lower(item.Description or "")
+		if string.find(title, normalized, 1, true) or string.find(description, normalized, 1, true) then
 			table.insert(filtered, item)
-		else
-			local title = string.lower(item.Title or "")
-			local description = string.lower(item.Description or "")
-			if string.find(title, normalized, 1, true) or string.find(description, normalized, 1, true) then
-				table.insert(filtered, item)
-			end
 		end
 	end
 	return filtered
@@ -771,6 +663,74 @@ local function showEmptyState(text)
 		TextYAlignment = Enum.TextYAlignment.Center,
 		ZIndex = 5,
 	}, Empty)
+end
+
+local function createCategoryRow(item, layoutOrder)
+	local Row = make("Frame", {
+		Name = "Category",
+		Size = UDim2.fromScale(1, 0.15),
+		BackgroundColor3 = COLORS.Black2,
+		BorderSizePixel = 0,
+		LayoutOrder = layoutOrder,
+		ZIndex = 4,
+	}, ResultsScroll)
+	make("UIStroke", {
+		Thickness = 1,
+		Color = COLORS.Gray2,
+		Transparency = 0.30,
+	}, Row)
+
+	local Title = make("TextLabel", {
+		Position = UDim2.fromScale(0.035, 0.16),
+		Size = UDim2.fromScale(0.73, 0.68),
+		BackgroundTransparency = 1,
+		Text = item.Title or "Category",
+		TextColor3 = COLORS.White,
+		Font = Enum.Font.GothamSemibold,
+		TextSize = 14,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		ZIndex = 5,
+	}, Row)
+
+	local Icon = make("ImageLabel", {
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.fromScale(0.95, 0.5),
+		Size = UDim2.fromScale(0.09, 0.48),
+		BackgroundTransparency = 1,
+		Image = item.Icon or IMAGE_CLICK,
+		ImageColor3 = COLORS.SoftWhite,
+		ScaleType = Enum.ScaleType.Fit,
+		ZIndex = 6,
+	}, Row)
+	make("UIAspectRatioConstraint", {AspectRatio = 1}, Icon)
+
+	local Hit = make("TextButton", {
+		Name = "ClickSurface",
+		Position = UDim2.fromScale(0, 0),
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Text = "",
+		AutoButtonColor = false,
+		ZIndex = 4,
+	}, Row)
+
+	Hit.MouseEnter:Connect(function()
+		tween(Row, 0.10, {BackgroundColor3 = COLORS.DarkGray})
+	end)
+	Hit.MouseLeave:Connect(function()
+		tween(Row, 0.10, {BackgroundColor3 = COLORS.Black2})
+	end)
+
+	Hit.Activated:Connect(function()
+		if not categoryExpandedStates[item.Title] then
+			categoryExpandedStates[item.Title] = false
+		end
+		categoryExpandedStates[item.Title] = not categoryExpandedStates[item.Title]
+		renderResults()
+	end)
+
+	return Row
 end
 
 local function createStandardRow(item, layoutOrder)
@@ -855,88 +815,6 @@ local function createStandardRow(item, layoutOrder)
 	return Row
 end
 
-local function createCategoryRow(category, layoutOrder)
-	local isOpen = categoryStates[category.Title] or false
-	
-	local Row = make("Frame", {
-		Name = "Category",
-		Size = UDim2.fromScale(1, 0.15),
-		BackgroundColor3 = COLORS.Black2,
-		BorderSizePixel = 0,
-		LayoutOrder = layoutOrder,
-		ZIndex = 4,
-	}, ResultsScroll)
-	make("UIStroke", {
-		Thickness = 1,
-		Color = COLORS.Gray2,
-		Transparency = 0.30,
-	}, Row)
-
-	local Icon = make("ImageLabel", {
-		Position = UDim2.fromScale(0.035, 0.22),
-		Size = UDim2.fromScale(0.09, 0.56),
-		BackgroundTransparency = 1,
-		Image = category.Icon,
-		ImageColor3 = COLORS.SoftWhite,
-		ScaleType = Enum.ScaleType.Fit,
-		ZIndex = 5,
-	}, Row)
-
-	local Title = make("TextLabel", {
-		Position = UDim2.fromScale(0.145, 0.16),
-		Size = UDim2.fromScale(0.73, 0.32),
-		BackgroundTransparency = 1,
-		Text = category.Title or "Category",
-		TextColor3 = COLORS.White,
-		Font = Enum.Font.GothamSemibold,
-		TextSize = 14,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Center,
-		ZIndex = 5,
-	}, Row)
-
-	local Arrow = make("TextLabel", {
-		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.fromScale(0.95, 0.5),
-		Size = UDim2.fromScale(0.09, 0.48),
-		BackgroundTransparency = 1,
-		Text = isOpen and "▼" or "▶",
-		TextColor3 = COLORS.SoftWhite,
-		Font = Enum.Font.GothamBold,
-		TextSize = 14,
-		ZIndex = 6,
-	}, Row)
-
-	local Hit = make("TextButton", {
-		Name = "ClickSurface",
-		Position = UDim2.fromScale(0, 0),
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		Text = "",
-		AutoButtonColor = false,
-		ZIndex = 4,
-	}, Row)
-
-	Hit.MouseEnter:Connect(function()
-		tween(Row, 0.10, {BackgroundColor3 = COLORS.DarkGray})
-	end)
-	Hit.MouseLeave:Connect(function()
-		tween(Row, 0.10, {BackgroundColor3 = COLORS.Black2})
-	end)
-
-	local function toggleCategory()
-		isOpen = not isOpen
-		categoryStates[category.Title] = isOpen
-		tween(Arrow, 0.12, {})
-		Arrow.Text = isOpen and "▼" or "▶"
-		renderResults()
-	end
-
-	Hit.Activated:Connect(toggleCategory)
-
-	return Row, isOpen, category
-end
-
 local function renderResults()
 	clearResults()
 	local items = getVisibleItems(currentTab, SearchBox.Text)
@@ -952,14 +830,13 @@ local function renderResults()
 		end
 		return
 	end
-	
 	local layoutOrder = 0
-	for _, item in ipairs(items) do
+	for index, item in ipairs(items) do
 		layoutOrder = layoutOrder + 1
-		if item.Type == "Category" then
-			local _, isOpen, category = createCategoryRow(item, layoutOrder)
-			if isOpen and category.Items then
-				for _, subItem in ipairs(category.Items) do
+		if item.IsCategory then
+			createCategoryRow(item, layoutOrder)
+			if categoryExpandedStates[item.Title] then
+				for _, subItem in ipairs(item.Items or {}) do
 					layoutOrder = layoutOrder + 1
 					createStandardRow(subItem, layoutOrder)
 				end
@@ -1126,60 +1003,118 @@ local ConfirmCancel = make("TextButton", {
 	ZIndex = 1003,
 }, ConfirmPanel)
 
-local function styleConfirmButton(button)
-	button.MouseEnter:Connect(function()
-		tween(button, 0.12, {BackgroundColor3 = COLORS.Gray3, BackgroundTransparency = 0})
-	end)
-	button.MouseLeave:Connect(function()
-		tween(button, 0.12, {BackgroundColor3 = COLORS.Gray, BackgroundTransparency = 0.18})
+local function openConfirm(description, action)
+	if cleanedUp or not ScreenGui.Parent then
+		return
+	end
+
+	ConfirmDescription.Text = description
+	pendingAction = action
+	ConfirmOverlay.Visible = true
+	ConfirmOverlay.ZIndex = 1000
+	ConfirmPanel.Position = UDim2.fromScale(0.5, 0.5)
+	ConfirmPanel.Size = UDim2.fromScale(0.42, 0.24)
+	tween(ConfirmPanel, 0.18, {
+		Size = UDim2.fromScale(0.44, 0.25),
+		Position = UDim2.fromScale(0.5, 0.5),
+	})
+end
+
+local function closeConfirm()
+	pendingAction = nil
+	ConfirmOverlay.Visible = false
+	ConfirmPanel.Position = UDim2.fromScale(0.5, 0.5)
+end
+
+local confirmBusy = false
+
+local function activateConfirmCancel()
+	if confirmBusy then
+		return
+	end
+	confirmBusy = true
+	closeConfirm()
+	task.defer(function()
+		confirmBusy = false
 	end)
 end
-styleConfirmButton(ConfirmOK)
-styleConfirmButton(ConfirmCancel)
 
-ConfirmCancel.Activated:Connect(function()
-	ConfirmOverlay.Visible = false
-end)
-ConfirmOK.Activated:Connect(function()
-	cleanupAll()
-	if ScreenGui.Parent then
-		ScreenGui:Destroy()
+local function activateConfirmOK()
+	if confirmBusy then
+		return
+	end
+	confirmBusy = true
+	local action = pendingAction
+	closeConfirm()
+	if action then
+		local ok, err = pcall(action)
+		if not ok then
+		warn("Phantom Hub cleanup error:", err)
+		end
+	end
+	confirmBusy = false
+end
+
+ConfirmCancel.Activated:Connect(activateConfirmCancel)
+ConfirmOK.Activated:Connect(activateConfirmOK)
+
+ConfirmCancel.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		activateConfirmCancel()
 	end
 end)
+
+ConfirmOK.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		activateConfirmOK()
+	end
+end)
+
+local BUTTON_COLORS = {
+	Neutral = COLORS.Gray,
+	NeutralHover = COLORS.Gray2,
+	ConfirmText = Color3.fromRGB(75, 190, 105),
+	CancelText = Color3.fromRGB(220, 75, 75),
+}
+
+for _, button in ipairs({ConfirmCancel, ConfirmOK}) do
+	button.MouseEnter:Connect(function()
+		tween(button, 0.1, {BackgroundColor3 = BUTTON_COLORS.NeutralHover})
+	end)
+	button.MouseLeave:Connect(function()
+		tween(button, 0.1, {BackgroundColor3 = BUTTON_COLORS.Neutral})
+	end)
+end
+
+local function hideMenu()
+	if not Menu.Parent then
+		return
+	end
+	Menu.Visible = false
+	ConfirmOverlay.Visible = false
+end
+
+local function showMenu()
+	if not Menu.Parent or cleanedUp then
+		return
+	end
+	Menu.Visible = true
+	setTab(currentTab)
+end
 
 MinimizeButton.Activated:Connect(function()
 	hideMenu()
 end)
 
-local function hideMenu()
-	if cleanedUp or not ScreenGui.Parent then
-		return
-	end
-	if not Menu.Visible then
-		return
-	end
-	Menu.Visible = false
-end
-
-local function showMenu()
-	if cleanedUp or not ScreenGui.Parent then
-		return
-	end
-	Menu.Visible = true
-end
-
 local closeBusy = false
 
 local function requestCloseFromButton()
-	if closeBusy then
-		return
-	end
-	if not ScreenGui.Parent or cleanedUp then
+	if closeBusy or cleanedUp or not ScreenGui.Parent then
 		return
 	end
 	closeBusy = true
-	ConfirmOverlay.Visible = true
-	registerCleanup(
+	openConfirm(
+		"Are you sure you want to remove Phantom Hub and stop all of its active features?",
 		function()
 			cleanupAll()
 			if ScreenGui.Parent then
@@ -1207,7 +1142,7 @@ local function isPointInside(guiObject, point)
 end
 
 local closeFallbackConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if cleanedUp or not ScreenGui.Parent or not Menu.Visible or ConfirmOverlay.Visible or AutoRejoinConfirm.Visible then
+	if cleanedUp or not ScreenGui.Parent or not Menu.Visible or ConfirmOverlay.Visible then
 		return
 	end
 	if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
