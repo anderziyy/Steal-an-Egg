@@ -1,4 +1,3 @@
-
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
@@ -419,20 +418,19 @@ local ResultsScroll = make("ScrollingFrame", {
 	Size = UDim2.fromScale(0.93, 0.815),
 	BackgroundTransparency = 1,
 	BorderSizePixel = 0,
-	ScrollBarThickness = 3,
-	ScrollBarImageColor3 = COLORS.Gray3,
-	ScrollBarImageTransparency = 0.05,
+	ScrollBarThickness = 5,
+	ScrollBarImageColor3 = COLORS.SoftWhite,
+	ScrollBarImageTransparency = 0.25,
 	CanvasSize = UDim2.new(0, 0, 0, 0),
-	AutomaticCanvasSize = Enum.AutomaticSize.None,
+	AutomaticCanvasSize = Enum.AutomaticSize.Y,
 	ScrollingDirection = Enum.ScrollingDirection.Y,
 	ScrollingEnabled = true,
 	Active = true,
 	ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-	VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
 	ZIndex = 4,
 }, Content)
 
-local ResultsLayout = make("UIListLayout", {
+make("UIListLayout", {
 	Padding = UDim.new(0, 7),
 	SortOrder = Enum.SortOrder.LayoutOrder,
 	HorizontalAlignment = Enum.HorizontalAlignment.Center,
@@ -443,14 +441,35 @@ local ResultsPadding = make("UIPadding", {
 	PaddingBottom = UDim.new(0, 8),
 }, ResultsScroll)
 
--- Keep the scrollable canvas synchronized with the real rendered content.
--- This makes vertical scrolling work reliably for every tab and expanded category.
-local function updateResultsCanvas()
-	local contentHeight = ResultsLayout.AbsoluteContentSize.Y + ResultsPadding.PaddingTop.Offset + ResultsPadding.PaddingBottom.Offset
-	ResultsScroll.CanvasSize = UDim2.new(0, 0, 0, math.ceil(contentHeight))
+-- Variables globais de sistema de arraste para categorias
+local scrollDragging = false
+local scrollDragInput = nil
+local scrollDragStartY = 0
+local scrollStartCanvasY = 0
+local scrollDidDrag = false
+
+local function isPointInside(guiObject, point)
+	local position = guiObject.AbsolutePosition
+	local size = guiObject.AbsoluteSize
+	return point.X >= position.X and point.X <= position.X + size.X
+		and point.Y >= position.Y and point.Y <= position.Y + size.Y
 end
 
-ResultsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateResultsCanvas)
+local globalInputBeganConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if cleanedUp or not ScreenGui.Parent or not Menu.Visible then return end
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		if isPointInside(ResultsScroll, input.Position) then
+			scrollDragging = true
+			scrollDragInput = input.UserInputType == Enum.UserInputType.Touch and input or nil
+			scrollDragStartY = input.Position.Y
+			scrollStartCanvasY = ResultsScroll.CanvasPosition.Y
+			scrollDidDrag = false
+		end
+	end
+end)
+registerCleanup(function()
+	globalInputBeganConnection:Disconnect()
+end)
 
 local NotificationContainer = make("Frame", {
 	Name = "NotificationContainer",
@@ -721,8 +740,6 @@ local function getVisibleItems(tabName, query)
 		return datasets[tabName] or {}
 	end
 
-	-- Search globally across every tab, but only return real options.
-	-- Category headers are never search results.
 	local filtered = {}
 	local searchOrder = {"Main", "Auto Buy", "Farm", "Config", "Credits"}
 	for _, datasetName in ipairs(searchOrder) do
@@ -855,6 +872,7 @@ local function createCategoryRow(category, layoutOrder, searchQuery)
 	end)
 
 	Hit.Activated:Connect(function()
+		if scrollDidDrag then return end
 		if searchQuery ~= "" then
 			category.Expanded = true
 		else
@@ -964,12 +982,10 @@ createStandardRow = function(item, layoutOrder)
 			end
 		end
 
-		-- Initial rendering is applied instantly, so changing tabs, opening/closing
-		-- the menu, or opening/closing categories never makes the switch appear OFF
-		-- for a frame before returning to its saved state.
 		updateToggle(false)
 
 		ToggleButton.Activated:Connect(function()
+			if scrollDidDrag then return end
 			setToggleState(item, not (toggleStates[item] == true))
 			updateToggle(true)
 		end)
@@ -990,9 +1006,16 @@ createStandardRow = function(item, layoutOrder)
 	}, Row)
 	Hit.MouseEnter:Connect(function() tween(Row, 0.10, {BackgroundColor3 = COLORS.DarkGray}) end)
 	Hit.MouseLeave:Connect(function() tween(Row, 0.10, {BackgroundColor3 = COLORS.Black2}) end)
+	
 	if item.Action then
-		Hit.Activated:Connect(item.Action)
-		Right.Activated:Connect(item.Action)
+		Hit.Activated:Connect(function()
+			if scrollDidDrag then return end
+			item.Action()
+		end)
+		Right.Activated:Connect(function()
+			if scrollDidDrag then return end
+			item.Action()
+		end)
 	end
 	return Row
 end
@@ -1000,7 +1023,6 @@ end
 renderResults = function()
 	local previousScrollY = ResultsScroll.CanvasPosition.Y
 	clearResults()
-	updateResultsCanvas()
 	local query = SearchBox.Text
 	local items = getVisibleItems(currentTab, query)
 	if #items == 0 then
@@ -1013,20 +1035,17 @@ renderResults = function()
 		else
 			showEmptyState("This tab has no options yet.")
 		end
-		updateResultsCanvas()
 		setResultsScrollPositionY(0)
 		return
 	end
 
 	local layoutIndex = 0
 	if query ~= "" then
-		-- Global search results are option-only; categories are never rendered.
 		for _, item in ipairs(items) do
 			layoutIndex += 1
 			createStandardRow(item, layoutIndex)
 		end
 		task.defer(function()
-			updateResultsCanvas()
 			setResultsScrollPositionY(previousScrollY)
 		end)
 		return
@@ -1045,7 +1064,6 @@ renderResults = function()
 	end
 
 	task.defer(function()
-		updateResultsCanvas()
 		setResultsScrollPositionY(previousScrollY)
 	end)
 end
@@ -1337,13 +1355,6 @@ CloseButton.InputBegan:Connect(function(input)
 	end
 end)
 
-local function isPointInside(guiObject, point)
-	local position = guiObject.AbsolutePosition
-	local size = guiObject.AbsoluteSize
-	return point.X >= position.X and point.X <= position.X + size.X
-		and point.Y >= position.Y and point.Y <= position.Y + size.Y
-end
-
 local closeFallbackConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if cleanedUp or not ScreenGui.Parent or not Menu.Visible or ConfirmOverlay.Visible then
 		return
@@ -1561,6 +1572,14 @@ local inputChangedConnection = UserInputService.InputChanged:Connect(function(in
 	elseif menuDragStart and not menuDragInput and input.UserInputType == Enum.UserInputType.MouseMovement then
 		updateMenuDrag(input)
 	end
+	
+	if scrollDragging and ((scrollDragInput and input == scrollDragInput) or (not scrollDragInput and input.UserInputType == Enum.UserInputType.MouseMovement)) then
+		local deltaY = scrollDragStartY - input.Position.Y
+		if math.abs(deltaY) > 5 then
+			scrollDidDrag = true
+		end
+		ResultsScroll.CanvasPosition = Vector2.new(0, scrollStartCanvasY + deltaY)
+	end
 end)
 
 local inputEndedConnection = UserInputService.InputEnded:Connect(function(input)
@@ -1570,6 +1589,10 @@ local inputEndedConnection = UserInputService.InputEnded:Connect(function(input)
 		end
 		if menuDragging then
 			endMenuDrag()
+		end
+		if scrollDragging then
+			scrollDragging = false
+			scrollDragInput = nil
 		end
 	end
 end)
