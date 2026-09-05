@@ -442,6 +442,74 @@ local ResultsPadding = make("UIPadding", {
 	PaddingBottom = UDim.new(0, 8),
 }, ResultsScroll)
 
+local resultsTouchDragging = false
+local resultsTouchStart = nil
+local resultsTouchStartCanvasY = 0
+local resultsTouchInput = nil
+local resultsPressRows = {}
+
+local function setResultsPressedVisual(pressed)
+	for row in pairs(resultsPressRows) do
+		if row and row.Parent then
+			tween(row, 0.08, {BackgroundTransparency = pressed and 0.18 or 0})
+		end
+	end
+end
+
+local function markResultsRow(row)
+	resultsPressRows[row] = true
+	row.Destroying:Connect(function()
+		resultsPressRows[row] = nil
+	end)
+end
+
+local function beginResultsTouch(input)
+	if input.UserInputType ~= Enum.UserInputType.Touch and input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+		return
+	end
+	resultsTouchDragging = false
+	resultsTouchStart = input.Position
+	resultsTouchStartCanvasY = ResultsScroll.CanvasPosition.Y
+	resultsTouchInput = input.UserInputType == Enum.UserInputType.Touch and input or nil
+	setResultsPressedVisual(true)
+end
+
+local function updateResultsTouch(input)
+	if not resultsTouchStart then return end
+	if resultsTouchInput and input ~= resultsTouchInput then return end
+	if not resultsTouchInput and input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
+
+	local deltaY = input.Position.Y - resultsTouchStart.Y
+	if math.abs(deltaY) < 6 then return end
+	resultsTouchDragging = true
+
+	local maxY = math.max(0, ResultsScroll.AbsoluteCanvasSize.Y - ResultsScroll.AbsoluteSize.Y)
+	local targetY = math.clamp(resultsTouchStartCanvasY - deltaY, 0, maxY)
+	ResultsScroll.CanvasPosition = Vector2.new(ResultsScroll.CanvasPosition.X, targetY)
+end
+
+local function endResultsTouch()
+	if not resultsTouchStart then return end
+	resultsTouchDragging = false
+	resultsTouchStart = nil
+	resultsTouchInput = nil
+	setResultsPressedVisual(false)
+end
+
+ResultsScroll.InputBegan:Connect(beginResultsTouch)
+
+local resultsGlobalInputConnection = UserInputService.InputBegan:Connect(function(input)
+	if cleanedUp or not ScreenGui.Parent or ConfirmOverlay and ConfirmOverlay.Visible then
+		return
+	end
+	if input.UserInputType ~= Enum.UserInputType.Touch and input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+		return
+	end
+	if isPointInside and isPointInside(ResultsScroll, input.Position) then
+		beginResultsTouch(input)
+	end
+end)
+
 local NotificationContainer = make("Frame", {
 	Name = "NotificationContainer",
 	AnchorPoint = Vector2.new(1, 1),
@@ -704,13 +772,6 @@ local function setResultsScrollPositionY(y)
 	ResultsScroll.CanvasPosition = Vector2.new(ResultsScroll.CanvasPosition.X, math.clamp(y or 0, 0, maxY))
 end
 
--- The right-side results panel is intentionally a real ScrollingFrame.
--- This allows both mouse-wheel scrolling and touch press-and-drag scrolling.
--- Click/tap activation remains handled by the individual option/category buttons.
-ResultsScroll.ScrollingEnabled = true
-ResultsScroll.Active = true
-ResultsScroll.CanvasPosition = Vector2.new(0, 0)
-
 local function getVisibleItems(tabName, query)
 	local normalized = string.lower(query or "")
 
@@ -860,12 +921,12 @@ local function createCategoryRow(category, layoutOrder, searchQuery)
 		renderResults()
 	end)
 
-	-- Build every child frame whenever the category is rendered.
-	-- Collapsed categories keep their option frames in the hierarchy, but the
-	-- option frames are hidden. Expanding the category only changes visibility.
+	-- Keep every child frame mounted at all times. A collapsed category only
+	-- hides the child rows visually; expanding changes Visible without recreating them.
 	for childIndex, child in ipairs(children) do
 		local childRow = createStandardRow(child, layoutOrder + childIndex)
 		childRow.Visible = expanded or searchQuery ~= ""
+		markResultsRow(childRow)
 	end
 
 	return Row
@@ -932,6 +993,8 @@ createStandardRow = function(item, layoutOrder)
 		TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 5,
 	}, Row)
 
+	markResultsRow(Row)
+
 	if item.Toggle then
 		local ToggleButton = make("TextButton", {
 			Name = "Toggle", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.fromScale(0.95, 0.5),
@@ -990,8 +1053,14 @@ createStandardRow = function(item, layoutOrder)
 	Hit.MouseEnter:Connect(function() tween(Row, 0.10, {BackgroundColor3 = COLORS.DarkGray}) end)
 	Hit.MouseLeave:Connect(function() tween(Row, 0.10, {BackgroundColor3 = COLORS.Black2}) end)
 	if item.Action then
-		Hit.Activated:Connect(item.Action)
-		Right.Activated:Connect(item.Action)
+		Hit.Activated:Connect(function()
+			if resultsTouchDragging then return end
+			item.Action()
+		end)
+		Right.Activated:Connect(function()
+			if resultsTouchDragging then return end
+			item.Action()
+		end)
 	end
 	return Row
 end
@@ -1032,9 +1101,7 @@ renderResults = function()
 		layoutIndex += 1
 		if item.Type == "Category" then
 			createCategoryRow(item, layoutIndex, query)
-			if item.Expanded then
-				layoutIndex += #(item.Items or {})
-			end
+			layoutIndex += #(item.Items or {})
 		else
 			createStandardRow(item, layoutIndex)
 		end
@@ -1546,6 +1613,7 @@ for name, corner in pairs(corners) do
 end
 
 local inputChangedConnection = UserInputService.InputChanged:Connect(function(input)
+	updateResultsTouch(input)
 	if launcherDragging and ((launcherDragInput and input == launcherDragInput) or (not launcherDragInput and input.UserInputType == Enum.UserInputType.MouseMovement)) then
 		updateLauncherDrag(input)
 	end
@@ -1559,6 +1627,9 @@ local inputChangedConnection = UserInputService.InputChanged:Connect(function(in
 end)
 
 local inputEndedConnection = UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		endResultsTouch()
+	end
 	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 		if launcherDragging then
 			endLauncherDrag()
@@ -1620,6 +1691,7 @@ registerCleanup(function()
 	toggleConnections = {}
 	inputChangedConnection:Disconnect()
 	inputEndedConnection:Disconnect()
+	resultsGlobalInputConnection:Disconnect()
 	searchTextConnection:Disconnect()
 	renderSteppedConnection:Disconnect()
 end)
