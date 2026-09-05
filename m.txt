@@ -419,7 +419,7 @@ local ResultsScroll = make("ScrollingFrame", {
 	Size = UDim2.fromScale(0.93, 0.815),
 	BackgroundTransparency = 1,
 	BorderSizePixel = 0,
-	ScrollBarThickness = 3,
+	ScrollBarThickness = 4,
 	ScrollBarImageColor3 = COLORS.Gray3,
 	ScrollBarImageTransparency = 0.05,
 	CanvasSize = UDim2.new(0, 0, 0, 0),
@@ -427,20 +427,51 @@ local ResultsScroll = make("ScrollingFrame", {
 	ScrollingDirection = Enum.ScrollingDirection.Y,
 	ScrollingEnabled = true,
 	Active = true,
+	Selectable = false,
 	ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
+	ClipsDescendants = true,
 	ZIndex = 4,
 }, Content)
 
-make("UIListLayout", {
+local ResultsLayout = make("UIListLayout", {
 	Padding = UDim.new(0, 7),
 	SortOrder = Enum.SortOrder.LayoutOrder,
 	HorizontalAlignment = Enum.HorizontalAlignment.Center,
+	VerticalAlignment = Enum.VerticalAlignment.Top,
 }, ResultsScroll)
 
 local ResultsPadding = make("UIPadding", {
 	PaddingTop = UDim.new(0, 2),
 	PaddingBottom = UDim.new(0, 8),
 }, ResultsScroll)
+
+-- Same scrolling pattern used by the older menu, adapted to this menu's
+-- Results/ResultsLayout names. The canvas is refreshed from the actual
+-- content height whenever the list changes.
+local function refreshResultsCanvas()
+	task.defer(function()
+		if not ResultsScroll.Parent then
+			return
+		end
+
+		local contentHeight = ResultsLayout.AbsoluteContentSize.Y
+		local topPadding = ResultsPadding.PaddingTop.Offset
+		local bottomPadding = ResultsPadding.PaddingBottom.Offset
+		ResultsScroll.CanvasSize = UDim2.new(
+			0,
+			0,
+			0,
+			contentHeight + topPadding + bottomPadding
+		)
+	end)
+end
+
+local resultsLayoutConnection = ResultsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(refreshResultsCanvas)
+registerCleanup(function()
+	resultsLayoutConnection:Disconnect()
+end)
+
+refreshResultsCanvas()
 
 local NotificationContainer = make("Frame", {
 	Name = "NotificationContainer",
@@ -697,6 +728,7 @@ local function clearResults()
 			child:Destroy()
 		end
 	end
+	refreshResultsCanvas()
 end
 
 local function setResultsScrollPositionY(y)
@@ -769,8 +801,6 @@ end
 
 local createStandardRow
 local renderResults
-
-local categoryScrollStates = {}
 
 local function createCategoryRow(category, layoutOrder, searchQuery)
 	local expanded = category.Expanded == true
@@ -856,109 +886,8 @@ local function createCategoryRow(category, layoutOrder, searchQuery)
 	end)
 
 	if expanded or searchQuery ~= "" then
-		local ContainerFrame = make("Frame", {
-			Name = "ItemsContainer",
-			Position = UDim2.fromScale(0, 0.15),
-			Size = UDim2.fromScale(0.94, 0.5),
-			BackgroundColor3 = COLORS.Black,
-			BorderSizePixel = 0,
-			LayoutOrder = layoutOrder,
-			ZIndex = 4,
-			ClipsDescendants = true,
-		}, ResultsScroll)
-
-		local OptionsScroll = make("ScrollingFrame", {
-			Name = "OptionsScroll",
-			Position = UDim2.fromScale(0, 0),
-			Size = UDim2.fromScale(1, 1),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ScrollBarThickness = 4,
-			ScrollBarImageColor3 = COLORS.Gray3,
-			ScrollBarImageTransparency = 0.05,
-			CanvasSize = UDim2.new(0, 0, 0, 0),
-			AutomaticCanvasSize = Enum.AutomaticSize.Y,
-			ScrollingDirection = Enum.ScrollingDirection.Y,
-			ScrollingEnabled = true,
-			Active = true,
-			ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-			ZIndex = 5,
-		}, ContainerFrame)
-
-		make("UIListLayout", {
-			Padding = UDim.new(0, 4),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-			HorizontalAlignment = Enum.HorizontalAlignment.Center,
-		}, OptionsScroll)
-
-		make("UIPadding", {
-			PaddingTop = UDim.new(0, 2),
-			PaddingBottom = UDim.new(0, 4),
-		}, OptionsScroll)
-
-		local scrollState = {
-			isScrolling = false,
-			startPos = nil,
-			startCanvasPos = nil,
-			lastPos = nil,
-		}
-		categoryScrollStates[category] = scrollState
-
-		local function onInputBegan(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-				scrollState.isScrolling = true
-				scrollState.startPos = input.Position
-				scrollState.startCanvasPos = OptionsScroll.CanvasPosition.Y
-				scrollState.lastPos = input.Position
-			end
-		end
-
-		local function onInputChanged(input)
-			if not scrollState.isScrolling or (input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch) then
-				return
-			end
-
-			local delta = input.Position.Y - scrollState.lastPos.Y
-			local newCanvasPos = scrollState.startCanvasPos - delta
-
-			local maxCanvasY = math.max(0, OptionsScroll.AbsoluteCanvasSize.Y - OptionsScroll.AbsoluteSize.Y)
-			newCanvasPos = math.clamp(newCanvasPos, 0, maxCanvasY)
-
-			OptionsScroll.CanvasPosition = Vector2.new(0, newCanvasPos)
-			scrollState.lastPos = input.Position
-		end
-
-		local function onInputEnded(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-				scrollState.isScrolling = false
-				scrollState.startPos = nil
-				scrollState.startCanvasPos = nil
-				scrollState.lastPos = nil
-			end
-		end
-
-		OptionsScroll.InputBegan:Connect(onInputBegan)
-		UserInputService.InputChanged:Connect(function(input)
-			if scrollState.isScrolling then
-				onInputChanged(input)
-			end
-		end)
-		UserInputService.InputEnded:Connect(onInputEnded)
-
 		for childIndex, child in ipairs(children) do
-			createStandardRow(child, childIndex, OptionsScroll, scrollState)
-		end
-	else
-		for childIndex, child in ipairs(children) do
-			local invisible = make("Frame", {
-				Name = "InvisibleOption",
-				Size = UDim2.fromScale(0.94, 0),
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-				LayoutOrder = childIndex,
-				Visible = false,
-				ZIndex = 4,
-			}, ResultsScroll)
+			createStandardRow(child, layoutOrder + childIndex)
 		end
 	end
 
@@ -1001,8 +930,7 @@ local function setToggleState(item, enabled)
 	end
 end
 
-createStandardRow = function(item, layoutOrder, parentFrame, scrollState)
-	local parent = parentFrame or ResultsScroll
+createStandardRow = function(item, layoutOrder)
 	local Row = make("Frame", {
 		Name = "Option",
 		Size = UDim2.fromScale(item.Compact and 0.94 or 1, 0.15),
@@ -1010,7 +938,7 @@ createStandardRow = function(item, layoutOrder, parentFrame, scrollState)
 		BorderSizePixel = 0,
 		LayoutOrder = layoutOrder,
 		ZIndex = 4,
-	}, parent)
+	}, ResultsScroll)
 	make("UIStroke", {Thickness = 1, Color = COLORS.Gray2, Transparency = 0.30}, Row)
 
 	make("TextLabel", {
@@ -1058,12 +986,12 @@ createStandardRow = function(item, layoutOrder, parentFrame, scrollState)
 			end
 		end
 
+		-- Initial rendering is applied instantly, so changing tabs, opening/closing
+		-- the menu, or opening/closing categories never makes the switch appear OFF
+		-- for a frame before returning to its saved state.
 		updateToggle(false)
 
 		ToggleButton.Activated:Connect(function()
-			if scrollState and scrollState.isScrolling then
-				return
-			end
 			setToggleState(item, not (toggleStates[item] == true))
 			updateToggle(true)
 		end)
@@ -1082,27 +1010,11 @@ createStandardRow = function(item, layoutOrder, parentFrame, scrollState)
 		Name = "ClickSurface", Position = UDim2.fromScale(0, 0), Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 4,
 	}, Row)
-
-	Hit.MouseEnter:Connect(function()
-		if not (scrollState and scrollState.isScrolling) then
-			tween(Row, 0.10, {BackgroundColor3 = COLORS.DarkGray})
-		end
-	end)
-	Hit.MouseLeave:Connect(function()
-		tween(Row, 0.10, {BackgroundColor3 = COLORS.Black2})
-	end)
-
+	Hit.MouseEnter:Connect(function() tween(Row, 0.10, {BackgroundColor3 = COLORS.DarkGray}) end)
+	Hit.MouseLeave:Connect(function() tween(Row, 0.10, {BackgroundColor3 = COLORS.Black2}) end)
 	if item.Action then
-		Hit.Activated:Connect(function()
-			if not (scrollState and scrollState.isScrolling) then
-				item.Action()
-			end
-		end)
-		Right.Activated:Connect(function()
-			if not (scrollState and scrollState.isScrolling) then
-				item.Action()
-			end
-		end)
+		Hit.Activated:Connect(item.Action)
+		Right.Activated:Connect(item.Action)
 	end
 	return Row
 end
@@ -1122,6 +1034,7 @@ renderResults = function()
 		else
 			showEmptyState("This tab has no options yet.")
 		end
+		refreshResultsCanvas()
 		setResultsScrollPositionY(0)
 		return
 	end
@@ -1134,6 +1047,7 @@ renderResults = function()
 			createStandardRow(item, layoutIndex)
 		end
 		task.defer(function()
+			refreshResultsCanvas()
 			setResultsScrollPositionY(previousScrollY)
 		end)
 		return
@@ -1152,6 +1066,7 @@ renderResults = function()
 	end
 
 	task.defer(function()
+		refreshResultsCanvas()
 		setResultsScrollPositionY(previousScrollY)
 	end)
 end
