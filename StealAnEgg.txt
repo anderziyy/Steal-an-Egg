@@ -4,7 +4,6 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
-local MarketplaceService = game:GetService("MarketplaceService")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -16,7 +15,6 @@ local IMAGE_AUTOBUY = "rbxassetid://110805385284419"
 local IMAGE_FARM = "rbxassetid://102352181267949"
 local IMAGE_CONFIG = "rbxassetid://114794077382466"
 local IMAGE_CREDITS = "rbxassetid://99243311837005"
-local IMAGE_INFO = "rbxassetid://139941237100942"
 local IMAGE_CLICK = "rbxassetid://97594499544606"
 local IMAGE_DISCORD_COPIED = "rbxassetid://132744109593099"
 local IMAGE_GAME_ID = "rbxassetid://88704800286791"
@@ -625,7 +623,7 @@ LockButton.Activated:Connect(openLockPanel)
 local TabList = make("ScrollingFrame", {
 	Name = "Tabs",
 	Position = UDim2.fromScale(0.055, 0.045),
-	Size = UDim2.fromScale(0.89, 0.72),
+	Size = UDim2.fromScale(0.89, 0.90),
 	BackgroundTransparency = 1,
 	BorderSizePixel = 0,
 	ScrollBarThickness = 3,
@@ -643,93 +641,87 @@ make("UIListLayout", {
 	HorizontalAlignment = Enum.HorizontalAlignment.Center,
 }, TabList)
 
--- Compact player identity footer. It stays outside the tab ScrollingFrame so
--- the individual tab sizes remain unchanged while the footer never scrolls away.
-local ProfileCard = make("Frame", {
+-- Player Profile Section
+local PlayerProfileContainer = make("Frame", {
 	Name = "PlayerProfile",
-	Position = UDim2.fromScale(0.055, 0.795),
-	Size = UDim2.fromScale(0.89, 0.17),
-	BackgroundColor3 = COLORS.Black,
-	BackgroundTransparency = 0.15,
+	Position = UDim2.fromScale(0.055, 0.935),
+	Size = UDim2.fromScale(0.89, 0.055),
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	ZIndex = 4,
+}, Sidebar)
+
+local PlayerProfileContent = make("Frame", {
+	Name = "Content",
+	AnchorPoint = Vector2.new(0, 0.5),
+	Position = UDim2.fromScale(0, 0.5),
+	Size = UDim2.fromScale(1, 1),
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	ZIndex = 4,
+}, PlayerProfileContainer)
+
+local PlayerAvatar = make("ImageLabel", {
+	Name = "Avatar",
+	AnchorPoint = Vector2.new(0, 0.5),
+	Position = UDim2.fromScale(0, 0.5),
+	Size = UDim2.fromScale(0.18, 1),
+	BackgroundColor3 = COLORS.Gray,
+	BorderSizePixel = 0,
+	Image = "rbxthumb://avatar=" .. LocalPlayer.UserId .. "&x=420&y=420&format=png",
+	ImageScaleType = Enum.ScaleType.Crop,
+	ZIndex = 5,
+}, PlayerProfileContent)
+
+make("UICorner", {CornerRadius = UDim.new(1, 0)}, PlayerAvatar)
+
+local PlayerNameSection = make("Frame", {
+	Name = "NameSection",
+	AnchorPoint = Vector2.new(0, 0.5),
+	Position = UDim2.fromScale(0.22, 0.5),
+	Size = UDim2.fromScale(0.78, 1),
+	BackgroundTransparency = 1,
 	BorderSizePixel = 0,
 	ZIndex = 5,
-}, Sidebar)
-make("UIStroke", {
-	Thickness = 1,
-	Color = COLORS.Gray,
-	Transparency = 0.55,
-}, ProfileCard)
+}, PlayerProfileContent)
 
-local ProfileAvatar = make("ImageLabel", {
-	Name = "Avatar",
-	Position = UDim2.fromScale(0.035, 0.13),
-	Size = UDim2.fromScale(0.24, 0.74),
-	BackgroundColor3 = COLORS.Gray2,
-	BorderSizePixel = 0,
-	Image = "",
-	ScaleType = Enum.ScaleType.Crop,
-	ZIndex = 6,
-}, ProfileCard)
-make("UICorner", {CornerRadius = UDim.new(1, 0)}, ProfileAvatar)
-make("UIStroke", {
-	Thickness = 1.2,
-	Color = COLORS.Gray3,
-	Transparency = 0.08,
-}, ProfileAvatar)
-
-local ProfileName = make("TextLabel", {
-	Name = "Username",
-	Position = UDim2.fromScale(0.315, 0.13),
-	Size = UDim2.fromScale(0.64, 0.40),
+local PlayerNameLabel = make("TextLabel", {
+	Name = "PlayerName",
+	AnchorPoint = Vector2.new(0, 1),
+	Position = UDim2.fromScale(0, 0.48),
+	Size = UDim2.fromScale(1, 0.50),
 	BackgroundTransparency = 1,
 	Text = LocalPlayer.Name,
 	TextColor3 = COLORS.White,
 	Font = Enum.Font.GothamBold,
-	TextSize = 15,
+	TextSize = 11,
 	TextXAlignment = Enum.TextXAlignment.Left,
-	TextYAlignment = Enum.TextYAlignment.Center,
-	TextTruncate = Enum.TextTruncate.AtEnd,
-	ZIndex = 6,
-}, ProfileCard)
+	TextYAlignment = Enum.TextYAlignment.Bottom,
+	ZIndex = 5,
+})
+PlayerNameLabel.Parent = PlayerNameSection
 
-local ProfileDisplayName = make("TextLabel", {
-	Name = "DisplayName",
-	Position = UDim2.fromScale(0.315, 0.55),
-	Size = UDim2.fromScale(0.64, 0.28),
-	BackgroundTransparency = 1,
-	Text = "",
-	TextColor3 = COLORS.SoftWhite,
-	Font = Enum.Font.Gotham,
-	TextSize = 10.5,
-	TextXAlignment = Enum.TextXAlignment.Left,
-	TextYAlignment = Enum.TextYAlignment.Center,
-	TextTruncate = Enum.TextTruncate.AtEnd,
-	Visible = false,
-	ZIndex = 6,
-}, ProfileCard)
-
-do
-	local ok, image = pcall(function()
-		return Players:GetUserThumbnailAsync(
-			LocalPlayer.UserId,
-			Enum.ThumbnailType.HeadShot,
-			Enum.ThumbnailSize.Size100x100
-		)
-	end)
-	if ok and image then
-		ProfileAvatar.Image = image
-	end
-
-	local displayName = LocalPlayer.DisplayName
-	if displayName and displayName ~= "" and displayName ~= LocalPlayer.Name then
-		ProfileDisplayName.Text = "(" .. displayName .. ")"
-		ProfileDisplayName.Visible = true
-	else
-		ProfileDisplayName.Visible = false
-	end
+-- Display Name (if exists)
+local displayName = LocalPlayer.DisplayName
+if displayName and displayName ~= LocalPlayer.Name then
+	make("TextLabel", {
+		Name = "DisplayName",
+		AnchorPoint = Vector2.new(0, 0),
+		Position = UDim2.fromScale(0, 0.52),
+		Size = UDim2.fromScale(1, 0.45),
+		BackgroundTransparency = 1,
+		Text = "(" .. displayName .. ")",
+		TextColor3 = COLORS.Muted,
+		Font = Enum.Font.Gotham,
+		TextSize = 9,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		ZIndex = 5,
+	}, PlayerNameSection)
 end
 
 local tabs = {
+	{Name = "Info", Icon = "rbxassetid://139941237100942"},
 	{Name = "Main", Icon = IMAGE_MAIN},
 	{Name = "Auto Buy", Icon = IMAGE_AUTOBUY},
 	{Name = "Farm", Icon = IMAGE_FARM},
@@ -1018,126 +1010,8 @@ local function requestServerHop()
 	end
 end
 
-local gameInfoName = "Unknown experience"
-local gameInfoCreator = "Unknown creator"
-local scriptStartTime = os.clock()
-
-do
-	local ok, productInfo = pcall(function()
-		return MarketplaceService:GetProductInfo(game.PlaceId, Enum.InfoType.Asset)
-	end)
-	if ok and type(productInfo) == "table" then
-		if type(productInfo.Name) == "string" and productInfo.Name ~= "" then
-			gameInfoName = productInfo.Name
-		end
-		if type(productInfo.Creator) == "table" and type(productInfo.Creator.Name) == "string" then
-			gameInfoCreator = productInfo.Creator.Name
-		end
-	end
-end
-
-local infoDynamicItems = {}
-
-local function addInfoItem(title, description, valueGetter)
-	local item = {
-		Title = title,
-		Description = description,
-		Compact = true,
-		DynamicValue = valueGetter,
-	}
-	table.insert(infoDynamicItems, item)
-	return item
-end
-
-local infoServerCategory = {
-	Type = "Category",
-	Title = "Current Server",
-	Icon = IMAGE_INFO,
-	Expanded = true,
-	Items = {},
-}
-
-addInfoItem("Players", "Current players in this server.", function()
-	return tostring(#Players:GetPlayers()) .. " / " .. tostring(Players.MaxPlayers)
-end)
-addInfoItem("Server Type", "Whether this is a public, private, or reserved server.", function()
-	if game.PrivateServerId and game.PrivateServerId ~= "" then
-		if game.PrivateServerOwnerId and game.PrivateServerOwnerId ~= 0 then
-			return "Private server"
-		end
-		return "Reserved server"
-	end
-	return "Public server"
-end)
-addInfoItem("Server ID", "Unique JobId for the current server instance.", function()
-	return game.JobId ~= "" and game.JobId or "Unavailable"
-end)
-
-local infoGameCategory = {
-	Type = "Category",
-	Title = "Game Information",
-	Icon = IMAGE_INFO,
-	Expanded = true,
-	Items = {},
-}
-
-local gameItemName = {
-	Title = "Game Name",
-	Description = "Name of the current Roblox experience.",
-	Compact = true,
-	DynamicValue = function() return gameInfoName end,
-}
-local gameItemId = {
-	Title = "Game ID",
-	Description = "PlaceId of the current experience.",
-	Compact = true,
-	DynamicValue = function() return tostring(game.PlaceId) end,
-}
-local gameItemCreator = {
-	Title = "Creator",
-	Description = "Creator associated with the current experience.",
-	Compact = true,
-	DynamicValue = function() return gameInfoCreator end,
-}
-local gameItemPlayers = {
-	Title = "Local Player",
-	Description = "Your Roblox username and display name.",
-	Compact = true,
-	DynamicValue = function()
-		if LocalPlayer.DisplayName and LocalPlayer.DisplayName ~= "" and LocalPlayer.DisplayName ~= LocalPlayer.Name then
-			return LocalPlayer.Name .. " (" .. LocalPlayer.DisplayName .. ")"
-		end
-		return LocalPlayer.Name
-	end,
-}
-local gameItemSession = {
-	Title = "Session Time",
-	Description = "Approximate time since this LocalScript started running.",
-	Compact = true,
-	DynamicValue = function()
-		local seconds = math.max(0, math.floor(os.clock() - scriptStartTime))
-		local minutes = math.floor(seconds / 60)
-		local hours = math.floor(minutes / 60)
-		minutes %= 60
-		seconds %= 60
-		if hours > 0 then
-			return string.format("%02dh %02dm %02ds", hours, minutes, seconds)
-		end
-		return string.format("%02dm %02ds", minutes, seconds)
-	end,
-end
-
-table.insert(infoServerCategory.Items, infoDynamicItems[1])
-table.insert(infoServerCategory.Items, infoDynamicItems[2])
-table.insert(infoServerCategory.Items, infoDynamicItems[3])
-table.insert(infoGameCategory.Items, gameItemName)
-table.insert(infoGameCategory.Items, gameItemId)
-table.insert(infoGameCategory.Items, gameItemCreator)
-table.insert(infoGameCategory.Items, gameItemPlayers)
-table.insert(infoGameCategory.Items, gameItemSession)
-
 local datasets = {
-	Info = {infoServerCategory, infoGameCategory},
+	Info = {},
 	Main = {},
 	["Auto Buy"] = {},
 	Farm = {},
@@ -1217,6 +1091,58 @@ local datasets = {
 		},
 	},
 }
+
+local function updateServerInfo()
+	local playersCount = #Players:GetPlayers()
+	local gameName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
+	local gameId = tostring(game.PlaceId)
+	local serverId = tostring(game.JobId)
+	
+	datasets.Info = {
+		{
+			Title = "Server Info",
+			Type = "Category",
+			Icon = "rbxassetid://139941237100942",
+			Expanded = true,
+			Items = {
+				{
+					Title = "Players Online",
+					Description = tostring(playersCount) .. " players in this server",
+					Compact = true,
+				},
+				{
+					Title = "Game Name",
+					Description = gameName,
+					Compact = true,
+				},
+				{
+					Title = "Game ID",
+					Description = gameId,
+					Icon = IMAGE_GAME_ID,
+					Compact = true,
+					Action = function()
+						if copyGameId() then
+							showCopiedNotification("Game ID copied!", IMAGE_GAME_ID)
+						end
+					end,
+				},
+				{
+					Title = "Server ID",
+					Description = serverId,
+					Icon = IMAGE_GAME_ID,
+					Compact = true,
+					Action = function()
+						if copyServerId() then
+							showCopiedNotification("Server ID copied!", IMAGE_GAME_ID)
+						end
+					end,
+				},
+			},
+		},
+	}
+end
+
+updateServerInfo()
 
 local function clearResults()
 	for _, child in ipairs(ResultsScroll:GetChildren()) do
@@ -1437,42 +1363,19 @@ createStandardRow = function(item, layoutOrder)
 	}, ResultsScroll)
 	make("UIStroke", {Thickness = 1, Color = COLORS.Gray2, Transparency = 0.30}, Row)
 
-	local TitleLabel = make("TextLabel", {
-		Position = UDim2.fromScale(0.035, 0.16), Size = UDim2.fromScale(item.DynamicValue and 0.50 or 0.73, 0.32),
+	make("TextLabel", {
+		Position = UDim2.fromScale(0.035, 0.16), Size = UDim2.fromScale(0.73, 0.32),
 		BackgroundTransparency = 1, Text = item.Title or "Option", TextColor3 = COLORS.White,
 		Font = Enum.Font.GothamSemibold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Center, ZIndex = 5,
 	}, Row)
 
-	local DescriptionLabel = make("TextLabel", {
-		Position = UDim2.fromScale(0.035, 0.49), Size = UDim2.fromScale(item.DynamicValue and 0.50 or 0.73, 0.34),
+	make("TextLabel", {
+		Position = UDim2.fromScale(0.035, 0.49), Size = UDim2.fromScale(0.73, 0.34),
 		BackgroundTransparency = 1, Text = item.Description or "", TextColor3 = COLORS.Muted,
 		Font = Enum.Font.Gotham, TextSize = 11, TextWrapped = true,
 		TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 5,
 	}, Row)
-
-	if item.DynamicValue then
-		local ValueLabel = make("TextLabel", {
-			Name = "DynamicValue",
-			AnchorPoint = Vector2.new(1, 0.5),
-			Position = UDim2.fromScale(0.95, 0.5),
-			Size = UDim2.fromScale(0.39, 0.60),
-			BackgroundTransparency = 1,
-			Text = "",
-			TextColor3 = COLORS.White,
-			Font = Enum.Font.GothamBold,
-			TextSize = 12,
-			TextWrapped = true,
-			TextXAlignment = Enum.TextXAlignment.Right,
-			TextYAlignment = Enum.TextYAlignment.Center,
-			TextTruncate = Enum.TextTruncate.AtEnd,
-			ZIndex = 6,
-		}, Row)
-		local ok, value = pcall(item.DynamicValue)
-		ValueLabel.Text = ok and tostring(value) or "Unavailable"
-		item._ValueLabels = item._ValueLabels or {}
-		table.insert(item._ValueLabels, ValueLabel)
-	end
 
 	if item.Toggle then
 		local ToggleButton = make("TextButton", {
@@ -1586,32 +1489,6 @@ renderResults = function()
 		setResultsScrollPositionY(previousScrollY)
 	end)
 end
-
-local infoUpdateAccumulator = 0
-local infoUpdateConnection = RunService.Heartbeat:Connect(function(deltaTime)
-	infoUpdateAccumulator += deltaTime
-	if infoUpdateAccumulator < 0.5 then
-		return
-	end
-	infoUpdateAccumulator = 0
-
-	for _, item in ipairs(infoDynamicItems) do
-		if item._ValueLabels then
-			local ok, value = pcall(item.DynamicValue)
-			local textValue = ok and tostring(value) or "Unavailable"
-			for _, label in ipairs(item._ValueLabels) do
-				if label and label.Parent and label.Text ~= textValue then
-					label.Text = textValue
-				end
-			end
-		end
-	end
-end)
-registerCleanup(function()
-	if infoUpdateConnection then
-		infoUpdateConnection:Disconnect()
-	end
-end)
 
 local function setTab(name)
 	currentTab = name
@@ -2177,8 +2054,40 @@ end)
 
 applyEnglishOnly(ScreenGui)
 
-setTab("Info")
+setTab("Main")
 Menu.Visible = false
+
+-- Update server info periodically
+local lastInfoUpdate = 0
+local infoUpdateInterval = 1 -- Update every 1 second
+local infoUpdateConnection = RunService.Heartbeat:Connect(function()
+	if not ScreenGui.Parent then
+		return
+	end
+	
+	local currentTime = tick()
+	if currentTime - lastInfoUpdate >= infoUpdateInterval then
+		lastInfoUpdate = currentTime
+		
+		-- Update server info silently (without re-rendering if tab is not active)
+		local playersCount = #Players:GetPlayers()
+		if datasets.Info[1] and datasets.Info[1].Items then
+			for _, item in ipairs(datasets.Info[1].Items) do
+				if item.Title == "Players Online" then
+					item.Description = tostring(playersCount) .. " players in this server"
+				end
+			end
+		end
+		
+		-- Re-render only if Info tab is currently active
+		if currentTab == "Info" then
+			renderResults()
+		end
+	end
+end)
+registerCleanup(function()
+	infoUpdateConnection:Disconnect()
+end)
 
 local renderSteppedConnection = RunService.RenderStepped:Connect(function()
 	if not ScreenGui.Parent then
