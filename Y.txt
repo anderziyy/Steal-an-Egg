@@ -1,0 +1,1126 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local VirtualInputManager = nil
+pcall(function()
+    VirtualInputManager = game:GetService("VirtualInputManager")
+end)
+local TeleportService = game:GetService("TeleportService")
+local Lighting = game:GetService("Lighting")
+
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
+
+local function asset(id)
+    return "rbxassetid://" .. tostring(id)
+end
+
+local THEME = {
+    Black = Color3.fromRGB(10, 10, 10),
+    Dark = Color3.fromRGB(17, 17, 17),
+    Panel = Color3.fromRGB(22, 22, 22),
+    Panel2 = Color3.fromRGB(28, 28, 28),
+    Gray = Color3.fromRGB(85, 85, 85),
+    Gray2 = Color3.fromRGB(120, 120, 120),
+    White = Color3.fromRGB(245, 245, 245),
+    Muted = Color3.fromRGB(165, 165, 165),
+    Red = Color3.fromRGB(235, 75, 75),
+    Green = Color3.fromRGB(90, 220, 125),
+}
+
+local function make(className, props)
+    local obj = Instance.new(className)
+    for k, v in pairs(props or {}) do
+        obj[k] = v
+    end
+    return obj
+end
+
+local function uiScale(parent, scale)
+    local s = make("UIScale", {Scale = scale or 1})
+    s.Parent = parent
+    return s
+end
+
+local function stroke(parent, thickness, transparency)
+    local s = make("UIStroke", {
+        Color = THEME.Gray2,
+        Thickness = thickness or 1,
+        Transparency = transparency or 0,
+        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+    })
+    s.Parent = parent
+    return s
+end
+
+local function corner(parent, radiusScale)
+    local c = make("UICorner", {CornerRadius = UDim.new(radiusScale or 0, 0)})
+    c.Parent = parent
+    return c
+end
+
+local function icon(parent, id, sizeScale, transparency)
+    return make("ImageLabel", {
+        Parent = parent,
+        BackgroundTransparency = 1,
+        Size = UDim2.fromScale(sizeScale, sizeScale),
+        Image = asset(id),
+        ImageTransparency = transparency or 0,
+        ScaleType = Enum.ScaleType.Fit,
+    })
+end
+
+local function button(parent, props)
+    local b = make("TextButton", {
+        Parent = parent,
+        BackgroundColor3 = props.background or THEME.Panel2,
+        BackgroundTransparency = props.transparency or 0,
+        BorderSizePixel = 0,
+        Text = props.text or "",
+        TextColor3 = props.textColor or THEME.White,
+        TextSize = props.textSize or 14,
+        Font = props.font or Enum.Font.GothamMedium,
+        AutoButtonColor = false,
+        Active = true,
+    })
+    b.Size = props.size or UDim2.fromScale(1, 1)
+    b.Position = props.position or UDim2.fromScale(0, 0)
+    if props.stroke then
+        stroke(b, props.stroke, props.strokeTransparency or 0)
+    end
+    return b
+end
+
+local gui = make("ScreenGui", {
+    Name = "PhantomHubUI",
+    ResetOnSpawn = false,
+    IgnoreGuiInset = false,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+    DisplayOrder = 1000,
+    Parent = PlayerGui,
+})
+
+local openButton = button(gui, {
+    size = UDim2.fromScale(0.075, 0.075),
+    position = UDim2.fromScale(0.035, 0.31),
+    background = THEME.Black,
+    stroke = 1,
+    text = "",
+})
+openButton.Name = "PhantomHubToggle"
+
+local openButtonIcon = icon(openButton, 121715364276099, 0.62)
+openButtonIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+openButtonIcon.Position = UDim2.fromScale(0.5, 0.5)
+openButton.ClipsDescendants = true
+uiScale(openButton, 1)
+
+local menu = make("Frame", {
+    Parent = gui,
+    Name = "ModMenu",
+    BackgroundColor3 = THEME.Dark,
+    BorderSizePixel = 0,
+    Size = UDim2.fromScale(0.68, 0.69),
+    Position = UDim2.fromScale(0.5, 0.5),
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    Visible = false,
+    Active = true,
+})
+stroke(menu, 1, 0)
+menu.ClipsDescendants = false
+uiScale(menu, 1)
+
+local titleBar = make("Frame", {
+    Parent = menu,
+    BackgroundColor3 = THEME.Black,
+    BorderSizePixel = 0,
+    Size = UDim2.fromScale(1, 0.12),
+    Position = UDim2.fromScale(0, 0),
+})
+
+local title = make("TextLabel", {
+    Parent = titleBar,
+    BackgroundTransparency = 1,
+    Size = UDim2.fromScale(0.58, 0.7),
+    Position = UDim2.fromScale(0.035, 0.15),
+    Text = "Phantom Hub | Steal an Egg",
+    TextColor3 = THEME.White,
+    TextSize = 16,
+    Font = Enum.Font.GothamBold,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    TextYAlignment = Enum.TextYAlignment.Center,
+})
+
+local minimize = button(titleBar, {
+    size = UDim2.fromScale(0.055, 0.75),
+    position = UDim2.fromScale(0.81, 0.125),
+    background = THEME.Black,
+    text = "-",
+    textColor = THEME.White,
+    textSize = 17,
+    font = Enum.Font.GothamBold,
+})
+
+local close = button(titleBar, {
+    size = UDim2.fromScale(0.055, 0.75),
+    position = UDim2.fromScale(0.88, 0.125),
+    background = THEME.Black,
+    text = "X",
+    textColor = THEME.White,
+    textSize = 14,
+    font = Enum.Font.GothamBold,
+})
+
+local side = make("Frame", {
+    Parent = menu,
+    BackgroundColor3 = THEME.Black,
+    BorderSizePixel = 0,
+    Size = UDim2.fromScale(0.26, 0.88),
+    Position = UDim2.fromScale(0, 0.12),
+})
+
+local tabs = make("ScrollingFrame", {
+    Parent = side,
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    Size = UDim2.fromScale(0.9, 0.92),
+    Position = UDim2.fromScale(0.05, 0.04),
+    CanvasSize = UDim2.fromScale(0, 0),
+    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    ScrollingDirection = Enum.ScrollingDirection.Y,
+    ScrollBarThickness = 1,
+    ScrollBarImageTransparency = 0.35,
+    Active = true,
+})
+
+local tabList = make("UIListLayout", {
+    Parent = tabs,
+    FillDirection = Enum.FillDirection.Vertical,
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Padding = UDim.new(0.012, 0),
+})
+
+local content = make("Frame", {
+    Parent = menu,
+    BackgroundColor3 = THEME.Dark,
+    BorderSizePixel = 0,
+    Size = UDim2.fromScale(0.74, 0.88),
+    Position = UDim2.fromScale(0.26, 0.12),
+})
+
+local searchFrame = make("Frame", {
+    Parent = content,
+    BackgroundColor3 = THEME.Panel,
+    BorderSizePixel = 0,
+    Size = UDim2.fromScale(0.94, 0.1),
+    Position = UDim2.fromScale(0.03, 0.035),
+})
+stroke(searchFrame, 1, 0.25)
+corner(searchFrame, 0.12)
+
+local searchIcon = icon(searchFrame, 73858257403039, 0.045, 0)
+searchIcon.AnchorPoint = Vector2.new(0, 0.5)
+searchIcon.Position = UDim2.fromScale(0.025, 0.5)
+
+local searchBox = make("TextBox", {
+    Parent = searchFrame,
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    Size = UDim2.fromScale(0.78, 0.9),
+    Position = UDim2.fromScale(0.095, 0.05),
+    PlaceholderText = "Search...",
+    PlaceholderColor3 = THEME.Muted,
+    Text = "",
+    ClearTextOnFocus = false,
+    TextColor3 = THEME.White,
+    TextSize = 13,
+    Font = Enum.Font.Gotham,
+    TextXAlignment = Enum.TextXAlignment.Left,
+})
+
+local clearSearch = button(searchFrame, {
+    size = UDim2.fromScale(0.08, 0.8),
+    position = UDim2.fromScale(0.89, 0.1),
+    background = THEME.Panel,
+    text = "X",
+    textColor = THEME.White,
+    textSize = 12,
+    font = Enum.Font.GothamBold,
+})
+clearSearch.Visible = false
+
+local optionScroll = make("ScrollingFrame", {
+    Parent = content,
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    Size = UDim2.fromScale(0.94, 0.82),
+    Position = UDim2.fromScale(0.03, 0.15),
+    CanvasSize = UDim2.fromScale(0, 0),
+    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    ScrollingDirection = Enum.ScrollingDirection.Y,
+    ScrollBarThickness = 2,
+    ScrollBarImageTransparency = 0.35,
+    Active = true,
+})
+
+local optionList = make("UIListLayout", {
+    Parent = optionScroll,
+    FillDirection = Enum.FillDirection.Vertical,
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Padding = UDim.new(0.018, 0),
+})
+
+local notifier = make("Frame", {
+    Parent = gui,
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    Size = UDim2.fromScale(0.29, 0.48),
+    Position = UDim2.fromScale(0.69, 0.51),
+    AnchorPoint = Vector2.new(0, 0),
+    ZIndex = 50,
+})
+
+local noticeLayout = make("UIListLayout", {
+    Parent = notifier,
+    FillDirection = Enum.FillDirection.Vertical,
+    HorizontalAlignment = Enum.HorizontalAlignment.Right,
+    VerticalAlignment = Enum.VerticalAlignment.Bottom,
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Padding = UDim.new(0.018, 0),
+})
+
+local confirmOverlay = make("Frame", {
+    Parent = gui,
+    BackgroundColor3 = Color3.new(0, 0, 0),
+    BackgroundTransparency = 0.35,
+    BorderSizePixel = 0,
+    Size = UDim2.fromScale(1, 1),
+    Position = UDim2.fromScale(0, 0),
+    Visible = false,
+    ZIndex = 100,
+})
+
+local confirmPanel = make("Frame", {
+    Parent = confirmOverlay,
+    BackgroundColor3 = THEME.Panel,
+    BorderSizePixel = 0,
+    Size = UDim2.fromScale(0.38, 0.27),
+    Position = UDim2.fromScale(0.5, 0.5),
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    ZIndex = 101,
+})
+stroke(confirmPanel, 1, 0)
+
+local confirmTitle = make("TextLabel", {
+    Parent = confirmPanel,
+    BackgroundTransparency = 1,
+    Size = UDim2.fromScale(0.86, 0.22),
+    Position = UDim2.fromScale(0.07, 0.09),
+    Text = "Confirmation",
+    TextColor3 = THEME.White,
+    TextSize = 15,
+    Font = Enum.Font.GothamBold,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    ZIndex = 102,
+})
+
+local confirmText = make("TextLabel", {
+    Parent = confirmPanel,
+    BackgroundTransparency = 1,
+    Size = UDim2.fromScale(0.86, 0.35),
+    Position = UDim2.fromScale(0.07, 0.31),
+    Text = "Are you sure you want to continue?",
+    TextColor3 = THEME.Muted,
+    TextSize = 12,
+    Font = Enum.Font.Gotham,
+    TextWrapped = true,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    TextYAlignment = Enum.TextYAlignment.Top,
+    ZIndex = 102,
+})
+
+local cancelButton = button(confirmPanel, {
+    size = UDim2.fromScale(0.37, 0.2),
+    position = UDim2.fromScale(0.08, 0.71),
+    background = THEME.Panel2,
+    text = "Cancel",
+    textColor = THEME.Red,
+    textSize = 12,
+    font = Enum.Font.GothamBold,
+})
+cancelButton.ZIndex = 102
+
+local confirmButton = button(confirmPanel, {
+    size = UDim2.fromScale(0.37, 0.2),
+    position = UDim2.fromScale(0.55, 0.71),
+    background = THEME.Panel2,
+    text = "Confirm",
+    textColor = THEME.Green,
+    textSize = 12,
+    font = Enum.Font.GothamBold,
+})
+confirmButton.ZIndex = 102
+
+local function tween(instance, info, props)
+    local t = TweenService:Create(instance, info, props)
+    t:Play()
+    return t
+end
+
+local function setVisibleAnimated(frame, visible)
+    if visible then
+        frame.Visible = true
+        frame.BackgroundTransparency = 1
+        tween(frame, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0})
+    else
+        local t = tween(frame, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {BackgroundTransparency = 1})
+        t.Completed:Connect(function()
+            frame.Visible = false
+        end)
+    end
+end
+
+local draggingButton = false
+local buttonDragStart
+local buttonStartPos
+local buttonDragInput
+
+openButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        draggingButton = true
+        buttonDragStart = input.Position
+        buttonStartPos = openButton.Position
+        buttonDragInput = input
+    end
+end)
+
+openButton.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        buttonDragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if draggingButton and input == buttonDragInput then
+        local delta = input.Position - buttonDragStart
+        openButton.Position = UDim2.fromScale(
+            buttonStartPos.X.Scale + delta.X / gui.AbsoluteSize.X,
+            buttonStartPos.Y.Scale + delta.Y / gui.AbsoluteSize.Y
+        )
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if draggingButton and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+        draggingButton = false
+        local x = openButton.AbsolutePosition.X / gui.AbsoluteSize.X
+        local y = openButton.AbsolutePosition.Y / gui.AbsoluteSize.Y
+        local w = openButton.AbsoluteSize.X / gui.AbsoluteSize.X
+        local h = openButton.AbsoluteSize.Y / gui.AbsoluteSize.Y
+        if x + w < 0 or x > 1 or y + h < 0 or y > 1 then
+            local sideTarget = x < 0 and 0.035 or 0.89
+            local clampedY = math.clamp(y, 0.05, 0.9 - h)
+            tween(openButton, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                Position = UDim2.fromScale(sideTarget, clampedY)
+            })
+        else
+            openButton.Position = UDim2.fromScale(
+                math.clamp(x, 0.01, 0.99 - w),
+                math.clamp(y, 0.01, 0.99 - h)
+            )
+        end
+    end
+end)
+
+local function closeMenu()
+    menu.Visible = false
+end
+
+local function openMenu()
+    menu.Visible = true
+end
+
+openButton.Activated:Connect(function()
+    menu.Visible = not menu.Visible
+end)
+
+minimize.Activated:Connect(closeMenu)
+
+local function showConfirm(message, callback)
+    confirmText.Text = message
+    confirmOverlay.Visible = true
+    confirmButton.Activated:Once(function()
+        confirmOverlay.Visible = false
+        callback()
+    end)
+    cancelButton.Activated:Once(function()
+        confirmOverlay.Visible = false
+    end)
+end
+
+close.Activated:Connect(function()
+    showConfirm("Confirming will close Phantom Hub and remove its toggle button from your screen.", function()
+        gui:Destroy()
+    end)
+end)
+
+local function isOutsideCompletely(frame)
+    local pos = frame.AbsolutePosition
+    local size = frame.AbsoluteSize
+    local view = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(0, 0)
+    return pos.X + size.X <= 0 or pos.X >= view.X or pos.Y + size.Y <= 0 or pos.Y >= view.Y
+end
+
+local menuDragging = false
+local menuDragStart
+local menuStartPos
+local menuDragInput
+
+local dragZones = {}
+local function addDragZone(x, y, w, h)
+    local zone = button(menu, {
+        size = UDim2.fromScale(w, h),
+        position = UDim2.fromScale(x, y),
+        background = Color3.new(0, 0, 0),
+        transparency = 1,
+        text = "",
+    })
+    zone.ZIndex = 80
+    table.insert(dragZones, zone)
+    return zone
+end
+
+local function bindDrag(zone)
+    zone.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            menuDragging = true
+            menuDragStart = input.Position
+            menuStartPos = menu.Position
+            menuDragInput = input
+        end
+    end)
+    zone.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            menuDragInput = input
+        end
+    end)
+end
+
+for _, zone in ipairs({
+    addDragZone(0, 0.0, 0.13, 0.12),
+    addDragZone(0.87, 0.0, 0.13, 0.12),
+    addDragZone(0, 0.88, 0.13, 0.12),
+    addDragZone(0.87, 0.88, 0.13, 0.12),
+}) do
+    bindDrag(zone)
+end
+
+UserInputService.InputChanged:Connect(function(input)
+    if menuDragging and input == menuDragInput then
+        local delta = input.Position - menuDragStart
+        menu.Position = UDim2.fromScale(
+            menuStartPos.X.Scale + delta.X / gui.AbsoluteSize.X,
+            menuStartPos.Y.Scale + delta.Y / gui.AbsoluteSize.Y
+        )
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if menuDragging and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+        menuDragging = false
+        if isOutsideCompletely(menu) then
+            local view = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1, 1)
+            local pos = menu.AbsolutePosition
+            local size = menu.AbsoluteSize
+            local x = pos.X / view.X
+            local y = pos.Y / view.Y
+            local w = size.X / view.X
+            local h = size.Y / view.Y
+            local sideTarget = x + w <= 0 and 0.02 or 0.98
+            local targetX = x + w <= 0 and 0.02 or 0.98 - w
+            local targetY = math.clamp(y, 0.02, 0.98 - h)
+            tween(menu, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                Position = UDim2.fromScale(targetX, targetY)
+            })
+        else
+            local view = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1, 1)
+            local pos = menu.AbsolutePosition
+            local size = menu.AbsoluteSize
+            local x = math.clamp(pos.X / view.X, 0, 1 - size.X / view.X)
+            local y = math.clamp(pos.Y / view.Y, 0, 1 - size.Y / view.Y)
+            menu.Position = UDim2.fromScale(x, y)
+        end
+    end
+end)
+
+local tabDefinitions = {
+    {Name = "Main", Icon = 139357095045310},
+    {Name = "Auto Buy", Icon = 110805385284419},
+    {Name = "Farm", Icon = 102352181267949},
+    {Name = "Config", Icon = 114794077382466},
+    {Name = "Credits", Icon = 99243311837005},
+}
+
+local data = {}
+for _, def in ipairs(tabDefinitions) do
+    data[def.Name] = {Categories = {}, Options = {}}
+end
+
+data.Config.Categories = {
+    {Name = "Player", Icon = 102791662357524, Open = true, Options = {
+        {Name = "Auto Rejoin", Description = "Request a transfer to another available server.", Type = "ConfirmAction", Action = "rejoin", Icon = 97594499544606, Confirm = "Would you like to join another server?"},
+        {Name = "Rejoin Current", Description = "Reconnect to the current experience instance.", Type = "ConfirmAction", Action = "current", Icon = 97594499544606, Confirm = "Would you like to reconnect to this server?"},
+        {Name = "Copy Server ID", Description = "Copy the current server instance identifier.", Type = "Copy", Value = "JobId", Icon = 97594499544606, NoticeIcon = 88704800286791, Notice = "Server ID copied to your clipboard."},
+        {Name = "Copy Game ID", Description = "Copy the current experience ID.", Type = "Copy", Value = "PlaceId", Icon = 97594499544606, NoticeIcon = 88704800286791, Notice = "Game ID copied to your clipboard."},
+        {Name = "Anti AFK", Description = "Simulate a small movement once every minute.", Type = "Toggle"},
+        {Name = "Low Mode", Description = "Reduce local visual effects and restore them when disabled.", Type = "Toggle"},
+    }},
+}
+
+data.Credits.Options = {
+    {Name = "By: Cleiton10HDx", Description = "Original author and owner of Phantom Hub.", Type = "Visual"},
+    {Name = "Discord Server", Description = "Copy the official Phantom Hub Discord invite.", Type = "Copy", Value = "Discord", Icon = 97594499544606, NoticeIcon = 132744109593099, Notice = "Discord server link copied."},
+}
+
+local activeTab = "Main"
+local optionFrames = {}
+local categoryFrames = {}
+local antiAfk = false
+local lowMode = false
+local antiAfkThread
+local savedState = {
+    Materials = {},
+    Effects = {},
+    PartTransparency = {},
+}
+local clipboard = nil
+
+pcall(function()
+    clipboard = setclipboard or toclipboard or writeclipboard
+end)
+
+local function copyText(text)
+    if clipboard then
+        pcall(function()
+            clipboard(text)
+        end)
+        return true
+    end
+    return false
+end
+
+local function notify(message, imageId)
+    local card = make("Frame", {
+        Parent = notifier,
+        BackgroundColor3 = THEME.Panel,
+        BorderSizePixel = 0,
+        Size = UDim2.fromScale(0.92, 0.13),
+        LayoutOrder = math.floor(os.clock() * 1000),
+        ZIndex = 51,
+    })
+    stroke(card, 1, 0.2).Color = THEME.Gray2
+    corner(card, 0.08)
+    local cardIcon = icon(card, imageId, 0.16)
+    cardIcon.AnchorPoint = Vector2.new(0, 0.5)
+    cardIcon.Position = UDim2.fromScale(0.045, 0.42)
+    cardIcon.ZIndex = 52
+    local label = make("TextLabel", {
+        Parent = card,
+        BackgroundTransparency = 1,
+        Size = UDim2.fromScale(0.72, 0.65),
+        Position = UDim2.fromScale(0.25, 0.12),
+        Text = message,
+        TextColor3 = THEME.White,
+        TextSize = 11,
+        Font = Enum.Font.GothamMedium,
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Center,
+        ZIndex = 52,
+    })
+    local progressBack = make("Frame", {
+        Parent = card,
+        BackgroundColor3 = THEME.Gray,
+        BorderSizePixel = 0,
+        Size = UDim2.fromScale(0.9, 0.035),
+        Position = UDim2.fromScale(0.05, 0.91),
+        ZIndex = 52,
+    })
+    corner(progressBack, 0.5)
+    local progress = make("Frame", {
+        Parent = progressBack,
+        BackgroundColor3 = THEME.White,
+        BorderSizePixel = 0,
+        Size = UDim2.fromScale(0, 1),
+        Position = UDim2.fromScale(0, 0),
+        ZIndex = 53,
+    })
+    corner(progress, 0.5)
+
+    card.Position = UDim2.fromScale(1.08, 0)
+    tween(card, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.fromScale(0.04, 0)})
+    tween(progress, TweenInfo.new(3.2, Enum.EasingStyle.Linear), {Size = UDim2.fromScale(1, 1)}).Completed:Connect(function()
+        local out = tween(card, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.fromScale(1.08, 0)})
+        out.Completed:Connect(function()
+            card:Destroy()
+        end)
+    end)
+end
+
+local function setLowMode(enabled)
+    lowMode = enabled
+    if enabled then
+        savedState.Materials = {}
+        savedState.Effects = {}
+        savedState.PartTransparency = {}
+        for _, descendant in ipairs(workspace:GetDescendants()) do
+            if descendant:IsA("BasePart") then
+                savedState.Materials[descendant] = descendant.Material
+                descendant.Material = Enum.Material.SmoothPlastic
+            elseif descendant:IsA("ParticleEmitter") or descendant:IsA("Trail") or descendant:IsA("Beam") or descendant:IsA("Smoke") or descendant:IsA("Fire") or descendant:IsA("Sparkles") then
+                savedState.Effects[descendant] = descendant.Enabled
+                descendant.Enabled = false
+            end
+        end
+        Lighting.GlobalShadows = false
+        Lighting.EnvironmentDiffuseScale = 0
+        Lighting.EnvironmentSpecularScale = 0
+        Lighting.FogEnd = 100000
+    else
+        for part, material in pairs(savedState.Materials) do
+            if part and part.Parent then
+                pcall(function() part.Material = material end)
+            end
+        end
+        for effect, enabledValue in pairs(savedState.Effects) do
+            if effect and effect.Parent then
+                pcall(function() effect.Enabled = enabledValue end)
+            end
+        end
+        savedState.Materials = {}
+        savedState.Effects = {}
+        pcall(function()
+            Lighting.GlobalShadows = true
+            Lighting.EnvironmentDiffuseScale = 1
+            Lighting.EnvironmentSpecularScale = 1
+        end)
+    end
+end
+
+local function startAntiAfk()
+    if antiAfkThread then
+        return
+    end
+    antiAfkThread = task.spawn(function()
+        while antiAfk do
+            task.wait(60)
+            if not antiAfk then
+                break
+            end
+            local character = Player.Character
+            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                pcall(function()
+                    humanoid:Move(Vector3.new(0.5, 0, 0), true)
+                    task.wait(0.25)
+                    humanoid:Move(Vector3.zero, true)
+                end)
+                if VirtualInputManager then
+                    pcall(function()
+                        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.W, false, game)
+                        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.W, false, game)
+                    end)
+                end
+            end
+        end
+        antiAfkThread = nil
+    end)
+end
+
+local function performCopy(option)
+    local value
+    if option.Value == "Discord" then
+        value = "https://discord.gg/72P6NhC5Pf"
+    elseif option.Value == "JobId" then
+        value = game.JobId
+    elseif option.Value == "PlaceId" then
+        value = tostring(game.PlaceId)
+    end
+    if value then
+        local success = copyText(value)
+        local message = success and option.Notice or ("Copied value: " .. value)
+        notify(message, option.NoticeIcon or 132744109593099)
+    end
+end
+
+local function performAction(action)
+    if action == "current" then
+        pcall(function()
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, Player)
+        end)
+    elseif action == "rejoin" then
+        local ok = pcall(function()
+            TeleportService:Teleport(game.PlaceId, Player)
+        end)
+        if not ok then
+            pcall(function()
+                TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, Player)
+            end)
+        end
+    end
+end
+
+local function createOptionCard(option, sourceTab)
+    local card = make("Frame", {
+        Parent = optionScroll,
+        BackgroundColor3 = THEME.Panel,
+        BorderSizePixel = 0,
+        Size = UDim2.fromScale(1, 0.13),
+    })
+    stroke(card, 1, 0.35)
+    corner(card, 0.08)
+
+    local textArea = make("Frame", {
+        Parent = card,
+        BackgroundTransparency = 1,
+        Size = UDim2.fromScale(0.74, 0.86),
+        Position = UDim2.fromScale(0.035, 0.07),
+    })
+
+    local nameLabel = make("TextLabel", {
+        Parent = textArea,
+        BackgroundTransparency = 1,
+        Size = UDim2.fromScale(1, 0.44),
+        Position = UDim2.fromScale(0, 0),
+        Text = option.Name,
+        TextColor3 = THEME.White,
+        TextSize = 12,
+        Font = Enum.Font.GothamSemibold,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Center,
+    })
+
+    local descLabel = make("TextLabel", {
+        Parent = textArea,
+        BackgroundTransparency = 1,
+        Size = UDim2.fromScale(1, 0.46),
+        Position = UDim2.fromScale(0, 0.44),
+        Text = option.Description or "",
+        TextColor3 = THEME.Muted,
+        TextSize = 9,
+        Font = Enum.Font.Gotham,
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Top,
+    })
+
+    local actionArea = make("Frame", {
+        Parent = card,
+        BackgroundTransparency = 1,
+        Size = UDim2.fromScale(0.18, 0.8),
+        Position = UDim2.fromScale(0.79, 0.1),
+    })
+
+    local actionButton
+    if option.Type == "Toggle" then
+        local track = make("TextButton", {
+            Parent = actionArea,
+            BackgroundColor3 = THEME.Gray,
+            BorderSizePixel = 0,
+            Size = UDim2.fromScale(0.78, 0.46),
+            Position = UDim2.fromScale(0.11, 0.27),
+            Text = "",
+            AutoButtonColor = false,
+            Active = true,
+        })
+        corner(track, 0.5)
+        local knob = make("Frame", {
+            Parent = track,
+            BackgroundColor3 = THEME.White,
+            BorderSizePixel = 0,
+            Size = UDim2.fromScale(0.5, 0.82),
+            Position = UDim2.fromScale(0.03, 0.09),
+        })
+        corner(knob, 0.5)
+        local state = false
+        local function renderToggle()
+            local targetColor = state and THEME.Green or THEME.Gray
+            local targetPos = state and UDim2.fromScale(0.47, 0.09) or UDim2.fromScale(0.03, 0.09)
+            tween(track, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = targetColor})
+            tween(knob, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = targetPos})
+        end
+        track.Activated:Connect(function()
+            state = not state
+            renderToggle()
+            if option.Name == "Anti AFK" then
+                antiAfk = state
+                if antiAfk then
+                    startAntiAfk()
+                end
+            elseif option.Name == "Low Mode" then
+                setLowMode(state)
+            end
+        end)
+        actionButton = track
+    elseif option.Icon then
+        actionButton = button(actionArea, {
+            size = UDim2.fromScale(0.58, 0.58),
+            position = UDim2.fromScale(0.21, 0.21),
+            background = THEME.Panel2,
+            text = "",
+            stroke = 0,
+        })
+        local img = icon(actionButton, option.Icon, 0.58)
+        img.AnchorPoint = Vector2.new(0.5, 0.5)
+        img.Position = UDim2.fromScale(0.5, 0.5)
+    end
+
+    if option.Type == "ConfirmAction" then
+        actionButton.Activated:Connect(function()
+            showConfirm(option.Confirm, function()
+                performAction(option.Action)
+            end)
+        end)
+    elseif option.Type == "Copy" then
+        actionButton.Activated:Connect(function()
+            performCopy(option)
+        end)
+    end
+
+    return card
+end
+
+local function createCategory(category, tabName, layoutOrder)
+    local categoryFrame = make("Frame", {
+        Parent = optionScroll,
+        BackgroundColor3 = THEME.Panel2,
+        BorderSizePixel = 0,
+        Size = UDim2.fromScale(1, 0.1),
+        LayoutOrder = layoutOrder,
+    })
+    stroke(categoryFrame, 1, 0.45)
+    corner(categoryFrame, 0.08)
+
+    local categoryButton = button(categoryFrame, {
+        size = UDim2.fromScale(1, 1),
+        position = UDim2.fromScale(0, 0),
+        background = THEME.Panel2,
+        text = "",
+    })
+    categoryButton.ZIndex = 2
+
+    local categoryIcon = icon(categoryFrame, category.Icon, 0.06)
+    categoryIcon.AnchorPoint = Vector2.new(0, 0.5)
+    categoryIcon.Position = UDim2.fromScale(0.025, 0.5)
+    categoryIcon.ZIndex = 3
+
+    local categoryLabel = make("TextLabel", {
+        Parent = categoryFrame,
+        BackgroundTransparency = 1,
+        Size = UDim2.fromScale(0.68, 0.8),
+        Position = UDim2.fromScale(0.105, 0.1),
+        Text = category.Name,
+        TextColor3 = THEME.White,
+        TextSize = 11,
+        Font = Enum.Font.GothamSemibold,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 3,
+    })
+
+    local arrow = make("TextLabel", {
+        Parent = categoryFrame,
+        BackgroundTransparency = 1,
+        Size = UDim2.fromScale(0.12, 0.7),
+        Position = UDim2.fromScale(0.85, 0.15),
+        Text = category.Open and "▼" or "▶",
+        TextColor3 = THEME.White,
+        TextSize = 10,
+        Font = Enum.Font.GothamBold,
+        TextXAlignment = Enum.TextXAlignment.Center,
+        ZIndex = 3,
+    })
+
+    categoryButton.Activated:Connect(function()
+        category.Open = not category.Open
+        renderTab(activeTab)
+    end)
+
+    return categoryFrame
+end
+
+function renderTab(tabName)
+    activeTab = tabName
+    for _, child in ipairs(optionScroll:GetChildren()) do
+        if child:IsA("Frame") then
+            child:Destroy()
+        end
+    end
+
+    local tabData = data[tabName]
+    if not tabData then
+        return
+    end
+
+    local order = 1
+    local entries = {}
+    for _, category in ipairs(tabData.Categories) do
+        table.insert(entries, {Kind = "Category", Data = category})
+        for _, option in ipairs(category.Options) do
+            table.insert(entries, {Kind = "Option", Data = option, Category = category})
+        end
+    end
+    for _, option in ipairs(tabData.Options) do
+        table.insert(entries, {Kind = "Option", Data = option})
+    end
+
+    for _, entry in ipairs(entries) do
+        if entry.Kind == "Category" then
+            local frame = createCategory(entry.Data, tabName, order)
+            frame.LayoutOrder = order
+            categoryFrames[entry.Data.Name] = frame
+        elseif entry.Kind == "Option" then
+            if not entry.Category or entry.Category.Open then
+                local frame = createOptionCard(entry.Data, tabName)
+                frame.LayoutOrder = order
+                table.insert(optionFrames, {Frame = frame, Option = entry.Data, Tab = tabName})
+                order = order + 1
+                continue
+            end
+        end
+        order = order + 1
+    end
+
+    local query = string.lower(searchBox.Text)
+    if query ~= "" then
+        applySearch(query)
+    end
+end
+
+local tabButtons = {}
+for index, tab in ipairs(tabDefinitions) do
+    local tabButton = button(tabs, {
+        size = UDim2.fromScale(1, 0.13),
+        position = UDim2.fromScale(0, 0),
+        background = THEME.Black,
+        text = "",
+        textSize = 12,
+    })
+    tabButton.LayoutOrder = index
+    corner(tabButton, 0.08)
+
+    local tabIcon = icon(tabButton, tab.Icon, 0.18)
+    tabIcon.AnchorPoint = Vector2.new(0, 0.5)
+    tabIcon.Position = UDim2.fromScale(0.08, 0.5)
+
+    local tabText = make("TextLabel", {
+        Parent = tabButton,
+        BackgroundTransparency = 1,
+        Size = UDim2.fromScale(0.62, 0.8),
+        Position = UDim2.fromScale(0.31, 0.1),
+        Text = tab.Name,
+        TextColor3 = THEME.White,
+        TextSize = 11,
+        Font = Enum.Font.GothamSemibold,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    })
+    tabButtons[tab.Name] = {Button = tabButton, Label = tabText}
+
+    tabButton.Activated:Connect(function()
+        for name, t in pairs(tabButtons) do
+            t.Button.BackgroundColor3 = THEME.Black
+            t.Label.TextColor3 = THEME.Muted
+        end
+        tabButton.BackgroundColor3 = THEME.Panel2
+        tabText.TextColor3 = THEME.White
+        searchBox.Text = ""
+        clearSearch.Visible = false
+        renderTab(tab.Name)
+    end)
+end
+
+function applySearch(query)
+    query = string.lower(query or "")
+    if query == "" then
+        renderTab(activeTab)
+        return
+    end
+
+    for _, child in ipairs(optionScroll:GetChildren()) do
+        if child:IsA("Frame") then
+            child:Destroy()
+        end
+    end
+
+    local results = {}
+    for _, tab in ipairs(tabDefinitions) do
+        local tabData = data[tab.Name]
+        if tabData then
+            for _, category in ipairs(tabData.Categories) do
+                for _, option in ipairs(category.Options) do
+                    local haystack = string.lower((option.Name or "") .. " " .. (option.Description or ""))
+                    if string.find(haystack, query, 1, true) then
+                        table.insert(results, option)
+                    end
+                end
+            end
+            for _, option in ipairs(tabData.Options) do
+                local haystack = string.lower((option.Name or "") .. " " .. (option.Description or ""))
+                if string.find(haystack, query, 1, true) then
+                    table.insert(results, option)
+                end
+            end
+        end
+    end
+
+    local order = 1
+    for _, option in ipairs(results) do
+        local frame = createOptionCard(option, activeTab)
+        frame.LayoutOrder = order
+        order = order + 1
+    end
+end
+
+searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local hasText = searchBox.Text ~= ""
+    clearSearch.Visible = hasText
+    applySearch(searchBox.Text)
+end)
+
+clearSearch.Activated:Connect(function()
+    searchBox.Text = ""
+    clearSearch.Visible = false
+    searchBox:CaptureFocus()
+end)
+
+for name, t in pairs(tabButtons) do
+    t.Button.BackgroundColor3 = THEME.Black
+    t.Label.TextColor3 = THEME.Muted
+end
+tabButtons.Main.Button.BackgroundColor3 = THEME.Panel2
+tabButtons.Main.Label.TextColor3 = THEME.White
+
+renderTab("Main")
+
+local function clampOpenButton()
+    local view = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1, 1)
+    local pos = openButton.AbsolutePosition
+    local size = openButton.AbsoluteSize
+    local x = math.clamp(pos.X / view.X, 0.005, 0.995 - size.X / view.X)
+    local y = math.clamp(pos.Y / view.Y, 0.005, 0.995 - size.Y / view.Y)
+    openButton.Position = UDim2.fromScale(x, y)
+end
+
+RunService.RenderStepped:Connect(function()
+    if not draggingButton then
+        clampOpenButton()
+    end
+end)
+
+workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+    task.defer(function()
+        if gui.Parent then
+            clampOpenButton()
+        end
+    end)
+end)
