@@ -172,7 +172,7 @@ ScreenGui.DescendantAdded:Connect(disableAutoLocalize)
 
 local FloatingButton = Instance.new("TextButton")
 FloatingButton.Size = UDim2.new(0.054, rpx(0), 0.119, rpx(0))
-FloatingButton.Position = UDim2.new(0.02, 0, 0.1, 0)
+FloatingButton.Position = UDim2.new(0.02, rpx(0), 0.1, rpx(0))
 FloatingButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 FloatingButton.Text = ""
 FloatingButton.Parent = ScreenGui
@@ -195,8 +195,8 @@ BtnLabel.ZIndex = 999999
 local ShadowFrame = Instance.new("Frame")
 ShadowFrame.Name = "ShadowFrame"
 ShadowFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-ShadowFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-ShadowFrame.Size = UDim2.new(0.545, rpx(0), 0.689, rpx(0))
+ShadowFrame.Position = UDim2.new(0.5, rpx(0), 0.5, rpx(0))
+ShadowFrame.Size = UDim2.new(0.585, rpx(0), 0.729, rpx(0))
 ShadowFrame.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
 ShadowFrame.BorderSizePixel = 0
 ShadowFrame.Visible = false
@@ -206,8 +206,8 @@ ShadowFrame.ZIndex = 999998
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-MainFrame.Size = UDim2.new(0.54, rpx(0), 0.68, rpx(0))
+MainFrame.Position = UDim2.new(0.5, rpx(0), 0.5, rpx(0))
+MainFrame.Size = UDim2.new(0.58, rpx(0), 0.72, rpx(0))
 MainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 MainFrame.BorderSizePixel = 0
 MainFrame.Visible = false
@@ -377,14 +377,26 @@ ConfirmNoStroke.Color = Color3.fromRGB(120, 120, 120)
 ConfirmNoStroke.Thickness = 1
 ConfirmNoStroke.Parent = ConfirmNoButton
 
-local TabContainer = Instance.new("Frame")
+local TabContainer = Instance.new("ScrollingFrame")
 TabContainer.Name = "TabContainer"
 TabContainer.BackgroundTransparency = 1
 TabContainer.Size = UDim2.new(0.25, 0, 1, -0.158)
 TabContainer.Position = UDim2.new(0, rpx(0), 0.158, rpx(0))
 TabContainer.Parent = MainFrame
 TabContainer.ZIndex = 999999
-TabContainer.ClipsDescendants = false
+TabContainer.ClipsDescendants = true
+TabContainer.BorderSizePixel = 0
+TabContainer.ScrollBarThickness = rpx(3)
+TabContainer.ScrollingDirection = Enum.ScrollingDirection.Y
+TabContainer.ScrollingEnabled = true
+TabContainer.AutomaticCanvasSize = Enum.AutomaticSize.Y
+TabContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
+
+local TabListLayout = Instance.new("UIListLayout")
+TabListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+TabListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+TabListLayout.Padding = UDim.new(0, rpx(6))
+TabListLayout.Parent = TabContainer
 
 local ContentContainer = Instance.new("Frame")
 ContentContainer.Name = "ContentContainer"
@@ -502,7 +514,7 @@ ContentListLayout.Parent = MainContent
 local function getOptionFrameHeight()
     local height = MainContent.AbsoluteSize.Y
     if height > 0 then
-        return math.max(rpx(48), math.floor(height * 0.25 + 0.5))
+        return math.max(rpx(48), math.floor(height * 0.20 + 0.5))
     end
     return rpx(88)
 end
@@ -544,6 +556,7 @@ ContentListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(refres
 local tabs = {}
 local activeTab = "Main"
 local notificationTimers = {}
+local speedValue = 32
 local flySpeed = 32
 local connectionStorage = {}
 local optionElementsMap = {}
@@ -582,106 +595,147 @@ local function registerElement(tabName, element, elementName)
     end
 end
 
+local notificationStack = {}
+local NOTIFICATION_WIDTH = 0.22
+local NOTIFICATION_HEIGHT = 0.105
+local NOTIFICATION_RIGHT = 0.985
+local NOTIFICATION_BOTTOM = 0.975
+local NOTIFICATION_GAP = 0.012
+
+local function repositionNotifications(animated)
+    local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or BASE_VIEWPORT_SIZE
+    local step = math.floor(viewport.Y * NOTIFICATION_HEIGHT + 0.5) + math.max(rpx(6), math.floor(viewport.Y * NOTIFICATION_GAP + 0.5))
+
+    for index, data in ipairs(notificationStack) do
+        if data.gui and data.gui.Parent then
+            local target = UDim2.new(NOTIFICATION_RIGHT, 0, NOTIFICATION_BOTTOM, -(index - 1) * step)
+            if animated then
+                TweenService:Create(
+                    data.gui,
+                    TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                    {Position = target}
+                ):Play()
+            else
+                data.gui.Position = target
+            end
+        end
+    end
+end
+
+local function removeNotification(notificationData)
+    for i, data in ipairs(notificationStack) do
+        if data == notificationData then
+            table.remove(notificationStack, i)
+            break
+        end
+    end
+
+    if notificationData.connection then
+        pcall(function() notificationData.connection:Disconnect() end)
+    end
+
+    if notificationData.gui then
+        pcall(function() notificationData.gui:Destroy() end)
+    end
+
+    if notificationData.screenGui then
+        pcall(function() notificationData.screenGui:Destroy() end)
+    end
+
+    repositionNotifications(true)
+end
+
 local function showNotification(title, iconId, duration)
-	local notificationScreenGui = Instance.new("ScreenGui")
-	notificationScreenGui.Name = "NotificationScreenGui"
-	notificationScreenGui.ResetOnSpawn = false
-	notificationScreenGui.DisplayOrder = 999999
-	notificationScreenGui.Parent = PlayerGui
-	
-	local notificationGui = Instance.new("Frame")
-	notificationGui.Name = "NotificationGui"
-	notificationGui.Size = UDim2.new(0.28, rpx(0), 0.15, rpx(0))
-	notificationGui.Position = UDim2.new(0.71, rpx(0), 0.8, rpx(0))
-	notificationGui.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-	notificationGui.BorderSizePixel = 2
-	notificationGui.BorderColor3 = Color3.fromRGB(128, 128, 128)
-	notificationGui.Parent = notificationScreenGui
+    local notificationScreenGui = Instance.new("ScreenGui")
+    notificationScreenGui.Name = "NotificationScreenGui"
+    notificationScreenGui.ResetOnSpawn = false
+    notificationScreenGui.DisplayOrder = 999999
+    notificationScreenGui.Parent = PlayerGui
 
-	local notificationIcon = Instance.new("ImageLabel")
-	notificationIcon.Name = "NotificationIcon"
-	notificationIcon.Size = UDim2.new(0.2, rpx(0), 0.699, rpx(0))
-	notificationIcon.Position = UDim2.new(0.029, rpx(0), 0.2, rpx(0))
-	notificationIcon.BackgroundTransparency = 1
-	notificationIcon.Image = "rbxassetid://" .. iconId
-	notificationIcon.Parent = notificationGui
+    local notificationGui = Instance.new("Frame")
+    notificationGui.Name = "NotificationGui"
+    notificationGui.AnchorPoint = Vector2.new(1, 1)
+    notificationGui.Size = UDim2.new(NOTIFICATION_WIDTH, 0, NOTIFICATION_HEIGHT, 0)
+    notificationGui.Position = UDim2.new(NOTIFICATION_RIGHT, 0, NOTIFICATION_BOTTOM, 0)
+    notificationGui.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    notificationGui.BorderSizePixel = 2
+    notificationGui.BorderColor3 = Color3.fromRGB(128, 128, 128)
+    notificationGui.Parent = notificationScreenGui
 
-	local notificationLabel = Instance.new("TextLabel")
-	notificationLabel.Name = "NotificationLabel"
-	notificationLabel.Size = UDim2.new(0.6, rpx(0), 0.898, rpx(0))
-	notificationLabel.Position = UDim2.new(0.25, rpx(0), 0.06, rpx(0))
-	notificationLabel.BackgroundTransparency = 1
-	notificationLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	notificationLabel.TextSize = rpx(18)
-	notificationLabel.Font = Enum.Font.Gotham
-	notificationLabel.Text = title
-	notificationLabel.TextWrapped = true
-	notificationLabel.TextXAlignment = Enum.TextXAlignment.Left
-	notificationLabel.Parent = notificationGui
+    local notificationIcon = Instance.new("ImageLabel")
+    notificationIcon.Name = "NotificationIcon"
+    notificationIcon.Size = UDim2.new(0.18, 0, 0.68, 0)
+    notificationIcon.Position = UDim2.new(0.035, 0, 0.16, 0)
+    notificationIcon.BackgroundTransparency = 1
+    notificationIcon.Image = "rbxassetid://" .. iconId
+    notificationIcon.Parent = notificationGui
 
-	local progressLine = Instance.new("Frame")
-	progressLine.Name = "ProgressLine"
-	progressLine.Size = UDim2.new(1, rpx(0), 0.045, rpx(0))
-	progressLine.Position = UDim2.new(0, rpx(0), 1, rpx(0))
-	progressLine.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	progressLine.BorderSizePixel = 0
-	progressLine.Parent = notificationGui
+    local notificationLabel = Instance.new("TextLabel")
+    notificationLabel.Name = "NotificationLabel"
+    notificationLabel.Size = UDim2.new(0.72, 0, 0.84, 0)
+    notificationLabel.Position = UDim2.new(0.24, 0, 0.08, 0)
+    notificationLabel.BackgroundTransparency = 1
+    notificationLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    notificationLabel.TextSize = rpx(16)
+    notificationLabel.Font = Enum.Font.Gotham
+    notificationLabel.Text = title
+    notificationLabel.TextWrapped = true
+    notificationLabel.TextXAlignment = Enum.TextXAlignment.Left
+    notificationLabel.TextYAlignment = Enum.TextYAlignment.Center
+    notificationLabel.Parent = notificationGui
 
-	local startTime = tick()
-	local totalWidth = 1
-	local notificationId = tostring(math.random(100000, 999999))
+    local progressLine = Instance.new("Frame")
+    progressLine.Name = "ProgressLine"
+    progressLine.Size = UDim2.new(1, 0, 0.045, 0)
+    progressLine.Position = UDim2.new(0, 0, 1, 0)
+    progressLine.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    progressLine.BorderSizePixel = 0
+    progressLine.Parent = notificationGui
 
-	notificationTimers[notificationId] = {
-		startTime = startTime,
-		duration = duration,
-		gui = notificationGui,
-		screenGui = notificationScreenGui
-	}
+    local data = {
+        gui = notificationGui,
+        screenGui = notificationScreenGui,
+        startTime = tick(),
+        duration = duration,
+        connection = nil,
+        closing = false
+    }
 
-	local slideInTween = TweenService:Create(
-		notificationGui,
-		TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-		{Position = UDim2.new(0.71, rpx(0), 0.8, rpx(0))}
-	)
-	slideInTween:Play()
+    table.insert(notificationStack, 1, data)
+    repositionNotifications(true)
 
-	local progressConnection
-	progressConnection = RunService.RenderStepped:Connect(function()
-		if notificationTimers[notificationId] == nil then
-			progressConnection:Disconnect()
-			return
-		end
+    local initialTarget = UDim2.new(NOTIFICATION_RIGHT, rpx(4), NOTIFICATION_BOTTOM, rpx(12))
+    notificationGui.Position = initialTarget
+    TweenService:Create(
+        notificationGui,
+        TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {Position = UDim2.new(NOTIFICATION_RIGHT, 0, NOTIFICATION_BOTTOM, 0)}
+    ):Play()
 
-		local elapsed = tick() - notificationTimers[notificationId].startTime
-		local progress = math.min(elapsed / notificationTimers[notificationId].duration, 1)
+    data.connection = RunService.RenderStepped:Connect(function()
+        if not data.gui or not data.gui.Parent then
+            removeNotification(data)
+            return
+        end
 
-		if notificationGui and notificationGui.Parent then
-			progressLine.Size = UDim2.new(totalWidth * progress, rpx(0), 0.045, rpx(0))
-		end
+        local elapsed = tick() - data.startTime
+        local progress = math.min(elapsed / data.duration, 1)
+        progressLine.Size = UDim2.new(progress, 0, 0.045, 0)
 
-		if progress >= 1 then
-			progressConnection:Disconnect()
+        if progress >= 1 and not data.closing then
+            data.closing = true
 
-			if notificationGui and notificationGui.Parent then
-				local slideOutTween = TweenService:Create(
-					notificationGui,
-					TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
-					{Position = UDim2.new(0.99, rpx(0), 0.8, rpx(0))}
-				)
-				slideOutTween:Play()
-
-				slideOutTween.Completed:Connect(function()
-					if notificationGui then
-						notificationGui:Destroy()
-					end
-					if notificationScreenGui then
-						notificationScreenGui:Destroy()
-					end
-					notificationTimers[notificationId] = nil
-				end)
-			end
-		end
-	end)
+            local exitTween = TweenService:Create(
+                notificationGui,
+                TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+                {Position = UDim2.new(NOTIFICATION_RIGHT, rpx(8), NOTIFICATION_BOTTOM, rpx(12))}
+            )
+            exitTween:Play()
+            exitTween.Completed:Connect(function()
+                removeNotification(data)
+            end)
+        end
+    end)
 end
 
 local function createDebounce(key, duration)
@@ -695,16 +749,18 @@ end
 local function createTab(name, iconId, position)
     local TabButton = Instance.new("TextButton")
     TabButton.Name = name
-    TabButton.Size = UDim2.new(0.86, 0, 0.155, 0)
-    TabButton.Position = UDim2.new(0.08, 0, position.Y.Scale, position.Y.Offset)
+    TabButton.Size = UDim2.new(0.86, 0, 0, rpx(46))
     TabButton.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
     TabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     TabButton.Text = ""
     TabButton.Font = Enum.Font.SourceSansBold
-    TabButton.TextSize = rpx(19)
+    TabButton.TextSize = rpx(18)
     TabButton.Parent = TabContainer
     TabButton.AutoButtonColor = false
     TabButton.ZIndex = 999999
+
+    local order = math.floor(((position and position.Y.Scale) or 0) * 100 + 1)
+    TabButton.LayoutOrder = order
 
     local UICorner = Instance.new("UICorner")
     UICorner.CornerRadius = UDim.new(0, rpx(0))
@@ -731,14 +787,16 @@ local function createTab(name, iconId, position)
     TextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     TextLabel.TextXAlignment = Enum.TextXAlignment.Left
     TextLabel.Font = Enum.Font.SourceSansBold
-    TextLabel.TextSize = rpx(18)
+    TextLabel.TextSize = rpx(17)
     TextLabel.Parent = TabButton
     TextLabel.ZIndex = 999999
 
-    TabButton.MouseButton1Click:Connect(function()
+    TabButton.Activated:Connect(function()
         if activeTab ~= name then
             for _, tab in pairs(tabs) do
-                tab.button.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+                if tab.button then
+                    tab.button.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+                end
             end
 
             activeTab = name
@@ -910,7 +968,7 @@ local function createCategory(tabName, categoryName, iconId)
     ArrowButton.Size = UDim2.new(0.105, 0, 0.7, 0)
     ArrowButton.Position = UDim2.new(0.87, 0, 0.15, 0)
     ArrowButton.BackgroundTransparency = 1
-    ArrowButton.Text = ">"
+    ArrowButton.Text = "▶"
     ArrowButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     ArrowButton.TextSize = rpx(30)
     ArrowButton.Font = Enum.Font.GothamBold
@@ -921,7 +979,7 @@ local function createCategory(tabName, categoryName, iconId)
         Container.Size = getOptionFrameSize()
         if createDebounce("Category_" .. key, 0.05) then
             categoryStates[key] = not categoryStates[key]
-            ArrowButton.Text = categoryStates[key] and "v" or ">"
+            ArrowButton.Text = categoryStates[key] and "▼" or "▶"
             if updateSearchFilter then
                 updateSearchFilter()
             end
@@ -2340,1052 +2398,6 @@ tabs["Farm"] = createTab("Farm", "102352181267949", UDim2.new(0.08, rpx(0), 0.32
 tabs["Config"] = createTab("Config", "114794077382466", UDim2.new(0.08, rpx(0), 0.48, rpx(0)))
 tabs["Credits"] = createTab("Credits", "99243311837005", UDim2.new(0.08, rpx(0), 0.64, rpx(0)))
 
-local autoRebirthActive = false
-local autoTrainPowerActive = false
-local autoUpgradeBrainrotsAllActive = false
-local autoUpgradeBrainrotsSelectedActive = false
-local autoCollectMoneyActive = false
-
-createCategory("Main", "Progression", "99024336494762")
-
-createOption("Auto Rebirth", false, "Main", function(state)
-    autoRebirthActive = state
-    if state then
-        task.spawn(function()
-            while autoRebirthActive do
-                pcall(function()
-                    game:GetService("ReplicatedStorage").Events.RequestRebirth:FireServer()
-                end)
-                task.wait(0.5)
-            end
-        end)
-    end
-end)
-
-createOption("Auto Upgrades Brainrots ALL", false, "Main", function(state)
-    autoUpgradeBrainrotsAllActive = state
-    if state then
-        task.spawn(function()
-            while autoUpgradeBrainrotsAllActive do
-                local player = game.Players.LocalPlayer
-                local playerName = player.Name
-                local plotModel = workspace:FindFirstChild("Plot_" .. playerName)
-                
-                if plotModel then
-                    local ownedFloorsCount = 0
-                    local hasThreeComponents = false
-                    
-                    for floorNum = 1, 12 do
-                        local floorModel = plotModel:FindFirstChild("Floor" .. floorNum)
-                        if floorModel then
-                            local children = floorModel:GetChildren()
-                            local childCount = #children
-                            
-                            if childCount == 2 then
-                                ownedFloorsCount = floorNum
-                            elseif childCount == 3 then
-                                if not hasThreeComponents then
-                                    ownedFloorsCount = floorNum
-                                    hasThreeComponents = true
-                                else
-                                    break
-                                end
-                            end
-                        end
-                    end
-                    
-                    for floor = 1, ownedFloorsCount do
-                        if not autoUpgradeBrainrotsAllActive then break end
-                        for slot = 1, 10 do
-                            if not autoUpgradeBrainrotsAllActive then break end
-                            pcall(function()
-                                local args = {
-                                    [1] = "Floor" .. floor,
-                                    [2] = "Slot" .. slot
-                                }
-                                game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("RequestSlotUpgrade"):FireServer(unpack(args))
-                            end)
-                            task.wait(0.03)
-                        end
-                    end
-                end
-                task.wait(0.1)
-            end
-        end)
-    end
-end)
-
-createWorldSelector("Main", "ProgressionWorldSelector", "Select Floor")
-
-createOption("Auto Upgrade Brainrots Specific", false, "Main", function(state)
-    autoUpgradeBrainrotsSelectedActive = state
-    if state then
-        task.spawn(function()
-            while autoUpgradeBrainrotsSelectedActive do
-                local currentSelection = optionStates["ProgressionWorldSelector"]
-                if type(currentSelection) == "table" and #currentSelection > 0 then
-                    for _, floorStr in ipairs(currentSelection) do
-                        if not autoUpgradeBrainrotsSelectedActive then break end
-                        local floorNum = tonumber(floorStr:match("%d+"))
-                        if floorNum then
-                            for slot = 1, 10 do
-                                if not autoUpgradeBrainrotsSelectedActive then break end
-                                pcall(function()
-                                    local args = {
-                                        [1] = "Floor" .. floorNum,
-                                        [2] = "Slot" .. slot
-                                    }
-                                    game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("RequestSlotUpgrade"):FireServer(unpack(args))
-                                end)
-                                task.wait(0.03)
-                            end
-                        end
-                    end
-                else
-                    task.wait(0.5)
-                end
-            end
-        end)
-    end
-end)
-
-local cachedMoneyParts = {}
-local moneyLastApply = 0
-local moneyCooldown = 0.05
-
-local function refreshMoneyParts()
-    cachedMoneyParts = {}
-    local player = game.Players.LocalPlayer
-    if player then
-        local playerName = player.Name
-        local myMoneyPlot = workspace:FindFirstChild("Plot_" .. playerName)
-        if myMoneyPlot then
-            for _, child in pairs(myMoneyPlot:GetDescendants()) do
-                if child.Name == "Touch" and child:FindFirstChild("TouchInterest") then
-                    local parent = child.Parent
-                    local isInExcluded = false
-                    local currentParent = parent
-                    while currentParent do
-                        if currentParent.Name == "FloorButton" or currentParent.Name == "GamepassButtons" then
-                            isInExcluded = true
-                            break
-                        end
-                        currentParent = currentParent.Parent
-                    end
-                    if not isInExcluded then
-                        table.insert(cachedMoneyParts, child)
-                    end
-                end
-            end
-        end
-    end
-end
-
-createOption("Auto Collect Money", false, "Main", function(state)
-    autoCollectMoneyActive = state
-    if state then
-        task.spawn(function()
-            refreshMoneyParts()
-            while autoCollectMoneyActive and Player.Parent do
-                task.wait(0.05)
-                if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
-                    local currentTime = tick()
-                    if currentTime - moneyLastApply >= moneyCooldown then
-                        local char = Player.Character
-                        local root = char:FindFirstChild("HumanoidRootPart")
-                        if root then
-                            for _, v in pairs(cachedMoneyParts) do
-                                if v and v.Parent then
-                                    firetouchinterest(root, v, 0)
-                                    firetouchinterest(root, v, 1)
-                                end
-                            end
-                        end
-                        moneyLastApply = currentTime
-                    end
-                end
-            end
-        end)
-    end
-end)
-
-local autoBestBrainrotsActive = false
-
-
--- ✅ FUNÇÃO CORRIGIDA PARA DETECTAR O FORMATO: $[número][multiplicador]/s
-local function parseMoneyValue(valueStr)
-    if not valueStr or valueStr == "" then return 0 end
-    
-    -- FORMATO ESPERADO: $400Qi/s (ou qualquer outro multiplicador)
-    -- Padrão: $ (opcional) + números + multiplicador (2+ letras) + /s
-    local numStr, multiplier = valueStr:match("[$]?([%d.]+)([A-Za-z]+)/s")
-    
-    if not numStr or not multiplier then
-        -- Fallback para o método antigo se o novo formato não corresponder
-        numStr = valueStr:match("^[%d.]+")
-        if not numStr then return 0 end
-        multiplier = valueStr:lower()
-    else
-        multiplier = multiplier:lower()
-    end
-    
-    local num = tonumber(numStr) or 0
-    local lowerStr = multiplier
-    
-    -- Verificação por ORDEM: Do maior pro menor e de forma ESPECÍFICA
-    -- SEPTILLION (Sp) - Maior valor
-    if lowerStr:find("septillion") or lowerStr == "sp" then
-        return num * 1e42
-    end
-    
-    -- SEXTILLION (Sx)
-    if lowerStr:find("sextillion") or lowerStr == "sx" then
-        return num * 1e36
-    end
-    
-    -- QUINTILLION (Qi)
-    if lowerStr:find("quintillion") or lowerStr == "qi" then
-        return num * 1e18
-    end
-    
-    -- QUADRILLION (Qa)
-    if lowerStr:find("quadrillion") or lowerStr == "qa" then
-        return num * 1e15
-    end
-    
-    -- TRILLION (T)
-    if lowerStr:find("trillion") or lowerStr == "t" then
-        return num * 1e12
-    end
-    
-    -- BILLION (B)
-    if lowerStr:find("billion") or lowerStr == "b" then
-        return num * 1e9
-    end
-    
-    -- MILLION (M)
-    if lowerStr:find("million") or lowerStr == "m" then
-        return num * 1e6
-    end
-    
-    -- THOUSAND (K)
-    if lowerStr:find("thousand") or lowerStr == "k" then
-        return num * 1e3
-    end
-    
-    return num
-end
-
-
-createCategory("Farm", "Brainrots", "110922530046254")
-
-createOption("Auto Best Brainrots", false, "Farm", function(state)
-    autoBestBrainrotsActive = state
-    if state then
-        task.spawn(function()
-            local isFirstLoop = true
-            while autoBestBrainrotsActive do
-                if not isFirstLoop then
-                    task.wait(0.012)
-                end
-                
-                pcall(function()
-                    local player = game.Players.LocalPlayer
-                    if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                        local playerModel = workspace:FindFirstChild(player.Name)
-                        local hasBrainrot = false
-                        
-                        if playerModel then
-                            for _, child in pairs(playerModel:GetChildren()) do
-                                if child.Name == "CarriedLoot" then
-                                    hasBrainrot = true
-                                    break
-                                end
-                            end
-                        end
-                        
-                        if hasBrainrot then
-                            local rootPart = player.Character.HumanoidRootPart
-                            rootPart.CFrame = CFrame.new(0, 4.28999996, -605.5, 1, 0, 0, 0, 1, 0, 0, 0, 1)
-                        else
-                            local workspace = game:GetService("Workspace")
-                            local basesFolder = nil
-                            
-                            for _, child in pairs(workspace:GetChildren()) do
-                                if child.Name:lower() == "bases" then
-                                    basesFolder = child
-                                    break
-                                end
-                            end
-                            
-                            if basesFolder then
-                                local bestSpawnPart = nil
-                                local bestValue = 0
-                                local bestSpawnedItemModel = nil
-                                
-                                for _, baseModel in pairs(basesFolder:GetChildren()) do
-                                    if baseModel:IsA("Model") and baseModel.Name:lower():match("^base%d+$") then
-                                        local slotsFolder = nil
-                                        for _, slot in pairs(baseModel:GetChildren()) do
-                                            if slot:IsA("Folder") and slot.Name:lower() == "slots" then
-                                                slotsFolder = slot
-                                                break
-                                            end
-                                        end
-                                        
-                                        if slotsFolder then
-                                            for _, slotModel in pairs(slotsFolder:GetChildren()) do
-                                                if slotModel:IsA("Model") and slotModel.Name:lower():match("^slot%d+$") then
-                                                    local spawnPart = nil
-                                                    for _, part in pairs(slotModel:GetChildren()) do
-                                                        if part.Name == "Spawn" then
-                                                            spawnPart = part
-                                                            break
-                                                        end
-                                                    end
-                                                    
-                                                    if spawnPart then
-                                                        local spawnedItemModel = nil
-                                                        for _, child in pairs(spawnPart:GetChildren()) do
-                                                            if child.Name == "SpawnedItem" then
-                                                                spawnedItemModel = child
-                                                                break
-                                                            end
-                                                        end
-                                                        
-                                                        if spawnedItemModel then
-                                                            local infoGUI = nil
-                                                            for _, child in pairs(spawnedItemModel:GetChildren()) do
-                                                                if child.Name == "InfoGUI" then
-                                                                    infoGUI = child
-                                                                    break
-                                                                end
-                                                            end
-                                                            
-                                                            if infoGUI then
-                                                                local textLabelsFolder = nil
-                                                                for _, child in pairs(infoGUI:GetChildren()) do
-                                                                    if child.Name == "TextLabels" then
-                                                                        textLabelsFolder = child
-                                                                        break
-                                                                    end
-                                                                end
-                                                                
-                                                                if textLabelsFolder then
-                                                                    local earningsLabel = nil
-                                                                    for _, child in pairs(textLabelsFolder:GetChildren()) do
-                                                                        if child:IsA("TextLabel") and child.Name == "Earnings" then
-                                                                            earningsLabel = child
-                                                                            break
-                                                                        end
-                                                                    end
-                                                                    
-                                                                    if earningsLabel and earningsLabel.Text then
-                                                                        local moneyText = earningsLabel.Text
-                                                                        local value = parseMoneyValue(moneyText)
-                                                                        
-                                                                        if value > bestValue then
-                                                                            bestValue = value
-                                                                            bestSpawnPart = spawnPart
-                                                                            bestSpawnedItemModel = spawnedItemModel
-                                                                        end
-                                                                    end
-                                                                end
-                                                            end
-                                                        end
-                                                    end
-                                                end
-                                            end
-                                        end
-                                    end
-                                end
-                                
-                                if bestSpawnPart and bestValue > 0 and bestSpawnedItemModel then
-                                    local rootPart = player.Character.HumanoidRootPart
-                                    rootPart.CFrame = bestSpawnPart.CFrame
-                                    
-                                    task.wait(0.003)
-                                    
-                                    for _, prompt in pairs(bestSpawnedItemModel:GetDescendants()) do
-                                        if prompt:IsA("ProximityPrompt") and prompt.Enabled then
-                                            fireproximityprompt(prompt)
-                                            break
-                                        end
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end)
-                
-                isFirstLoop = false
-            end
-        end)
-    end
-end)
-
-local autoPlotUpgradeActive = false
-local autoBuyPowerActive = false
-local autoBuySpeedActive = false
-
-createCategory("Auto Buy", "Upgrades", "129977800846764")
-
-local powerSelectorFunction = function(stateName, labelText, callback)
-    optionCounter = optionCounter + 1
-
-    createOptionState(stateName, {})
-    local selectedPowers = optionStates[stateName]
-    if type(selectedPowers) ~= "table" then
-        selectedPowers = {}
-        optionStates[stateName] = selectedPowers
-    end
-    local isOpen = false
-
-    local MainContainer = Instance.new("Frame")
-    MainContainer.Size = getOptionFrameSize()
-    MainContainer.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-    MainContainer.Parent = MainContent
-    MainContainer.Name = tostring(optionCounter)
-    MainContainer.LayoutOrder = optionCounter
-    MainContainer.ZIndex = 999999
-    MainContainer.Visible = ("Auto Buy" == activeTab)
-
-    local UICorner = Instance.new("UICorner")
-    UICorner.CornerRadius = UDim.new(0, rpx(0))
-    UICorner.Parent = MainContainer
-
-    local ContainerStroke = Instance.new("UIStroke")
-    ContainerStroke.Color = Color3.fromRGB(60, 60, 60)
-    ContainerStroke.Thickness = 0
-    ContainerStroke.Parent = MainContainer
-
-    local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(0.58, 0, 1, 0)
-    Label.Position = UDim2.new(0.05, 0, 0, 0)
-    Label.Text = labelText
-    Label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Label.BackgroundTransparency = 1
-    Label.TextXAlignment = Enum.TextXAlignment.Left
-    Label.Font = Enum.Font.SourceSans
-    Label.TextSize = rpx(23)
-    Label.Parent = MainContainer
-    Label.ZIndex = 999999
-
-    local SelectButton = Instance.new("TextButton")
-    SelectButton.Size = UDim2.new(0.28, 0, 0.58, 0)
-    SelectButton.Position = UDim2.new(0.68, 0, 0.21, 0)
-    SelectButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    SelectButton.Text = "Select..."
-    SelectButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    SelectButton.TextSize = rpx(16)
-    SelectButton.Font = Enum.Font.SourceSansBold
-    SelectButton.Parent = MainContainer
-    SelectButton.AutoButtonColor = false
-    SelectButton.ZIndex = 999999
-
-    local SelectCorner = Instance.new("UICorner")
-    SelectCorner.CornerRadius = UDim.new(0, rpx(0))
-    SelectCorner.Parent = SelectButton
-
-    local SelectStroke = Instance.new("UIStroke")
-    SelectStroke.Color = Color3.fromRGB(70, 70, 70)
-    SelectStroke.Thickness = 1
-    SelectStroke.Parent = SelectButton
-
-    local SidePanel = Instance.new("Frame")
-    SidePanel.Name = stateName .. "Panel"
-    SidePanel.Size = UDim2.new(0.62, 0, 0.72, 0)
-    SidePanel.Position = UDim2.new(0.36, 0, 0.1, 0)
-    SidePanel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    SidePanel.BorderSizePixel = 0
-    SidePanel.Parent = ContentContainer
-    SidePanel.ZIndex = 1000004
-    SidePanel.Visible = false
-    SidePanel.ClipsDescendants = true
-
-    local SidePanelCorner = Instance.new("UICorner")
-    SidePanelCorner.CornerRadius = UDim.new(0, rpx(0))
-    SidePanelCorner.Parent = SidePanel
-
-    local SidePanelStroke = Instance.new("UIStroke")
-    SidePanelStroke.Color = Color3.fromRGB(110, 110, 110)
-    SidePanelStroke.Thickness = 1
-    SidePanelStroke.Parent = SidePanel
-
-    local OptionScroll = Instance.new("ScrollingFrame")
-    OptionScroll.Name = "OptionsScroll"
-    OptionScroll.Size = UDim2.new(1, -rpx(8), 1, -rpx(8))
-    OptionScroll.Position = UDim2.new(0, rpx(4), 0, rpx(4))
-    OptionScroll.BackgroundTransparency = 1
-    OptionScroll.BorderSizePixel = 0
-    OptionScroll.Parent = SidePanel
-    OptionScroll.ZIndex = 1000005
-    OptionScroll.ScrollBarThickness = 2
-    OptionScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-    OptionScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    OptionScroll.ClipsDescendants = true
-
-    local OptionListLayout = Instance.new("UIListLayout")
-    OptionListLayout.Padding = UDim.new(0, getDropdownPadding())
-    OptionListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    OptionListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    OptionListLayout.VerticalFlex = Enum.UIFlexAlignment.None
-    OptionListLayout.Parent = OptionScroll
-
-    local function setPanelVisible(visible)
-        isOpen = visible and "Auto Buy" == activeTab and MainContainer.Visible
-        SidePanel.Visible = isOpen
-    end
-
-    local function updateSwitch(switchButton, switchCircle, active, animated)
-        switchButton.BackgroundColor3 = active and Color3.fromRGB(100, 150, 200) or Color3.fromRGB(40, 40, 40)
-        local targetPosition = active and UDim2.new(0.56, 0, 0.12, 0) or UDim2.new(0.06, 0, 0.12, 0)
-        if animated then
-            switchCircle:TweenPosition(targetPosition, "Out", "Quad", 0.2, true)
-        else
-            switchCircle.Position = targetPosition
-        end
-    end
-
-    local powerOptions = {"Power 1", "Power 5", "Power 10"}
-    local optionControls = {}
-
-    local function refreshSelection(animated)
-        local selectedList = optionStates[stateName]
-        if type(selectedList) ~= "table" then
-            selectedList = {}
-            optionStates[stateName] = selectedList
-        end
-
-        SelectButton.Text = "Select..."
-
-        for index, controls in pairs(optionControls) do
-            local isSelected = false
-            for _, selected in ipairs(selectedList) do
-                if selected == powerOptions[index] then
-                    isSelected = true
-                    break
-                end
-            end
-            updateSwitch(controls.switchButton, controls.switchCircle, isSelected, animated)
-        end
-    end
-
-    for i, power in ipairs(powerOptions) do
-        local OptionBox = Instance.new("Frame")
-        OptionBox.Size = UDim2.new(1, -rpx(2), 0, getOptionFrameHeight())
-        OptionBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-        OptionBox.Parent = OptionScroll
-        OptionBox.ZIndex = 1000006
-        OptionBox.LayoutOrder = i
-
-        local OptionCorner = Instance.new("UICorner")
-        OptionCorner.CornerRadius = UDim.new(0, rpx(0))
-        OptionCorner.Parent = OptionBox
-
-        local OptionStroke = Instance.new("UIStroke")
-        OptionStroke.Color = Color3.fromRGB(110, 110, 110)
-        OptionStroke.Thickness = 1
-        OptionStroke.Parent = OptionBox
-
-        local OptionLabel = Instance.new("TextLabel")
-        OptionLabel.Size = UDim2.new(0.62, 0, 1, 0)
-        OptionLabel.Position = UDim2.new(0.05, 0, 0, 0)
-        OptionLabel.Text = power
-        OptionLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-        OptionLabel.BackgroundTransparency = 1
-        OptionLabel.TextXAlignment = Enum.TextXAlignment.Left
-        OptionLabel.Font = Enum.Font.SourceSans
-        OptionLabel.TextSize = rpx(23)
-        OptionLabel.Parent = OptionBox
-        OptionLabel.ZIndex = 1000007
-
-        local OptionSwitch = Instance.new("TextButton")
-        OptionSwitch.Name = "OptionSwitch"
-        OptionSwitch.Size = UDim2.new(0.15, 0, 0.45, 0)
-        OptionSwitch.Position = UDim2.new(0.8, 0, 0.275, 0)
-        OptionSwitch.Text = ""
-        OptionSwitch.Parent = OptionBox
-        OptionSwitch.AutoButtonColor = false
-        OptionSwitch.ZIndex = 1000007
-
-        local OptionSwitchCorner = Instance.new("UICorner")
-        OptionSwitchCorner.CornerRadius = UDim.new(0, rpx(0))
-        OptionSwitchCorner.Parent = OptionSwitch
-
-        local OptionSwitchStroke = Instance.new("UIStroke")
-        OptionSwitchStroke.Color = Color3.fromRGB(60, 60, 60)
-        OptionSwitchStroke.Thickness = 1
-        OptionSwitchStroke.Parent = OptionSwitch
-
-        local OptionCircle = Instance.new("Frame")
-        OptionCircle.Name = "OptionCircle"
-        OptionCircle.Size = UDim2.new(0.38, 0, 0.76, 0)
-        OptionCircle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        OptionCircle.Parent = OptionSwitch
-        OptionCircle.ZIndex = 1000008
-
-        local OptionCircleCorner = Instance.new("UICorner")
-        OptionCircleCorner.CornerRadius = UDim.new(0, rpx(0))
-        OptionCircleCorner.Parent = OptionCircle
-
-        optionControls[i] = {switchButton = OptionSwitch, switchCircle = OptionCircle}
-        refreshSelection(false)
-
-        local function toggleOption()
-            if createDebounce(power, 0.05) then
-                local selectedList = optionStates[stateName]
-                if type(selectedList) ~= "table" then
-                    selectedList = {}
-                    optionStates[stateName] = selectedList
-                end
-
-                local foundIndex = nil
-                for idx, selected in ipairs(selectedList) do
-                    if selected == power then
-                        foundIndex = idx
-                        break
-                    end
-                end
-
-                if foundIndex then
-                    table.remove(selectedList, foundIndex)
-                else
-                    table.insert(selectedList, power)
-                end
-
-                optionStates[stateName] = selectedList
-                setOptionState(stateName, selectedList)
-                refreshSelection(true)
-
-                if callback then
-                    task.spawn(function() callback(selectedList) end)
-                end
-                return true
-            end
-            return false
-        end
-
-        OptionSwitch.Activated:Connect(toggleOption)
-    end
-
-    SelectButton.Activated:Connect(function()
-        if createDebounce(stateName .. "Dropdown", 0.05) then
-            setPanelVisible(not isOpen)
-        end
-    end)
-
-    MainContainer:GetPropertyChangedSignal("Visible"):Connect(function()
-        if not MainContainer.Visible then
-            setPanelVisible(false)
-        end
-    end)
-
-    UserInputService.InputBegan:Connect(function(input)
-        if not isOpen then
-            return
-        end
-
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            local position = input.Position
-            if not isPointInsideGui(SidePanel, position) and not isPointInsideGui(SelectButton, position) then
-                setPanelVisible(false)
-            end
-        end
-    end)
-
-    registerElement("Auto Buy", MainContainer, labelText)
-end
-
-powerSelectorFunction("UpgradesWorldSelector1", "Select Upgrades Power")
-
-createOption("Auto Buy Power", false, "Auto Buy", function(state)
-    autoBuyPowerActive = state
-    if state then
-        task.spawn(function()
-            while autoBuyPowerActive do
-                local selectedPowers = optionStates["UpgradesWorldSelector1"]
-                if selectedPowers and type(selectedPowers) == "table" and #selectedPowers > 0 then
-                    table.sort(selectedPowers, function(a, b)
-                        local aNum = tonumber(a:match("%d+")) or 0
-                        local bNum = tonumber(b:match("%d+")) or 0
-                        return aNum < bNum
-                    end)
-                    for _, powerName in ipairs(selectedPowers) do
-                        if not autoBuyPowerActive then break end
-                        local powerMap = {
-                            ["Power 1"] = 1,
-                            ["Power 5"] = 5,
-                            ["Power 10"] = 10
-                        }
-                        local powerNum = powerMap[powerName]
-                        if powerNum then
-                            pcall(function()
-                                game:GetService("ReplicatedStorage").Events.PurchasePower:FireServer(powerNum)
-                            end)
-                            task.wait(0.05)
-                        end
-                    end
-                    task.wait(0.1)
-                else
-                    task.wait(0.5)
-                end
-            end
-        end)
-    end
-end)
-
-local speedSelectorFunction = function(stateName, labelText, callback)
-    optionCounter = optionCounter + 1
-
-    createOptionState(stateName, {})
-    local selectedSpeeds = optionStates[stateName]
-    if type(selectedSpeeds) ~= "table" then
-        selectedSpeeds = {}
-        optionStates[stateName] = selectedSpeeds
-    end
-    local isOpen = false
-
-    local MainContainer = Instance.new("Frame")
-    MainContainer.Size = getOptionFrameSize()
-    MainContainer.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-    MainContainer.Parent = MainContent
-    MainContainer.Name = tostring(optionCounter)
-    MainContainer.LayoutOrder = optionCounter
-    MainContainer.ZIndex = 999999
-    MainContainer.Visible = ("Auto Buy" == activeTab)
-
-    local UICorner = Instance.new("UICorner")
-    UICorner.CornerRadius = UDim.new(0, rpx(0))
-    UICorner.Parent = MainContainer
-
-    local ContainerStroke = Instance.new("UIStroke")
-    ContainerStroke.Color = Color3.fromRGB(60, 60, 60)
-    ContainerStroke.Thickness = 0
-    ContainerStroke.Parent = MainContainer
-
-    local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(0.58, 0, 1, 0)
-    Label.Position = UDim2.new(0.05, 0, 0, 0)
-    Label.Text = labelText
-    Label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Label.BackgroundTransparency = 1
-    Label.TextXAlignment = Enum.TextXAlignment.Left
-    Label.Font = Enum.Font.SourceSans
-    Label.TextSize = rpx(23)
-    Label.Parent = MainContainer
-    Label.ZIndex = 999999
-
-    local SelectButton = Instance.new("TextButton")
-    SelectButton.Size = UDim2.new(0.28, 0, 0.58, 0)
-    SelectButton.Position = UDim2.new(0.68, 0, 0.21, 0)
-    SelectButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    SelectButton.Text = "Select..."
-    SelectButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    SelectButton.TextSize = rpx(16)
-    SelectButton.Font = Enum.Font.SourceSansBold
-    SelectButton.Parent = MainContainer
-    SelectButton.AutoButtonColor = false
-    SelectButton.ZIndex = 999999
-
-    local SelectCorner = Instance.new("UICorner")
-    SelectCorner.CornerRadius = UDim.new(0, rpx(0))
-    SelectCorner.Parent = SelectButton
-
-    local SelectStroke = Instance.new("UIStroke")
-    SelectStroke.Color = Color3.fromRGB(70, 70, 70)
-    SelectStroke.Thickness = 1
-    SelectStroke.Parent = SelectButton
-
-    local SidePanel = Instance.new("Frame")
-    SidePanel.Name = stateName .. "Panel"
-    SidePanel.Size = UDim2.new(0.62, 0, 0.72, 0)
-    SidePanel.Position = UDim2.new(0.36, 0, 0.1, 0)
-    SidePanel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    SidePanel.BorderSizePixel = 0
-    SidePanel.Parent = ContentContainer
-    SidePanel.ZIndex = 1000004
-    SidePanel.Visible = false
-    SidePanel.ClipsDescendants = true
-
-    local SidePanelCorner = Instance.new("UICorner")
-    SidePanelCorner.CornerRadius = UDim.new(0, rpx(0))
-    SidePanelCorner.Parent = SidePanel
-
-    local SidePanelStroke = Instance.new("UIStroke")
-    SidePanelStroke.Color = Color3.fromRGB(110, 110, 110)
-    SidePanelStroke.Thickness = 1
-    SidePanelStroke.Parent = SidePanel
-
-    local OptionScroll = Instance.new("ScrollingFrame")
-    OptionScroll.Name = "OptionsScroll"
-    OptionScroll.Size = UDim2.new(1, -rpx(8), 1, -rpx(8))
-    OptionScroll.Position = UDim2.new(0, rpx(4), 0, rpx(4))
-    OptionScroll.BackgroundTransparency = 1
-    OptionScroll.BorderSizePixel = 0
-    OptionScroll.Parent = SidePanel
-    OptionScroll.ZIndex = 1000005
-    OptionScroll.ScrollBarThickness = 2
-    OptionScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-    OptionScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    OptionScroll.ClipsDescendants = true
-
-    local OptionListLayout = Instance.new("UIListLayout")
-    OptionListLayout.Padding = UDim.new(0, getDropdownPadding())
-    OptionListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    OptionListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    OptionListLayout.VerticalFlex = Enum.UIFlexAlignment.None
-    OptionListLayout.Parent = OptionScroll
-
-    local function setPanelVisible(visible)
-        isOpen = visible and "Auto Buy" == activeTab and MainContainer.Visible
-        SidePanel.Visible = isOpen
-    end
-
-    local function updateSwitch(switchButton, switchCircle, active, animated)
-        switchButton.BackgroundColor3 = active and Color3.fromRGB(100, 150, 200) or Color3.fromRGB(40, 40, 40)
-        local targetPosition = active and UDim2.new(0.56, 0, 0.12, 0) or UDim2.new(0.06, 0, 0.12, 0)
-        if animated then
-            switchCircle:TweenPosition(targetPosition, "Out", "Quad", 0.2, true)
-        else
-            switchCircle.Position = targetPosition
-        end
-    end
-
-    local speedOptions = {"Speed 1", "Speed 5", "Speed 10"}
-    local optionControls = {}
-
-    local function refreshSelection(animated)
-        local selectedList = optionStates[stateName]
-        if type(selectedList) ~= "table" then
-            selectedList = {}
-            optionStates[stateName] = selectedList
-        end
-
-        SelectButton.Text = "Select..."
-
-        for index, controls in pairs(optionControls) do
-            local isSelected = false
-            for _, selected in ipairs(selectedList) do
-                if selected == speedOptions[index] then
-                    isSelected = true
-                    break
-                end
-            end
-            updateSwitch(controls.switchButton, controls.switchCircle, isSelected, animated)
-        end
-    end
-
-    for i, speed in ipairs(speedOptions) do
-        local OptionBox = Instance.new("Frame")
-        OptionBox.Size = UDim2.new(1, -rpx(2), 0, getOptionFrameHeight())
-        OptionBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-        OptionBox.Parent = OptionScroll
-        OptionBox.ZIndex = 1000006
-        OptionBox.LayoutOrder = i
-
-        local OptionCorner = Instance.new("UICorner")
-        OptionCorner.CornerRadius = UDim.new(0, rpx(0))
-        OptionCorner.Parent = OptionBox
-
-        local OptionStroke = Instance.new("UIStroke")
-        OptionStroke.Color = Color3.fromRGB(110, 110, 110)
-        OptionStroke.Thickness = 1
-        OptionStroke.Parent = OptionBox
-
-        local OptionLabel = Instance.new("TextLabel")
-        OptionLabel.Size = UDim2.new(0.62, 0, 1, 0)
-        OptionLabel.Position = UDim2.new(0.05, 0, 0, 0)
-        OptionLabel.Text = speed
-        OptionLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-        OptionLabel.BackgroundTransparency = 1
-        OptionLabel.TextXAlignment = Enum.TextXAlignment.Left
-        OptionLabel.Font = Enum.Font.SourceSans
-        OptionLabel.TextSize = rpx(23)
-        OptionLabel.Parent = OptionBox
-        OptionLabel.ZIndex = 1000007
-
-        local OptionSwitch = Instance.new("TextButton")
-        OptionSwitch.Name = "OptionSwitch"
-        OptionSwitch.Size = UDim2.new(0.15, 0, 0.45, 0)
-        OptionSwitch.Position = UDim2.new(0.8, 0, 0.275, 0)
-        OptionSwitch.Text = ""
-        OptionSwitch.Parent = OptionBox
-        OptionSwitch.AutoButtonColor = false
-        OptionSwitch.ZIndex = 1000007
-
-        local OptionSwitchCorner = Instance.new("UICorner")
-        OptionSwitchCorner.CornerRadius = UDim.new(0, rpx(0))
-        OptionSwitchCorner.Parent = OptionSwitch
-
-        local OptionSwitchStroke = Instance.new("UIStroke")
-        OptionSwitchStroke.Color = Color3.fromRGB(60, 60, 60)
-        OptionSwitchStroke.Thickness = 1
-        OptionSwitchStroke.Parent = OptionSwitch
-
-        local OptionCircle = Instance.new("Frame")
-        OptionCircle.Name = "OptionCircle"
-        OptionCircle.Size = UDim2.new(0.38, 0, 0.76, 0)
-        OptionCircle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        OptionCircle.Parent = OptionSwitch
-        OptionCircle.ZIndex = 1000008
-
-        local OptionCircleCorner = Instance.new("UICorner")
-        OptionCircleCorner.CornerRadius = UDim.new(0, rpx(0))
-        OptionCircleCorner.Parent = OptionCircle
-
-        optionControls[i] = {switchButton = OptionSwitch, switchCircle = OptionCircle}
-        refreshSelection(false)
-
-        local function toggleOption()
-            if createDebounce(speed, 0.05) then
-                local selectedList = optionStates[stateName]
-                if type(selectedList) ~= "table" then
-                    selectedList = {}
-                    optionStates[stateName] = selectedList
-                end
-
-                local foundIndex = nil
-                for idx, selected in ipairs(selectedList) do
-                    if selected == speed then
-                        foundIndex = idx
-                        break
-                    end
-                end
-
-                if foundIndex then
-                    table.remove(selectedList, foundIndex)
-                else
-                    table.insert(selectedList, speed)
-                end
-
-                optionStates[stateName] = selectedList
-                setOptionState(stateName, selectedList)
-                refreshSelection(true)
-
-                if callback then
-                    task.spawn(function() callback(selectedList) end)
-                end
-                return true
-            end
-            return false
-        end
-
-        OptionSwitch.Activated:Connect(toggleOption)
-    end
-
-    SelectButton.Activated:Connect(function()
-        if createDebounce(stateName .. "Dropdown", 0.05) then
-            setPanelVisible(not isOpen)
-        end
-    end)
-
-    MainContainer:GetPropertyChangedSignal("Visible"):Connect(function()
-        if not MainContainer.Visible then
-            setPanelVisible(false)
-        end
-    end)
-
-    UserInputService.InputBegan:Connect(function(input)
-        if not isOpen then
-            return
-        end
-
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            local position = input.Position
-            if not isPointInsideGui(SidePanel, position) and not isPointInsideGui(SelectButton, position) then
-                setPanelVisible(false)
-            end
-        end
-    end)
-
-    registerElement("Auto Buy", MainContainer, labelText)
-end
-
-speedSelectorFunction("UpgradesWorldSelector2", "Select Speed Upgrades")
-
-createOption("Auto Buy Speed", false, "Auto Buy", function(state)
-    autoBuySpeedActive = state
-    if state then
-        task.spawn(function()
-            while autoBuySpeedActive do
-                local selectedSpeeds = optionStates["UpgradesWorldSelector2"]
-                if selectedSpeeds and type(selectedSpeeds) == "table" and #selectedSpeeds > 0 then
-                    table.sort(selectedSpeeds, function(a, b)
-                        local aNum = tonumber(a:match("%d+")) or 0
-                        local bNum = tonumber(b:match("%d+")) or 0
-                        return aNum < bNum
-                    end)
-                    for _, speedName in ipairs(selectedSpeeds) do
-                        if not autoBuySpeedActive then break end
-                        local speedMap = {
-                            ["Speed 1"] = 1,
-                            ["Speed 5"] = 5,
-                            ["Speed 10"] = 10
-                        }
-                        local speedNum = speedMap[speedName]
-                        if speedNum then
-                            pcall(function()
-                                game:GetService("ReplicatedStorage").Events.PurchaseSpeed:FireServer(speedNum)
-                            end)
-                            task.wait(0.05)
-                        end
-                    end
-                    task.wait(0.1)
-                else
-                    task.wait(0.5)
-                end
-            end
-        end)
-    end
-end)
-
-createCategory("Auto Buy", "Plot", "121151950440274")
-
-createOption("Auto Plot Upgrade", false, "Auto Buy", function(state)
-    autoPlotUpgradeActive = state
-    if state then
-        task.spawn(function()
-            while autoPlotUpgradeActive do
-                for floor = 2, 20 do
-                    if not autoPlotUpgradeActive then break end
-                    pcall(function()
-                        local args = {
-                            [1] = "Floor" .. floor
-                        }
-                        game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("RequestFloorPurchase"):FireServer(unpack(args))
-                    end)
-                    task.wait(0.03)
-                end
-            end
-        end)
-    end
-end)
-
-local autoCollectRewardsActive = false
-
-createCategory("Auto Buy", "Rewards", "101595456707553")
-
-createOption("Auto Collect Rewards", false, "Auto Buy", function(state)
-    autoCollectRewardsActive = state
-    if state then
-        task.spawn(function()
-            while autoCollectRewardsActive do
-                for rewardNum = 1, 12 do
-                    if not autoCollectRewardsActive then break end
-                    pcall(function()
-                        local args = {
-                            [1] = rewardNum
-                        }
-                        game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("ClaimPlaytimeReward"):InvokeServer(unpack(args))
-                    end)
-                    task.wait(0.03)
-                end
-            end
-        end)
-    end
-end)
-
 createCategory("Config", "Player", "102791662357524")
 
 createSpecialButton("Auto Rejoin", "Config", function()
@@ -3469,140 +2481,49 @@ ConfirmNoButton.Activated:Connect(function()
     setConfirmVisible(false)
 end)
 
--- Unified drag support for the main menu and the floating button.
--- Both are clamped to the current viewport so they can never disappear completely.
-local function clampMainFrameCenter(x, y)
-    local camera = workspace.CurrentCamera
-    local viewport = camera and camera.ViewportSize or BASE_VIEWPORT_SIZE
-    local size = MainFrame.AbsoluteSize
-
-    local halfW = math.max(size.X * 0.5, 1)
-    local halfH = math.max(size.Y * 0.5, 1)
-    local margin = 8
-
-    local minX = halfW - size.X + margin
-    local maxX = viewport.X - halfW + size.X - margin
-    local minY = halfH - size.Y + margin
-    local maxY = viewport.Y - halfH + size.Y - margin
-
-    -- Simpler and safer center bounds: keep at least a visible strip on every side.
-    minX = margin - halfW
-    maxX = viewport.X - margin + halfW
-    minY = margin - halfH
-    maxY = viewport.Y - margin + halfH
-
-    return math.clamp(x, minX, maxX), math.clamp(y, minY, maxY)
-end
-
-local function setMainFramePosition(x, y)
-    local clampedX, clampedY = clampMainFrameCenter(x, y)
-    MainFrame.Position = UDim2.fromOffset(clampedX, clampedY)
-    ShadowFrame.Position = UDim2.fromOffset(clampedX, clampedY)
-end
-
-local function clampFloatingButtonPosition(x, y)
-    local camera = workspace.CurrentCamera
-    local viewport = camera and camera.ViewportSize or BASE_VIEWPORT_SIZE
-    local size = FloatingButton.AbsoluteSize
-    local margin = 8
-
-    local minX = math.min(margin, math.max(0, viewport.X - size.X))
-    local maxX = math.max(minX, viewport.X - size.X - margin)
-    local minY = math.min(margin, math.max(0, viewport.Y - size.Y))
-    local maxY = math.max(minY, viewport.Y - size.Y - margin)
-
-    return math.clamp(x, minX, maxX), math.clamp(y, minY, maxY)
-end
-
-local function keepDraggablesOnScreen()
-    local camera = workspace.CurrentCamera
-    if not camera then return end
-
-    local mainPos = MainFrame.AbsolutePosition + MainFrame.AbsoluteSize * 0.5
-    setMainFramePosition(mainPos.X, mainPos.Y)
-
-    local buttonPos = FloatingButton.AbsolutePosition
-    local bx, by = clampFloatingButtonPosition(buttonPos.X, buttonPos.Y)
-    FloatingButton.Position = UDim2.fromOffset(bx, by)
-end
-
-local function createCornerDragZone(name, anchorPoint, position)
-    local zone = Instance.new("TextButton")
-    zone.Name = name
-    zone.AnchorPoint = anchorPoint
-    zone.Position = position
-    zone.Size = UDim2.new(0.08, 0, 0, 10)
-    zone.BackgroundTransparency = 1
-    zone.Text = ""
-    zone.AutoButtonColor = false
-    zone.ZIndex = 1000000
-    zone.Parent = MainFrame
-
-    local dragging = false
-    local dragStart
-    local startCenter
-
-    zone.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = input.Position
-            startCenter = MainFrame.AbsolutePosition + MainFrame.AbsoluteSize * 0.5
-        end
-    end)
-
-    UserInputService.InputChanged:Connect(function(input)
-        if not dragging then return end
-        if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
-
-        local delta = input.Position - dragStart
-        setMainFramePosition(startCenter.X + delta.X, startCenter.Y + delta.Y)
-    end)
-
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-        end
-    end)
-
-    return zone
-end
-
-createCornerDragZone("DragCornerTopLeft", Vector2.new(0, 0), UDim2.new(0, 0, 0, 0))
-createCornerDragZone("DragCornerTopRight", Vector2.new(1, 0), UDim2.new(1, 0, 0, 0))
-createCornerDragZone("DragCornerBottomLeft", Vector2.new(0, 1), UDim2.new(0, 1, 1, 0))
-createCornerDragZone("DragCornerBottomRight", Vector2.new(1, 1), UDim2.new(1, 1, 1, 0))
-
-if workspace.CurrentCamera then
-    workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(keepDraggablesOnScreen)
-end
-
 local draggingBtn = false
 local activeDragInput = nil
 local dragStartBtn = nil
 local startPosBtn = nil
 local buttonMoved = false
 
+local function getGuiBounds(guiObject, allowOutside)
+    local camera = workspace.CurrentCamera
+    local viewport = camera and camera.ViewportSize or BASE_VIEWPORT_SIZE
+    local size = guiObject.AbsoluteSize
+
+    local minX = allowOutside and -(size.X - rpx(24)) or 0
+    local maxX = allowOutside and (viewport.X - rpx(24)) or (viewport.X - size.X)
+    local minY = allowOutside and -(size.Y - rpx(24)) or 0
+    local maxY = allowOutside and (viewport.Y - rpx(24)) or (viewport.Y - size.Y)
+
+    return minX, maxX, minY, maxY
+end
+
+local function clampGuiPosition(guiObject, desiredPosition, keepVisiblePart)
+    local camera = workspace.CurrentCamera
+    local viewport = camera and camera.ViewportSize or BASE_VIEWPORT_SIZE
+    local size = guiObject.AbsoluteSize
+    local anchor = guiObject.AnchorPoint
+
+    local desiredAbsX = desiredPosition.X.Scale * viewport.X + desiredPosition.X.Offset
+    local desiredAbsY = desiredPosition.Y.Scale * viewport.Y + desiredPosition.Y.Offset
+
+    local minVisible = keepVisiblePart and rpx(24) or 0
+    local minAbsX = minVisible - size.X * anchor.X
+    local maxAbsX = viewport.X - minVisible - size.X * (anchor.X - 1)
+    local minAbsY = minVisible - size.Y * anchor.Y
+    local maxAbsY = viewport.Y - minVisible - size.Y * (anchor.Y - 1)
+
+    desiredAbsX = math.clamp(desiredAbsX, minAbsX, maxAbsX)
+    desiredAbsY = math.clamp(desiredAbsY, minAbsY, maxAbsY)
+
+    return UDim2.new(0, math.floor(desiredAbsX + 0.5), 0, math.floor(desiredAbsY + 0.5))
+end
+
 local function toggleMenu()
     MainFrame.Visible = not MainFrame.Visible
     ShadowFrame.Visible = MainFrame.Visible
-end
-
-local function updateFloatingButtonPosition(input)
-    if activeDragInput and dragStartBtn and startPosBtn then
-        local delta = input.Position - dragStartBtn
-
-        if delta.Magnitude > 8 then
-            draggingBtn = true
-            buttonMoved = true
-        end
-
-        if draggingBtn then
-            local currentX = startPosBtn.X.Scale * (workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize.X or BASE_VIEWPORT_SIZE.X) + startPosBtn.X.Offset + delta.X
-            local currentY = startPosBtn.Y.Scale * (workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize.Y or BASE_VIEWPORT_SIZE.Y) + startPosBtn.Y.Offset + delta.Y
-            local clampedX, clampedY = clampFloatingButtonPosition(currentX, currentY)
-            FloatingButton.Position = UDim2.fromOffset(clampedX, clampedY)
-        end
-    end
 end
 
 FloatingButton.InputBegan:Connect(function(input)
@@ -3618,7 +2539,20 @@ end)
 UserInputService.InputChanged:Connect(function(input)
     if activeDragInput then
         if input == activeDragInput or input.UserInputType == Enum.UserInputType.MouseMovement then
-            updateFloatingButtonPosition(input)
+            local delta = input.Position - dragStartBtn
+
+            if delta.Magnitude > 8 then
+                draggingBtn = true
+                buttonMoved = true
+            end
+
+            if draggingBtn then
+                local desired = UDim2.new(
+                    startPosBtn.X.Scale, startPosBtn.X.Offset + delta.X,
+                    startPosBtn.Y.Scale, startPosBtn.Y.Offset + delta.Y
+                )
+                FloatingButton.Position = clampGuiPosition(FloatingButton, desired, false)
+            end
         end
     end
 end)
@@ -3637,20 +2571,135 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 
+local panelDragging = false
+local panelDragInput = nil
+local panelDragStart = nil
+local panelStartPosition = nil
+
+local function beginPanelDrag(input)
+    if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
+        return
+    end
+
+    panelDragging = true
+    panelDragInput = input
+    panelDragStart = input.Position
+    panelStartPosition = MainFrame.Position
+end
+
+local function updatePanelDrag(input)
+    if not panelDragging or not panelDragInput or not panelDragStart or not panelStartPosition then
+        return
+    end
+
+    if input ~= panelDragInput and input.UserInputType ~= Enum.UserInputType.MouseMovement then
+        return
+    end
+
+    local delta = input.Position - panelDragStart
+    local desired = UDim2.new(
+        panelStartPosition.X.Scale, panelStartPosition.X.Offset + delta.X,
+        panelStartPosition.Y.Scale, panelStartPosition.Y.Offset + delta.Y
+    )
+
+    MainFrame.Position = clampGuiPosition(MainFrame, desired, true)
+    ShadowFrame.Position = MainFrame.Position
+end
+
+local function endPanelDrag(input)
+    if panelDragging and panelDragInput then
+        if input == panelDragInput or input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            panelDragging = false
+            panelDragInput = nil
+            panelDragStart = nil
+            panelStartPosition = nil
+        end
+    end
+end
+
+local function createDragHandle(name, anchorPoint, position)
+    local handle = Instance.new("TextButton")
+    handle.Name = name
+    handle.AnchorPoint = anchorPoint
+    handle.Position = position
+    handle.Size = UDim2.new(0, rpx(34), 0, rpx(34))
+    handle.BackgroundTransparency = 1
+    handle.Text = ""
+    handle.AutoButtonColor = false
+    handle.ZIndex = 999998
+    handle.Parent = MainFrame
+    handle.InputBegan:Connect(beginPanelDrag)
+    return handle
+end
+
+createDragHandle("TopLeftDragHandle", Vector2.new(0, 0), UDim2.new(0, 0, 0, 0))
+createDragHandle("TopRightDragHandle", Vector2.new(1, 0), UDim2.new(1, 0, 0, 0))
+createDragHandle("BottomLeftDragHandle", Vector2.new(0, 1), UDim2.new(0, 1, 1, 0))
+createDragHandle("BottomRightDragHandle", Vector2.new(1, 1), UDim2.new(1, 1, 1, 0))
+
+UserInputService.InputChanged:Connect(updatePanelDrag)
+UserInputService.InputEnded:Connect(endPanelDrag)
+
 local LP = game:GetService("Players").LocalPlayer
 local isFlyActive = false
 local bg, bv
 
 task.spawn(function()
     while task.wait(0.1) do
+        if isFlyActive and bg and bv then
+            local cam = workspace.CurrentCamera
+            local char = LP.Character
+            local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+
+            if cam and humanoid and root then
+                local moveDir = humanoid.MoveDirection
+
+                if moveDir.Magnitude > 0 then
+                    local camDir = cam.CFrame.LookVector
+                    local camRight = cam.CFrame.RightVector
+                    local flatLook = Vector3.new(camDir.X, 0, camDir.Z)
+                    local flatRight = Vector3.new(camRight.X, 0, camRight.Z)
+
+                    if flatLook.Magnitude > 0.001 then
+                        flatLook = flatLook.Unit
+                    else
+                        flatLook = Vector3.new(0, 0, -1)
+                    end
+
+                    if flatRight.Magnitude > 0.001 then
+                        flatRight = flatRight.Unit
+                    else
+                        flatRight = Vector3.new(1, 0, 0)
+                    end
+
+                    local forwardInput = moveDir:Dot(flatLook)
+                    local rightInput = moveDir:Dot(flatRight)
+                    bv.Velocity = (flatLook * forwardInput + flatRight * rightInput) * flySpeed
+                else
+                    bv.Velocity = Vector3.new(0, 0, 0)
+                end
+
+                bg.CFrame = cam.CFrame
+            end
+        end
+    end
+end)
+
+task.spawn(function()
+    while task.wait(0.1) do
         local flyEnabled = optionStates["Fly"]
-        if type(flyEnabled) == "function" then flyEnabled = flyEnabled() end
+        if type(flyEnabled) == "function" then
+            flyEnabled = flyEnabled()
+        end
 
         if flyEnabled then
             isFlyActive = true
+
             local char = LP.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                local root = char.HumanoidRootPart
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+
+            if root then
                 if not root:FindFirstChild("FlyVel") then
                     bv = Instance.new("BodyVelocity")
                     bv.Name = "FlyVel"
@@ -3673,14 +2722,18 @@ task.spawn(function()
             end
         else
             isFlyActive = false
+
             local char = LP.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                local root = char.HumanoidRootPart
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+
+            if root then
                 local vel = root:FindFirstChild("FlyVel")
                 local gyro = root:FindFirstChild("FlyGyro")
+
                 if vel then vel:Destroy() end
                 if gyro then gyro:Destroy() end
             end
+
             bv = nil
             bg = nil
         end
@@ -3690,34 +2743,48 @@ end)
 task.spawn(function()
     while task.wait(0.1) do
         local antiAfk = optionStates["Anti AFK"]
-        if type(antiAfk) == "function" then antiAfk = antiAfk() end
+        if type(antiAfk) == "function" then
+            antiAfk = antiAfk()
+        end
+
         if antiAfk then
-            pcall(function()
-                VirtualUser:CaptureController()
-                VirtualUser:ClickButton2(Vector2.new())
-            end)
+            task.wait(60)
+
+            local stillEnabled = optionStates["Anti AFK"]
+            if type(stillEnabled) == "function" then
+                stillEnabled = stillEnabled()
+            end
+
+            if stillEnabled then
+                pcall(function()
+                    VirtualUser:CaptureController()
+                    VirtualUser:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+                    task.wait(0.08)
+                    VirtualUser:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+                end)
+            end
         end
     end
 end)
 
-local function stopAllScriptFeatures()
-    autoRebirthActive = false
-    autoTrainPowerActive = false
-    autoPlotUpgradeActive = false
-    autoBuyPowerActive = false
-    autoBuySpeedActive = false
-    autoUpgradeBrainrotsAllActive = false
-    autoUpgradeBrainrotsSelectedActive = false
-    autoCollectMoneyActive = false
-    autoBestBrainrotsActive = false
-    autoCollectRewardsActive = false
+Player.CharacterAdded:Connect(function()
     isFlyActive = false
 
-    for name, value in pairs(optionStates) do
-        if type(value) == "boolean" then
-            optionStates[name] = false
-        end
+    local oldRoot = LP.Character
+    if oldRoot and oldRoot:FindFirstChild("HumanoidRootPart") then
+        local root = oldRoot.HumanoidRootPart
+        local vel = root:FindFirstChild("FlyVel")
+        local gyro = root:FindFirstChild("FlyGyro")
+        if vel then vel:Destroy() end
+        if gyro then gyro:Destroy() end
     end
+
+    bg = nil
+    bv = nil
+end)
+
+local function stopAllScriptFeatures()
+    isFlyActive = false
 
     if bg then
         pcall(function() bg:Destroy() end)
@@ -3729,6 +2796,11 @@ local function stopAllScriptFeatures()
         bv = nil
     end
 
+    for name, value in pairs(optionStates) do
+        if type(value) == "boolean" then
+            optionStates[name] = false
+        end
+    end
 end
 
 ConfirmYesButton.Activated:Connect(function()
