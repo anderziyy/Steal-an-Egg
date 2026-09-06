@@ -67,6 +67,11 @@ local cleanupCallbacks = {}
 local cleanedUp = false
 local pendingAction = nil
 
+-- UI lock state: the panel controls whether the main menu and/or launcher can be dragged.
+local lockMenuSelected = false
+local lockLauncherSelected = false
+local lockEnabled = false
+
 local function registerCleanup(callback)
 	if type(callback) ~= "function" then
 		return
@@ -232,11 +237,27 @@ local HeaderTitle = make("TextLabel", {
 	ZIndex = 4,
 }, Header)
 
+local LockButton = make("TextButton", {
+	Name = "Lock",
+	AnchorPoint = Vector2.new(1, 0.5),
+	Position = UDim2.fromScale(0.835, 0.5),
+	Size = UDim2.fromScale(0.050, 0.70),
+	BackgroundColor3 = COLORS.Gray,
+	BackgroundTransparency = 0.18,
+	BorderSizePixel = 0,
+	AutoButtonColor = false,
+	Text = "Lock",
+	TextColor3 = COLORS.White,
+	Font = Enum.Font.GothamBold,
+	TextSize = 12,
+	ZIndex = 20,
+}, Header)
+
 local MinimizeButton = make("TextButton", {
 	Name = "Minimize",
 	AnchorPoint = Vector2.new(1, 0.5),
 	Position = UDim2.fromScale(0.900, 0.5),
-	Size = UDim2.fromScale(0.050, 0.64),
+	Size = UDim2.fromScale(0.050, 0.70),
 	BackgroundColor3 = COLORS.Gray,
 	BackgroundTransparency = 0.18,
 	BorderSizePixel = 0,
@@ -266,24 +287,6 @@ local CloseButton = make("TextButton", {
 	ZIndex = 50,
 }, Header)
 
-local LockButton = make("TextButton", {
-	Name = "Lock",
-	AnchorPoint = Vector2.new(1, 0.5),
-	Position = UDim2.fromScale(0.825, 0.5),
-	Size = UDim2.fromScale(0.060, 0.64),
-	BackgroundColor3 = COLORS.Gray,
-	BackgroundTransparency = 0.18,
-	BorderSizePixel = 0,
-	AutoButtonColor = false,
-	Active = true,
-	Selectable = false,
-	Text = "Lock",
-	TextColor3 = COLORS.White,
-	Font = Enum.Font.GothamBold,
-	TextSize = 12,
-	ZIndex = 20,
-}, Header)
-
 local function styleHeaderButton(button)
 	button.MouseEnter:Connect(function()
 		tween(button, 0.12, {BackgroundColor3 = COLORS.Gray3, BackgroundTransparency = 0})
@@ -292,9 +295,249 @@ local function styleHeaderButton(button)
 		tween(button, 0.12, {BackgroundColor3 = COLORS.Gray, BackgroundTransparency = 0.18})
 	end)
 end
+styleHeaderButton(LockButton)
 styleHeaderButton(MinimizeButton)
 styleHeaderButton(CloseButton)
-styleHeaderButton(LockButton)
+
+local LockPanel = make("Frame", {
+	Name = "LockPanel",
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	Size = UDim2.fromScale(0.42, 0.34),
+	BackgroundColor3 = COLORS.Black,
+	BorderSizePixel = 0,
+	Visible = false,
+	Active = true,
+	ZIndex = 300,
+}, ScreenGui)
+
+make("UIAspectRatioConstraint", {
+	AspectRatio = 1.95,
+	DominantAxis = Enum.DominantAxis.Width,
+	AspectType = Enum.AspectType.ScaleWithParentSize,
+}, LockPanel)
+
+make("UIStroke", {
+	Thickness = 1.6,
+	Color = COLORS.Gray3,
+	Transparency = 0.10,
+}, LockPanel)
+
+make("Frame", {
+	Name = "Header",
+	Position = UDim2.fromScale(0, 0),
+	Size = UDim2.fromScale(1, 0.22),
+	BackgroundColor3 = COLORS.Black2,
+	BorderSizePixel = 0,
+	ZIndex = 301,
+}, LockPanel)
+
+local LockTitle = make("TextLabel", {
+	Name = "Title",
+	Position = UDim2.fromScale(0.07, 0.08),
+	Size = UDim2.fromScale(0.72, 0.84),
+	BackgroundTransparency = 1,
+	Text = "Lock Controls",
+	TextColor3 = COLORS.White,
+	Font = Enum.Font.GothamBold,
+	TextSize = 16,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	TextYAlignment = Enum.TextYAlignment.Center,
+	ZIndex = 302,
+}, LockPanel)
+
+local LockClose = make("TextButton", {
+	Name = "Close",
+	AnchorPoint = Vector2.new(1, 0.5),
+	Position = UDim2.fromScale(0.95, 0.50),
+	Size = CloseButton.Size,
+	BackgroundColor3 = COLORS.Gray,
+	BackgroundTransparency = 0.18,
+	BorderSizePixel = 0,
+	AutoButtonColor = false,
+	Active = true,
+	Selectable = false,
+	Text = "X",
+	TextColor3 = COLORS.White,
+	Font = Enum.Font.GothamBold,
+	TextSize = 14,
+	ZIndex = 303,
+}, LockPanel)
+
+make("TextLabel", {
+	Name = "Description",
+	Position = UDim2.fromScale(0.07, 0.27),
+	Size = UDim2.fromScale(0.86, 0.18),
+	BackgroundTransparency = 1,
+	Text = "Lock the menu and/or the button in place.",
+	TextColor3 = COLORS.SoftWhite,
+	Font = Enum.Font.Gotham,
+	TextSize = 12,
+	TextWrapped = true,
+	TextXAlignment = Enum.TextXAlignment.Center,
+	TextYAlignment = Enum.TextYAlignment.Center,
+	ZIndex = 302,
+}, LockPanel)
+
+local LockTargets = make("Frame", {
+	Name = "Targets",
+	Position = UDim2.fromScale(0.08, 0.48),
+	Size = UDim2.fromScale(0.84, 0.22),
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	ZIndex = 302,
+}, LockPanel)
+
+make("UIListLayout", {
+	FillDirection = Enum.FillDirection.Horizontal,
+	HorizontalAlignment = Enum.HorizontalAlignment.Center,
+	VerticalAlignment = Enum.VerticalAlignment.Center,
+	HorizontalFlex = Enum.UIFlexAlignment.SpaceBetween,
+	VerticalFlex = Enum.UIFlexAlignment.None,
+	Padding = UDim.new(0, 0),
+	SortOrder = Enum.SortOrder.LayoutOrder,
+}, LockTargets)
+
+local function makeLockTarget(name, labelText, order)
+	local target = make("TextButton", {
+		Name = name,
+		Size = UDim2.fromScale(0.46, 0.90),
+		BackgroundColor3 = COLORS.Black2,
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		Text = "",
+		Active = true,
+		LayoutOrder = order,
+		ZIndex = 303,
+	}, LockTargets)
+
+	make("UIStroke", {
+		Thickness = 1,
+		Color = COLORS.Gray3,
+		Transparency = 0.18,
+	}, target)
+
+	make("TextLabel", {
+		Name = "Label",
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.fromScale(0.12, 0.5),
+		Size = UDim2.fromScale(0.68, 0.70),
+		BackgroundTransparency = 1,
+		Text = labelText,
+		TextColor3 = COLORS.White,
+		Font = Enum.Font.GothamSemibold,
+		TextSize = 12,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		ZIndex = 304,
+	}, target)
+
+	local Mark = make("TextLabel", {
+		Name = "Mark",
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.fromScale(0.90, 0.5),
+		Size = UDim2.fromScale(0.16, 0.70),
+		BackgroundTransparency = 1,
+		Text = "",
+		TextColor3 = COLORS.White,
+		Font = Enum.Font.GothamBold,
+		TextSize = 15,
+		TextXAlignment = Enum.TextXAlignment.Center,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		ZIndex = 304,
+	}, target)
+
+	local function renderSelected(selected)
+		Mark.Text = selected and "✓" or ""
+		tween(target, 0.12, {
+			BackgroundColor3 = selected and COLORS.Gray2 or COLORS.Black2,
+		})
+	end
+
+	return target, renderSelected
+end
+
+local MenuLockTarget, renderMenuLockTarget = makeLockTarget("MenuTarget", "Menu", 1)
+local LauncherLockTarget, renderLauncherLockTarget = makeLockTarget("LauncherTarget", "Button", 2)
+
+local LockEnable = make("TextButton", {
+	Name = "Enable",
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.88),
+	Size = UDim2.fromScale(0.18, 0.11),
+	BackgroundColor3 = COLORS.Gray,
+	BorderSizePixel = 0,
+	AutoButtonColor = false,
+	Text = "",
+	ZIndex = 303,
+}, LockPanel)
+
+make("UICorner", {
+	CornerRadius = UDim.new(1, 0),
+}, LockEnable)
+
+local LockEnableKnob = make("Frame", {
+	Name = "Knob",
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.23, 0.5),
+	Size = UDim2.fromScale(0.34, 0.78),
+	BackgroundColor3 = COLORS.White,
+	BorderSizePixel = 0,
+	ZIndex = 304,
+}, LockEnable)
+
+make("UICorner", {
+	CornerRadius = UDim.new(1, 0),
+}, LockEnableKnob)
+
+local function updateLockEnableVisual(animate)
+	local on = lockEnabled == true
+	local targetColor = on and COLORS.Gray3 or COLORS.Gray
+	local targetPosition = UDim2.fromScale(on and 0.77 or 0.23, 0.5)
+	if animate then
+		tween(LockEnable, 0.16, {BackgroundColor3 = targetColor})
+		tween(LockEnableKnob, 0.16, {Position = targetPosition})
+	else
+		LockEnable.BackgroundColor3 = targetColor
+		LockEnableKnob.Position = targetPosition
+	end
+end
+
+local function updateLockTargets()
+	renderMenuLockTarget(lockMenuSelected)
+	renderLauncherLockTarget(lockLauncherSelected)
+	updateLockEnableVisual(true)
+end
+
+MenuLockTarget.Activated:Connect(function()
+	lockMenuSelected = not lockMenuSelected
+	updateLockTargets()
+end)
+
+LauncherLockTarget.Activated:Connect(function()
+	lockLauncherSelected = not lockLauncherSelected
+	updateLockTargets()
+end)
+
+LockEnable.Activated:Connect(function()
+	lockEnabled = not lockEnabled
+	updateLockEnableVisual(true)
+end)
+
+LockClose.Activated:Connect(function()
+	LockPanel.Visible = false
+end)
+
+styleHeaderButton(LockClose)
+updateLockTargets()
+
+LockButton.Activated:Connect(function()
+	if cleanedUp or not ScreenGui.Parent then
+		return
+	end
+	LockPanel.Visible = true
+	updateLockTargets()
+end)
 
 local Body = make("Frame", {
 	Name = "Body",
@@ -454,9 +697,13 @@ local ResultsScroll = make("ScrollingFrame", {
 }, Content)
 
 make("UIListLayout", {
-	Padding = UDim.new(0, 7),
+	Padding = UDim.new(0, 0),
 	SortOrder = Enum.SortOrder.LayoutOrder,
 	HorizontalAlignment = Enum.HorizontalAlignment.Center,
+	HorizontalFlex = Enum.UIFlexAlignment.SpaceBetween,
+	ItemLineAlignment = Enum.ItemLineAlignment.Automatic,
+	VerticalAlignment = Enum.VerticalAlignment.Center,
+	VerticalFlex = Enum.UIFlexAlignment.None,
 }, ResultsScroll)
 
 local ResultsPadding = make("UIPadding", {
@@ -876,7 +1123,7 @@ local function createCategoryRow(category, layoutOrder, searchQuery)
 
 	local Row = make("Frame", {
 		Name = "Category",
-		Size = UDim2.fromScale(0.90, 0.15),
+		Size = UDim2.fromScale(0.85, 0.15),
 		BackgroundColor3 = COLORS.Black2,
 		BorderSizePixel = 0,
 		LayoutOrder = layoutOrder,
@@ -1001,7 +1248,7 @@ end
 createStandardRow = function(item, layoutOrder)
 	local Row = make("Frame", {
 		Name = "Option",
-		Size = UDim2.fromScale(0.90, 0.15),
+		Size = UDim2.fromScale(0.85, 0.15),
 		BackgroundColor3 = COLORS.Black2,
 		BorderSizePixel = 0,
 		LayoutOrder = layoutOrder,
@@ -1220,201 +1467,6 @@ for index, tabInfo in ipairs(tabs) do
 	tabButtons[tabInfo.Name] = Tab
 end
 
-local lockMenuSelected = false
-local lockButtonSelected = false
-local lockEnabled = false
-
-local LockOverlay = make("Frame", {
-	Name = "LockOverlay",
-	Position = UDim2.fromScale(0, 0),
-	Size = UDim2.fromScale(1, 1),
-	BackgroundColor3 = COLORS.Black,
-	BackgroundTransparency = 0.42,
-	BorderSizePixel = 0,
-	Visible = false,
-	Active = true,
-	ZIndex = 1100,
-}, ScreenGui)
-
-local LockPanel = make("Frame", {
-	Name = "LockPanel",
-	AnchorPoint = Vector2.new(0.5, 0.5),
-	Position = UDim2.fromScale(0.5, 0.5),
-	Size = UDim2.fromScale(0.46, 0.42),
-	BackgroundColor3 = COLORS.Black2,
-	BorderSizePixel = 0,
-	Active = true,
-	ZIndex = 1101,
-}, LockOverlay)
-make("UIAspectRatioConstraint", {AspectRatio = 1.28}, LockPanel)
-make("UIStroke", {Thickness = 1.4, Color = COLORS.Gray3, Transparency = 0.08}, LockPanel)
-
-make("TextLabel", {
-	Position = UDim2.fromScale(0.08, 0.08),
-	Size = UDim2.fromScale(0.72, 0.18),
-	BackgroundTransparency = 1,
-	Text = "Lock Controls",
-	TextColor3 = COLORS.White,
-	Font = Enum.Font.GothamBold,
-	TextSize = 16,
-	TextXAlignment = Enum.TextXAlignment.Left,
-	TextYAlignment = Enum.TextYAlignment.Center,
-	ZIndex = 1102,
-}, LockPanel)
-
-local LockClose = make("TextButton", {
-	Name = "Close",
-	AnchorPoint = Vector2.new(1, 0.5),
-	Position = UDim2.fromScale(0.94, 0.17),
-	Size = UDim2.fromScale(0.11, 0.16),
-	BackgroundColor3 = COLORS.Gray,
-	BackgroundTransparency = 0.18,
-	BorderSizePixel = 0,
-	AutoButtonColor = false,
-	Active = true,
-	Selectable = false,
-	Text = "X",
-	TextColor3 = COLORS.White,
-	Font = Enum.Font.GothamBold,
-	TextSize = 14,
-	ZIndex = 1103,
-}, LockPanel)
-styleHeaderButton(LockClose)
-
-make("TextLabel", {
-	Position = UDim2.fromScale(0.08, 0.27),
-	Size = UDim2.fromScale(0.84, 0.14),
-	BackgroundTransparency = 1,
-	Text = "Select what to lock in place, then enable the lock.",
-	TextColor3 = COLORS.Muted,
-	Font = Enum.Font.Gotham,
-	TextSize = 12,
-	TextWrapped = true,
-	TextXAlignment = Enum.TextXAlignment.Left,
-	TextYAlignment = Enum.TextYAlignment.Center,
-	ZIndex = 1102,
-}, LockPanel)
-
-local function makeLockChoice(name, title, x)
-	local b = make("TextButton", {
-		Name = name,
-		Position = UDim2.fromScale(x, 0.45),
-		Size = UDim2.fromScale(0.38, 0.20),
-		BackgroundColor3 = COLORS.Black,
-		BorderSizePixel = 0,
-		AutoButtonColor = false,
-		Text = "",
-		Active = true,
-		Selectable = false,
-		ZIndex = 1102,
-	}, LockPanel)
-	make("UIStroke", {Thickness = 1.1, Color = COLORS.Gray3, Transparency = 0.10}, b)
-	local c = make("TextLabel", {
-		Name = "Check",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.18, 0.5),
-		Size = UDim2.fromScale(0.20, 0.70),
-		BackgroundTransparency = 1,
-		Text = "",
-		TextColor3 = COLORS.White,
-		Font = Enum.Font.GothamBold,
-		TextSize = 18,
-		TextXAlignment = Enum.TextXAlignment.Center,
-		TextYAlignment = Enum.TextYAlignment.Center,
-		ZIndex = 1103,
-	}, b)
-	make("TextLabel", {
-		Position = UDim2.fromScale(0.32, 0),
-		Size = UDim2.fromScale(0.62, 1),
-		BackgroundTransparency = 1,
-		Text = title,
-		TextColor3 = COLORS.White,
-		Font = Enum.Font.GothamSemibold,
-		TextSize = 12,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Center,
-		ZIndex = 1103,
-	}, b)
-	return b,c
-end
-
-local LockMenuChoice, LockMenuCheck = makeLockChoice("MenuChoice", "Mod Menu", 0.08)
-local LockButtonChoice, LockButtonCheck = makeLockChoice("ButtonChoice", "Open Button", 0.54)
-
-local LockToggle = make("TextButton", {
-	Name = "Enable",
-	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.fromScale(0.5, 0.71),
-	Size = UDim2.fromScale(0.24, 0.13),
-	BackgroundColor3 = COLORS.Gray,
-	BorderSizePixel = 0,
-	AutoButtonColor = false,
-	Text = "",
-	ZIndex = 1102,
-}, LockPanel)
-make("UICorner", {CornerRadius = UDim.new(1, 0)}, LockToggle)
-local LockKnob = make("Frame", {
-	Name = "Knob",
-	AnchorPoint = Vector2.new(0.5, 0.5),
-	Position = UDim2.fromScale(0.23, 0.5),
-	Size = UDim2.fromScale(0.34, 0.78),
-	BackgroundColor3 = COLORS.White,
-	BorderSizePixel = 0,
-	ZIndex = 1103,
-}, LockToggle)
-make("UICorner", {CornerRadius = UDim.new(1, 0)}, LockKnob)
-make("TextLabel", {
-	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.fromScale(0.5, 0.85),
-	Size = UDim2.fromScale(0.72, 0.08),
-	BackgroundTransparency = 1,
-	Text = "Lock disabled",
-	TextColor3 = COLORS.Muted,
-	Font = Enum.Font.Gotham,
-	TextSize = 11,
-	TextXAlignment = Enum.TextXAlignment.Center,
-	TextYAlignment = Enum.TextYAlignment.Center,
-	ZIndex = 1102,
-}, LockPanel)
-local LockStatus = LockPanel:FindFirstChildOfClass("TextLabel")
--- Find the status label deterministically by its text.
-for _, child in ipairs(LockPanel:GetChildren()) do
-	if child:IsA("TextLabel") and child.Text == "Lock disabled" then LockStatus = child break end
-end
-
-local function updateLockChoice(b,c,on)
-	b.BackgroundColor3 = on and COLORS.Gray or COLORS.Black
-	c.Text = on and "✓" or ""
-end
-local function updateLockToggle()
-	LockToggle.BackgroundColor3 = lockEnabled and COLORS.Gray3 or COLORS.Gray
-	LockKnob.Position = UDim2.fromScale(lockEnabled and 0.77 or 0.23, 0.5)
-	LockStatus.Text = lockEnabled and "Lock enabled" or "Lock disabled"
-end
-local function openLockPanel()
-	LockOverlay.Visible = true
-	updateLockChoice(LockMenuChoice, LockMenuCheck, lockMenuSelected)
-	updateLockChoice(LockButtonChoice, LockButtonCheck, lockButtonSelected)
-	updateLockToggle()
-end
-local function closeLockPanel() LockOverlay.Visible = false end
-LockButton.Activated:Connect(openLockPanel)
-LockClose.Activated:Connect(closeLockPanel)
-LockMenuChoice.Activated:Connect(function()
-	lockMenuSelected = not lockMenuSelected
-	updateLockChoice(LockMenuChoice, LockMenuCheck, lockMenuSelected)
-end)
-LockButtonChoice.Activated:Connect(function()
-	lockButtonSelected = not lockButtonSelected
-	updateLockChoice(LockButtonChoice, LockButtonCheck, lockButtonSelected)
-end)
-LockToggle.Activated:Connect(function()
-	lockEnabled = not lockEnabled
-	updateLockToggle()
-end)
-local function isMenuDragLocked() return lockEnabled and lockMenuSelected end
-local function isLauncherDragLocked() return lockEnabled and lockButtonSelected end
-
 local ConfirmOverlay = make("Frame", {
 	Name = "ConfirmOverlay",
 	Position = UDim2.fromScale(0, 0),
@@ -1577,7 +1629,7 @@ local function hideMenu()
 	end
 	Menu.Visible = false
 	ConfirmOverlay.Visible = false
-	LockOverlay.Visible = false
+	LockPanel.Visible = false
 end
 
 local function showMenu()
@@ -1692,7 +1744,11 @@ local function updateLauncherDrag(input)
 end
 
 local function beginLauncherDrag(input)
-	if isLauncherDragLocked() then return end
+	if lockEnabled and lockLauncherSelected then
+		launcherDragging = false
+		launcherDidDrag = false
+		return
+	end
 	launcherDragging = true
 	launcherDidDrag = false
 	launcherDragStart = input.Position
@@ -1708,7 +1764,6 @@ local function endLauncherDrag()
 end
 
 Launcher.InputBegan:Connect(function(input)
-	if isLauncherDragLocked() then return end
 	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 		beginLauncherDrag(input)
 	end
@@ -1756,7 +1811,13 @@ for name, corner in pairs(corners) do
 		end
 	end)
 	corner.InputBegan:Connect(function(input)
-		if isMenuDragLocked() then return end
+		if lockEnabled and lockMenuSelected then
+			menuDragging = false
+			menuDragInput = nil
+			menuDragStart = nil
+			menuStartPos = nil
+			return
+		end
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			pointerDownAt = os.clock()
 			didDrag = false
@@ -1770,7 +1831,6 @@ for name, corner in pairs(corners) do
 end
 
 function updateMenuDrag(input)
-	if isMenuDragLocked() then return end
 	if not menuDragStart or not menuStartPos then
 		return
 	end
