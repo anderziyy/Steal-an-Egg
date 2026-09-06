@@ -1,0 +1,989 @@
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local ClipboardService = game:GetService("ClipboardService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+local floatingButtonActive = true
+local menuOpen = false
+local menuMinimized = false
+local isDraggingButton = false
+local isDraggingMenu = false
+local dragOffset = Vector2.new(0, 0)
+local selectedTab = "Main"
+local searchText = ""
+local currentDragType = nil
+
+local BUTTON_SIZE_SCALE = Vector2.new(0.08, 0.12)
+local MENU_SIZE_SCALE = Vector2.new(0.35, 0.7)
+local CORNER_RADIUS = 0
+local BUTTON_ICON_ID = "rbxassetid://121715364276099"
+local DISCORD_ICON_ID = "rbxassetid://97594499544606"
+local COPY_ICON_ID = "rbxassetid://88704800286791"
+local CHECKMARK_ICON_ID = "rbxassetid://132744109593099"
+
+local COLORS = {
+	Background = Color3.fromRGB(20, 20, 20),
+	Secondary = Color3.fromRGB(35, 35, 35),
+	Tertiary = Color3.fromRGB(50, 50, 50),
+	Text = Color3.fromRGB(255, 255, 255),
+	TextMuted = Color3.fromRGB(150, 150, 150),
+	Accent = Color3.fromRGB(100, 100, 255),
+	Red = Color3.fromRGB(255, 50, 50),
+	Green = Color3.fromRGB(50, 200, 50),
+	Border = Color3.fromRGB(80, 80, 80)
+}
+
+local TABS = {
+	{name = "Main", icon = "rbxassetid://139357095045310"},
+	{name = "Auto Buy", icon = "rbxassetid://110805385284419"},
+	{name = "Farm", icon = "rbxassetid://102352181267949"},
+	{name = "Config", icon = "rbxassetid://114794077382466"},
+	{name = "Credits", icon = "rbxassetid://99243311837005"}
+}
+
+local CONTENT = {
+	Credits = {
+		{
+			type = "option",
+			title = "By: Cleiton10HDx",
+			description = "Creator and Developer of Phantom Hub Script",
+			clickable = false
+		},
+		{
+			type = "option",
+			title = "Join Discord Server",
+			description = "Get support and updates from our community",
+			icon = DISCORD_ICON_ID,
+			action = "copy_discord"
+		}
+	},
+	Config = {
+		{
+			type = "category",
+			title = "Player",
+			icon = "rbxassetid://102791662357524",
+			open = true,
+			options = {
+				{
+					type = "option",
+					title = "Auto Rejoin",
+					description = "Automatically switch to a random server",
+					icon = "rbxassetid://97594499544606",
+					action = "auto_rejoin"
+				},
+				{
+					type = "option",
+					title = "Rejoin Same Server",
+					description = "Return to the current server you are playing in",
+					icon = "rbxassetid://97594499544606",
+					action = "rejoin_server"
+				},
+				{
+					type = "option",
+					title = "Copy Server Code",
+					description = "Copy the current server code to clipboard",
+					icon = "rbxassetid://88704800286791",
+					action = "copy_server_code"
+				},
+				{
+					type = "option",
+					title = "Copy Game ID",
+					description = "Copy the current game ID to your clipboard",
+					icon = "rbxassetid://88704800286791",
+					action = "copy_game_id"
+				},
+				{
+					type = "toggle",
+					title = "Anti AFK",
+					description = "Prevent being kicked for inactivity",
+					state = false,
+					action = "anti_afk"
+				},
+				{
+					type = "toggle",
+					title = "Infinity Jump",
+					description = "Jump infinitely while holding the jump button",
+					state = false,
+					action = "infinity_jump"
+				}
+			}
+		}
+	},
+	Main = {},
+	["Auto Buy"] = {},
+	Farm = {}
+}
+
+local notifications = {}
+
+local function createScreen()
+	local screenGui = Instance.new("ScreenGui")
+	screenGui.Name = "PhantomHubGui"
+	screenGui.ResetOnSpawn = false
+	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	screenGui.Parent = playerGui
+	return screenGui
+end
+
+local function createButton(parent)
+	local button = Instance.new("TextButton")
+	button.Name = "FloatingButton"
+	button.Size = UDim2.new(BUTTON_SIZE_SCALE.X, 0, BUTTON_SIZE_SCALE.Y, 0)
+	button.Position = UDim2.new(0.02, 0, 0.05, 0)
+	button.BackgroundColor3 = COLORS.Secondary
+	button.BackgroundTransparency = 0
+	button.BorderSizePixel = 2
+	button.BorderColor3 = COLORS.Border
+	button.Text = ""
+	button.Parent = parent
+	button.ZIndex = 999
+	
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, CORNER_RADIUS)
+	corner.Parent = button
+	
+	local icon = Instance.new("ImageLabel")
+	icon.Name = "Icon"
+	icon.Size = UDim2.new(0.8, 0, 0.8, 0)
+	icon.Position = UDim2.new(0.1, 0, 0.1, 0)
+	icon.BackgroundTransparency = 1
+	icon.Image = BUTTON_ICON_ID
+	icon.Parent = button
+	
+	return button
+end
+
+local function createMenu(parent)
+	local menuFrame = Instance.new("Frame")
+	menuFrame.Name = "ModMenu"
+	menuFrame.Size = UDim2.new(MENU_SIZE_SCALE.X, 0, MENU_SIZE_SCALE.Y, 0)
+	menuFrame.Position = UDim2.new(0.325, 0, 0.15, 0)
+	menuFrame.BackgroundColor3 = COLORS.Background
+	menuFrame.BorderSizePixel = 2
+	menuFrame.BorderColor3 = COLORS.Border
+	menuFrame.Parent = parent
+	menuFrame.ZIndex = 1000
+	menuFrame.Visible = false
+	
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, CORNER_RADIUS)
+	corner.Parent = menuFrame
+	
+	local topBar = Instance.new("Frame")
+	topBar.Name = "TopBar"
+	topBar.Size = UDim2.new(1, 0, 0.1, 0)
+	topBar.BackgroundColor3 = COLORS.Secondary
+	topBar.BorderSizePixel = 0
+	topBar.Parent = menuFrame
+	topBar.ZIndex = 1001
+	
+	local titleLabel = Instance.new("TextLabel")
+	titleLabel.Name = "Title"
+	titleLabel.Size = UDim2.new(0.7, 0, 1, 0)
+	titleLabel.Position = UDim2.new(0.02, 0, 0, 0)
+	titleLabel.BackgroundTransparency = 1
+	titleLabel.Text = "Phantom Hub | Steal an Egg"
+	titleLabel.TextColor3 = COLORS.Text
+	titleLabel.TextScaled = true
+	titleLabel.Font = Enum.Font.GothamBold
+	titleLabel.Parent = topBar
+	titleLabel.ZIndex = 1001
+	
+	local minimizeBtn = Instance.new("TextButton")
+	minimizeBtn.Name = "MinimizeBtn"
+	minimizeBtn.Size = UDim2.new(0.08, 0, 1, 0)
+	minimizeBtn.Position = UDim2.new(0.85, 0, 0, 0)
+	minimizeBtn.BackgroundColor3 = COLORS.Secondary
+	minimizeBtn.BackgroundTransparency = 0
+	minimizeBtn.BorderSizePixel = 0
+	minimizeBtn.Text = "-"
+	minimizeBtn.TextColor3 = COLORS.Text
+	minimizeBtn.TextScaled = true
+	minimizeBtn.Font = Enum.Font.GothamBold
+	minimizeBtn.Parent = topBar
+	minimizeBtn.ZIndex = 1001
+	
+	local closeBtn = Instance.new("TextButton")
+	closeBtn.Name = "CloseBtn"
+	closeBtn.Size = UDim2.new(0.08, 0, 1, 0)
+	closeBtn.Position = UDim2.new(0.92, 0, 0, 0)
+	closeBtn.BackgroundColor3 = COLORS.Secondary
+	closeBtn.BackgroundTransparency = 0
+	closeBtn.BorderSizePixel = 0
+	closeBtn.Text = "X"
+	closeBtn.TextColor3 = COLORS.Text
+	closeBtn.TextScaled = true
+	closeBtn.Font = Enum.Font.GothamBold
+	closeBtn.Parent = topBar
+	closeBtn.ZIndex = 1001
+	
+	local contentFrame = Instance.new("Frame")
+	contentFrame.Name = "Content"
+	contentFrame.Size = UDim2.new(1, 0, 0.9, 0)
+	contentFrame.Position = UDim2.new(0, 0, 0.1, 0)
+	contentFrame.BackgroundColor3 = COLORS.Background
+	contentFrame.BorderSizePixel = 0
+	contentFrame.Parent = menuFrame
+	contentFrame.ZIndex = 1000
+	
+	local tabsFrame = Instance.new("ScrollingFrame")
+	tabsFrame.Name = "Tabs"
+	tabsFrame.Size = UDim2.new(0.2, 0, 1, 0)
+	tabsFrame.Position = UDim2.new(0, 0, 0, 0)
+	tabsFrame.BackgroundColor3 = COLORS.Secondary
+	tabsFrame.BorderSizePixel = 0
+	tabsFrame.ScrollBarThickness = 5
+	tabsFrame.CanvasSize = UDim2.new(0, 0, 2, 0)
+	tabsFrame.Parent = contentFrame
+	tabsFrame.ZIndex = 1000
+	
+	local tabsList = Instance.new("UIListLayout")
+	tabsList.Padding = UDim.new(0, 5)
+	tabsList.SortOrder = Enum.SortOrder.LayoutOrder
+	tabsList.Parent = tabsFrame
+	
+	local optionsFrame = Instance.new("ScrollingFrame")
+	optionsFrame.Name = "Options"
+	optionsFrame.Size = UDim2.new(0.8, 0, 1, 0)
+	optionsFrame.Position = UDim2.new(0.2, 0, 0, 0)
+	optionsFrame.BackgroundColor3 = COLORS.Background
+	optionsFrame.BorderSizePixel = 0
+	optionsFrame.ScrollBarThickness = 5
+	optionsFrame.CanvasSize = UDim2.new(0, 0, 2, 0)
+	optionsFrame.Parent = contentFrame
+	optionsFrame.ZIndex = 1000
+	
+	local optionsList = Instance.new("UIListLayout")
+	optionsList.Padding = UDim.new(0, 8)
+	optionsList.SortOrder = Enum.SortOrder.LayoutOrder
+	optionsList.Parent = optionsFrame
+	
+	local searchFrame = Instance.new("Frame")
+	searchFrame.Name = "SearchBar"
+	searchFrame.Size = UDim2.new(1, -10, 0.08, 0)
+	searchFrame.Position = UDim2.new(0, 5, 0, 5)
+	searchFrame.BackgroundColor3 = COLORS.Tertiary
+	searchFrame.BorderSizePixel = 1
+	searchFrame.BorderColor3 = COLORS.Border
+	searchFrame.Parent = optionsFrame
+	searchFrame.LayoutOrder = -999
+	searchFrame.ZIndex = 1000
+	
+	local searchCorner = Instance.new("UICorner")
+	searchCorner.CornerRadius = UDim.new(0, CORNER_RADIUS)
+	searchCorner.Parent = searchFrame
+	
+	local searchIcon = Instance.new("ImageLabel")
+	searchIcon.Name = "SearchIcon"
+	searchIcon.Size = UDim2.new(0.1, 0, 0.8, 0)
+	searchIcon.Position = UDim2.new(0.02, 0, 0.1, 0)
+	searchIcon.BackgroundTransparency = 1
+	searchIcon.Image = "rbxassetid://73858257403039"
+	searchIcon.Parent = searchFrame
+	searchIcon.ZIndex = 1000
+	
+	local searchInput = Instance.new("TextBox")
+	searchInput.Name = "SearchInput"
+	searchInput.Size = UDim2.new(0.75, 0, 1, 0)
+	searchInput.Position = UDim2.new(0.12, 0, 0, 0)
+	searchInput.BackgroundTransparency = 1
+	searchInput.Text = ""
+	searchInput.PlaceholderText = "Search..."
+	searchInput.PlaceholderColor3 = COLORS.TextMuted
+	searchInput.TextColor3 = COLORS.Text
+	searchInput.TextScaled = true
+	searchInput.Font = Enum.Font.Gotham
+	searchInput.Parent = searchFrame
+	searchInput.ZIndex = 1000
+	
+	local clearBtn = Instance.new("TextButton")
+	clearBtn.Name = "ClearBtn"
+	clearBtn.Size = UDim2.new(0.1, 0, 0.8, 0)
+	clearBtn.Position = UDim2.new(0.88, 0, 0.1, 0)
+	clearBtn.BackgroundTransparency = 1
+	clearBtn.Text = "X"
+	clearBtn.TextColor3 = COLORS.Text
+	clearBtn.TextScaled = true
+	clearBtn.Font = Enum.Font.GothamBold
+	clearBtn.Parent = searchFrame
+	clearBtn.Visible = false
+	clearBtn.ZIndex = 1000
+	
+	return {
+		main = menuFrame,
+		topBar = topBar,
+		minimizeBtn = minimizeBtn,
+		closeBtn = closeBtn,
+		contentFrame = contentFrame,
+		tabsFrame = tabsFrame,
+		optionsFrame = optionsFrame,
+		searchInput = searchInput,
+		clearBtn = clearBtn,
+		optionsList = optionsList,
+		tabsList = tabsList
+	}
+end
+
+local function createConfirmPanel(parent, message, onConfirm, onCancel)
+	local panelBg = Instance.new("Frame")
+	panelBg.Name = "ConfirmPanelBg"
+	panelBg.Size = UDim2.new(1, 0, 1, 0)
+	panelBg.Position = UDim2.new(0, 0, 0, 0)
+	panelBg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	panelBg.BackgroundTransparency = 0.5
+	panelBg.BorderSizePixel = 0
+	panelBg.Parent = parent
+	panelBg.ZIndex = 2000
+	
+	local panel = Instance.new("Frame")
+	panel.Name = "ConfirmPanel"
+	panel.Size = UDim2.new(0.4, 0, 0.3, 0)
+	panel.Position = UDim2.new(0.3, 0, 0.35, 0)
+	panel.BackgroundColor3 = COLORS.Secondary
+	panel.BorderSizePixel = 2
+	panel.BorderColor3 = COLORS.Border
+	panel.Parent = panelBg
+	panel.ZIndex = 2001
+	
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, CORNER_RADIUS)
+	corner.Parent = panel
+	
+	local messageLabel = Instance.new("TextLabel")
+	messageLabel.Name = "Message"
+	messageLabel.Size = UDim2.new(0.9, 0, 0.5, 0)
+	messageLabel.Position = UDim2.new(0.05, 0, 0.1, 0)
+	messageLabel.BackgroundTransparency = 1
+	messageLabel.Text = message
+	messageLabel.TextColor3 = COLORS.Text
+	messageLabel.TextScaled = true
+	messageLabel.TextWrapped = true
+	messageLabel.Font = Enum.Font.Gotham
+	messageLabel.Parent = panel
+	messageLabel.ZIndex = 2001
+	
+	local buttonsFrame = Instance.new("Frame")
+	buttonsFrame.Name = "Buttons"
+	buttonsFrame.Size = UDim2.new(0.9, 0, 0.3, 0)
+	buttonsFrame.Position = UDim2.new(0.05, 0, 0.6, 0)
+	buttonsFrame.BackgroundTransparency = 1
+	buttonsFrame.Parent = panel
+	buttonsFrame.ZIndex = 2001
+	
+	local buttonLayout = Instance.new("UIListLayout")
+	buttonLayout.Padding = UDim.new(0, 5)
+	buttonLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	buttonLayout.FillDirection = Enum.FillDirection.Horizontal
+	buttonLayout.Parent = buttonsFrame
+	
+	local cancelBtn = Instance.new("TextButton")
+	cancelBtn.Name = "CancelBtn"
+	cancelBtn.Size = UDim2.new(0.5, -3, 1, 0)
+	cancelBtn.BackgroundColor3 = COLORS.Tertiary
+	cancelBtn.BorderSizePixel = 1
+	cancelBtn.BorderColor3 = COLORS.Border
+	cancelBtn.Text = "Cancel"
+	cancelBtn.TextColor3 = COLORS.Red
+	cancelBtn.TextScaled = true
+	cancelBtn.Font = Enum.Font.GothamBold
+	cancelBtn.Parent = buttonsFrame
+	cancelBtn.ZIndex = 2001
+	
+	local confirmBtn = Instance.new("TextButton")
+	confirmBtn.Name = "ConfirmBtn"
+	confirmBtn.Size = UDim2.new(0.5, -3, 1, 0)
+	confirmBtn.BackgroundColor3 = COLORS.Tertiary
+	confirmBtn.BorderSizePixel = 1
+	confirmBtn.BorderColor3 = COLORS.Border
+	confirmBtn.Text = "Confirm"
+	confirmBtn.TextColor3 = COLORS.Green
+	confirmBtn.TextScaled = true
+	confirmBtn.Font = Enum.Font.GothamBold
+	confirmBtn.Parent = buttonsFrame
+	confirmBtn.ZIndex = 2001
+	
+	cancelBtn.MouseButton1Click:Connect(function()
+		panelBg:Destroy()
+		if onCancel then onCancel() end
+	end)
+	
+	confirmBtn.MouseButton1Click:Connect(function()
+		panelBg:Destroy()
+		if onConfirm then onConfirm() end
+	end)
+	
+	return panelBg
+end
+
+local function showNotification(message, icon)
+	local notification = Instance.new("Frame")
+	notification.Name = "Notification"
+	notification.Size = UDim2.new(0.25, 0, 0.08, 0)
+	notification.Position = UDim2.new(0.73, 0, 0.9 - #notifications * 0.1, 0)
+	notification.BackgroundColor3 = COLORS.Secondary
+	notification.BorderSizePixel = 1
+	notification.BorderColor3 = COLORS.Border
+	notification.Parent = playerGui:FindFirstChild("PhantomHubGui")
+	notification.ZIndex = 3000
+	
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, CORNER_RADIUS)
+	corner.Parent = notification
+	
+	local iconLabel = Instance.new("ImageLabel")
+	iconLabel.Name = "Icon"
+	iconLabel.Size = UDim2.new(0.15, 0, 0.8, 0)
+	iconLabel.Position = UDim2.new(0.02, 0, 0.1, 0)
+	iconLabel.BackgroundTransparency = 1
+	iconLabel.Image = icon
+	iconLabel.Parent = notification
+	iconLabel.ZIndex = 3000
+	
+	local messageLabel = Instance.new("TextLabel")
+	messageLabel.Name = "Message"
+	messageLabel.Size = UDim2.new(0.8, 0, 1, 0)
+	messageLabel.Position = UDim2.new(0.18, 0, 0, 0)
+	messageLabel.BackgroundTransparency = 1
+	messageLabel.Text = message
+	messageLabel.TextColor3 = COLORS.Text
+	messageLabel.TextScaled = true
+	messageLabel.TextWrapped = true
+	messageLabel.Font = Enum.Font.Gotham
+	messageLabel.Parent = notification
+	messageLabel.ZIndex = 3000
+	
+	local progressBar = Instance.new("Frame")
+	progressBar.Name = "Progress"
+	progressBar.Size = UDim2.new(0, 0, 0.05, 0)
+	progressBar.Position = UDim2.new(0, 0, 1, 0)
+	progressBar.BackgroundColor3 = COLORS.Text
+	progressBar.BorderSizePixel = 0
+	progressBar.Parent = notification
+	progressBar.ZIndex = 3000
+	
+	table.insert(notifications, notification)
+	
+	for i, notif in ipairs(notifications) do
+		if i > 1 then
+			local tween = game:GetService("TweenService"):Create(
+				notif,
+				TweenInfo.new(0.3),
+				{Position = UDim2.new(0.73, 0, 0.9 - i * 0.1, 0)}
+			)
+			tween:Play()
+		end
+	end
+	
+	local tween = game:GetService("TweenService"):Create(
+		progressBar,
+		TweenInfo.new(3),
+		{Size = UDim2.new(1, 0, 0.05, 0)}
+	)
+	tween:Play()
+	
+	tween.Completed:Connect(function()
+		local outTween = game:GetService("TweenService"):Create(
+			notification,
+			TweenInfo.new(0.3),
+			{Position = notification.Position + UDim2.new(0.3, 0, 0, 0)}
+		)
+		outTween:Play()
+		outTween.Completed:Connect(function()
+			notification:Destroy()
+			table.remove(notifications, table.find(notifications, notification))
+		end)
+	end)
+end
+
+local function createTabButton(parent, tabData, onSelect)
+	local tabBtn = Instance.new("TextButton")
+	tabBtn.Name = tabData.name
+	tabBtn.Size = UDim2.new(1, -5, 0, 50)
+	tabBtn.BackgroundColor3 = COLORS.Secondary
+	tabBtn.BorderSizePixel = 0
+	tabBtn.Text = ""
+	tabBtn.Parent = parent
+	tabBtn.ZIndex = 1000
+	
+	local icon = Instance.new("ImageLabel")
+	icon.Size = UDim2.new(0.3, 0, 0.7, 0)
+	icon.Position = UDim2.new(0.05, 0, 0.15, 0)
+	icon.BackgroundTransparency = 1
+	icon.Image = tabData.icon
+	icon.Parent = tabBtn
+	icon.ZIndex = 1000
+	
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(0.65, 0, 1, 0)
+	label.Position = UDim2.new(0.35, 0, 0, 0)
+	label.BackgroundTransparency = 1
+	label.Text = tabData.name
+	label.TextColor3 = COLORS.Text
+	label.TextScaled = true
+	label.Font = Enum.Font.GothamBold
+	label.Parent = tabBtn
+	label.ZIndex = 1000
+	
+	tabBtn.MouseButton1Click:Connect(function()
+		onSelect(tabData.name)
+	end)
+	
+	return tabBtn
+end
+
+local function createCategoryButton(parent, categoryData, onToggle)
+	local catBtn = Instance.new("TextButton")
+	catBtn.Name = categoryData.title
+	catBtn.Size = UDim2.new(1, 0, 0, 60)
+	catBtn.BackgroundColor3 = COLORS.Tertiary
+	catBtn.BorderSizePixel = 1
+	catBtn.BorderColor3 = COLORS.Border
+	catBtn.Text = ""
+	catBtn.Parent = parent
+	catBtn.ZIndex = 1000
+	
+	local icon = Instance.new("ImageLabel")
+	icon.Size = UDim2.new(0.1, 0, 0.7, 0)
+	icon.Position = UDim2.new(0.02, 0, 0.15, 0)
+	icon.BackgroundTransparency = 1
+	icon.Image = categoryData.icon
+	icon.Parent = catBtn
+	icon.ZIndex = 1000
+	
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(0.6, 0, 1, 0)
+	label.Position = UDim2.new(0.12, 0, 0, 0)
+	label.BackgroundTransparency = 1
+	label.Text = categoryData.title
+	label.TextColor3 = COLORS.Text
+	label.TextScaled = true
+	label.Font = Enum.Font.GothamBold
+	label.Parent = catBtn
+	label.ZIndex = 1000
+	
+	local arrow = Instance.new("TextLabel")
+	arrow.Name = "Arrow"
+	arrow.Size = UDim2.new(0.15, 0, 1, 0)
+	arrow.Position = UDim2.new(0.85, 0, 0, 0)
+	arrow.BackgroundTransparency = 1
+	arrow.Text = categoryData.open and "▼" or "▶"
+	arrow.TextColor3 = COLORS.Text
+	arrow.TextScaled = true
+	arrow.Font = Enum.Font.GothamBold
+	arrow.Parent = catBtn
+	arrow.ZIndex = 1000
+	
+	catBtn.MouseButton1Click:Connect(function()
+		categoryData.open = not categoryData.open
+		arrow.Text = categoryData.open and "▼" or "▶"
+		onToggle()
+	end)
+	
+	return catBtn
+end
+
+local function createOptionButton(parent, optionData, onAction)
+	local optBtn = Instance.new("TextButton")
+	optBtn.Name = optionData.title
+	optBtn.Size = UDim2.new(1, 0, 0, 70)
+	optBtn.BackgroundColor3 = COLORS.Tertiary
+	optBtn.BorderSizePixel = 1
+	optBtn.BorderColor3 = COLORS.Border
+	optBtn.Text = ""
+	optBtn.Parent = parent
+	optBtn.ZIndex = 1000
+	
+	local titleLabel = Instance.new("TextLabel")
+	titleLabel.Name = "Title"
+	titleLabel.Size = UDim2.new(0.8, 0, 0.5, 0)
+	titleLabel.Position = UDim2.new(0.02, 0, 0.05, 0)
+	titleLabel.BackgroundTransparency = 1
+	titleLabel.Text = optionData.title
+	titleLabel.TextColor3 = COLORS.Text
+	titleLabel.TextScaled = true
+	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+	titleLabel.Font = Enum.Font.GothamBold
+	titleLabel.Parent = optBtn
+	titleLabel.ZIndex = 1000
+	
+	local descLabel = Instance.new("TextLabel")
+	descLabel.Name = "Description"
+	descLabel.Size = UDim2.new(0.8, 0, 0.45, 0)
+	descLabel.Position = UDim2.new(0.02, 0, 0.5, 0)
+	descLabel.BackgroundTransparency = 1
+	descLabel.Text = optionData.description or ""
+	descLabel.TextColor3 = COLORS.TextMuted
+	descLabel.TextScaled = true
+	descLabel.TextXAlignment = Enum.TextXAlignment.Left
+	descLabel.TextWrapped = true
+	descLabel.Font = Enum.Font.Gotham
+	descLabel.Parent = optBtn
+	descLabel.ZIndex = 1000
+	
+	if optionData.type == "toggle" then
+		local toggleBtn = Instance.new("TextButton")
+		toggleBtn.Name = "Toggle"
+		toggleBtn.Size = UDim2.new(0.15, 0, 0.6, 0)
+		toggleBtn.Position = UDim2.new(0.83, 0, 0.2, 0)
+		toggleBtn.BackgroundColor3 = optionData.state and COLORS.Green or COLORS.Tertiary
+		toggleBtn.BorderSizePixel = 1
+		toggleBtn.BorderColor3 = COLORS.Border
+		toggleBtn.Text = optionData.state and "ON" or "OFF"
+		toggleBtn.TextColor3 = COLORS.Text
+		toggleBtn.TextScaled = true
+		toggleBtn.Font = Enum.Font.GothamBold
+		toggleBtn.Parent = optBtn
+		toggleBtn.ZIndex = 1000
+		
+		toggleBtn.MouseButton1Click:Connect(function()
+			optionData.state = not optionData.state
+			toggleBtn.BackgroundColor3 = optionData.state and COLORS.Green or COLORS.Tertiary
+			toggleBtn.Text = optionData.state and "ON" or "OFF"
+			if onAction then onAction(optionData.state) end
+		end)
+		
+		optBtn.MouseButton1Click:Connect(function()
+			if #optBtn:GetChildren() >= 5 and optBtn:GetChildren()[5].Name == "Toggle" then
+				optBtn:GetChildren()[5]:TriggerEvent("MouseButton1Click")
+			end
+		end)
+	elseif optionData.type == "option" and optionData.icon then
+		local actionIcon = Instance.new("ImageLabel")
+		actionIcon.Name = "ActionIcon"
+		actionIcon.Size = UDim2.new(0.12, 0, 0.6, 0)
+		actionIcon.Position = UDim2.new(0.86, 0, 0.2, 0)
+		actionIcon.BackgroundTransparency = 1
+		actionIcon.Image = optionData.icon
+		actionIcon.Parent = optBtn
+		actionIcon.ZIndex = 1000
+		
+		optBtn.MouseButton1Click:Connect(function()
+			if onAction then onAction() end
+		end)
+	elseif optionData.type == "option" and optionData.clickable ~= false then
+		optBtn.MouseButton1Click:Connect(function()
+			if onAction then onAction() end
+		end)
+	end
+	
+	return optBtn
+end
+
+local function refreshOptions(menuElements)
+	menuElements.optionsFrame:ClearAllChildren()
+	
+	local searchFrame = Instance.new("Frame")
+	searchFrame.Name = "SearchBar"
+	searchFrame.Size = UDim2.new(1, -10, 0.08, 0)
+	searchFrame.Position = UDim2.new(0, 5, 0, 5)
+	searchFrame.BackgroundColor3 = COLORS.Tertiary
+	searchFrame.BorderSizePixel = 1
+	searchFrame.BorderColor3 = COLORS.Border
+	searchFrame.Parent = menuElements.optionsFrame
+	searchFrame.LayoutOrder = -999
+	searchFrame.ZIndex = 1000
+	
+	local searchCorner = Instance.new("UICorner")
+	searchCorner.CornerRadius = UDim.new(0, CORNER_RADIUS)
+	searchCorner.Parent = searchFrame
+	
+	local searchIcon = Instance.new("ImageLabel")
+	searchIcon.Name = "SearchIcon"
+	searchIcon.Size = UDim2.new(0.1, 0, 0.8, 0)
+	searchIcon.Position = UDim2.new(0.02, 0, 0.1, 0)
+	searchIcon.BackgroundTransparency = 1
+	searchIcon.Image = "rbxassetid://73858257403039"
+	searchIcon.Parent = searchFrame
+	searchIcon.ZIndex = 1000
+	
+	menuElements.searchInput = Instance.new("TextBox")
+	menuElements.searchInput.Name = "SearchInput"
+	menuElements.searchInput.Size = UDim2.new(0.75, 0, 1, 0)
+	menuElements.searchInput.Position = UDim2.new(0.12, 0, 0, 0)
+	menuElements.searchInput.BackgroundTransparency = 1
+	menuElements.searchInput.Text = searchText
+	menuElements.searchInput.PlaceholderText = "Search..."
+	menuElements.searchInput.PlaceholderColor3 = COLORS.TextMuted
+	menuElements.searchInput.TextColor3 = COLORS.Text
+	menuElements.searchInput.TextScaled = true
+	menuElements.searchInput.Font = Enum.Font.Gotham
+	menuElements.searchInput.Parent = searchFrame
+	menuElements.searchInput.ZIndex = 1000
+	
+	menuElements.clearBtn = Instance.new("TextButton")
+	menuElements.clearBtn.Name = "ClearBtn"
+	menuElements.clearBtn.Size = UDim2.new(0.1, 0, 0.8, 0)
+	menuElements.clearBtn.Position = UDim2.new(0.88, 0, 0.1, 0)
+	menuElements.clearBtn.BackgroundTransparency = 1
+	menuElements.clearBtn.Text = "X"
+	menuElements.clearBtn.TextColor3 = COLORS.Text
+	menuElements.clearBtn.TextScaled = true
+	menuElements.clearBtn.Font = Enum.Font.GothamBold
+	menuElements.clearBtn.Parent = searchFrame
+	menuElements.clearBtn.Visible = #searchText > 0
+	menuElements.clearBtn.ZIndex = 1000
+	
+	menuElements.clearBtn.MouseButton1Click:Connect(function()
+		menuElements.searchInput.Text = ""
+		searchText = ""
+		menuElements.clearBtn.Visible = false
+		refreshOptions(menuElements)
+	end)
+	
+	menuElements.searchInput.Changed:Connect(function()
+		searchText = menuElements.searchInput.Text
+		menuElements.clearBtn.Visible = #searchText > 0
+		refreshOptions(menuElements)
+	end)
+	
+	local tabContent = CONTENT[selectedTab] or {}
+	local totalItems = 0
+	
+	if selectedTab == "Config" and tabContent[1] and tabContent[1].type == "category" then
+		local category = tabContent[1]
+		if category.options then
+			for _, option in ipairs(category.options) do
+				if searchText == "" or string.lower(option.title):find(string.lower(searchText), 1, true) then
+					createOptionButton(menuElements.optionsFrame, option, function()
+						handleOptionAction(option.action)
+					end)
+					totalItems = totalItems + 1
+				end
+			end
+		end
+		
+		if totalItems == 0 then
+			createCategoryButton(menuElements.optionsFrame, category, function()
+				refreshOptions(menuElements)
+			end)
+			
+			if category.open then
+				for _, option in ipairs(category.options) do
+					createOptionButton(menuElements.optionsFrame, option, function()
+						handleOptionAction(option.action)
+					end)
+					totalItems = totalItems + 1
+				end
+			end
+		end
+	else
+		for _, item in ipairs(tabContent) do
+			if searchText == "" then
+				if item.type == "category" then
+					createCategoryButton(menuElements.optionsFrame, item, function()
+						refreshOptions(menuElements)
+					end)
+					totalItems = totalItems + 1
+					
+					if item.open then
+						for _, option in ipairs(item.options) do
+							createOptionButton(menuElements.optionsFrame, option, function()
+								handleOptionAction(option.action)
+							end)
+							totalItems = totalItems + 1
+						end
+					end
+				else
+					createOptionButton(menuElements.optionsFrame, item, function()
+						handleOptionAction(item.action)
+					end)
+					totalItems = totalItems + 1
+				end
+			else
+				if item.type == "option" and string.lower(item.title):find(string.lower(searchText), 1, true) then
+					createOptionButton(menuElements.optionsFrame, item, function()
+						handleOptionAction(item.action)
+					end)
+					totalItems = totalItems + 1
+				end
+			end
+		end
+	end
+	
+	if totalItems >= 7 then
+		menuElements.optionsFrame.CanvasSize = UDim2.new(0, 0, (totalItems * 0.15) + 0.5, 0)
+	else
+		menuElements.optionsFrame.CanvasSize = UDim2.new(0, 0, 1, 0)
+	end
+end
+
+function handleOptionAction(action)
+	if action == "copy_discord" then
+		ClipboardService:SetText("https://discord.gg/72P6NhC5Pf")
+		showNotification("Discord server link copied!", CHECKMARK_ICON_ID)
+	elseif action == "auto_rejoin" then
+		createConfirmPanel(playerGui:FindFirstChild("PhantomHubGui"), "Would you like to switch to a random server?", function()
+			print("Auto Rejoin confirmed")
+		end)
+	elseif action == "rejoin_server" then
+		createConfirmPanel(playerGui:FindFirstChild("PhantomHubGui"), "Would you like to rejoin the same server?", function()
+			print("Rejoin Server confirmed")
+		end)
+	elseif action == "copy_server_code" then
+		ClipboardService:SetText(game.JobId)
+		showNotification("Server code copied to clipboard!", COPY_ICON_ID)
+	elseif action == "copy_game_id" then
+		ClipboardService:SetText(tostring(game.PlaceId))
+		showNotification("Game ID copied to clipboard!", COPY_ICON_ID)
+	elseif action == "anti_afk" then
+	elseif action == "infinity_jump" then
+	end
+end
+
+local screenGui = createScreen()
+local floatingButton = createButton(screenGui)
+local menuElements = createMenu(screenGui)
+
+for _, tab in ipairs(TABS) do
+	createTabButton(menuElements.tabsFrame, tab, function(tabName)
+		selectedTab = tabName
+		searchText = ""
+		refreshOptions(menuElements)
+	end)
+end
+
+refreshOptions(menuElements)
+
+floatingButton.MouseButton1Click:Connect(function()
+	menuOpen = not menuOpen
+	menuElements.main.Visible = menuOpen and not menuMinimized
+end)
+
+menuElements.minimizeBtn.MouseButton1Click:Connect(function()
+	menuMinimized = not menuMinimized
+	menuElements.main.Visible = not menuMinimized
+end)
+
+menuElements.closeBtn.MouseButton1Click:Connect(function()
+	createConfirmPanel(menuElements.main, "Are you sure you want to disable this script? This will close the mod menu completely.", function()
+		floatingButton:Destroy()
+		menuElements.main:Destroy()
+		floatingButtonActive = false
+	end)
+end)
+
+local function getScreenSize()
+	return screenGui.AbsoluteSize
+end
+
+local function clampPosition(position, size)
+	local screenSize = getScreenSize()
+	local maxX = screenSize.X - (size.X.Scale * screenSize.X)
+	local maxY = screenSize.Y - (size.Y.Scale * screenSize.Y)
+	
+	if position.X.Scale < 0 then
+		position = UDim2.new(0, 0, position.Y.Scale, position.Y.Offset)
+	elseif position.X.Scale > 1 then
+		position = UDim2.new(1, -size.X.Offset, position.Y.Scale, position.Y.Offset)
+	end
+	
+	if position.Y.Scale < 0 then
+		position = UDim2.new(position.X.Scale, position.X.Offset, 0, 0)
+	elseif position.Y.Scale > 1 then
+		position = UDim2.new(position.X.Scale, position.X.Offset, 1, -size.Y.Offset)
+	end
+	
+	return position
+end
+
+floatingButton.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		isDraggingButton = true
+		dragOffset = getUserInputPosition() - floatingButton.AbsolutePosition
+		currentDragType = "button"
+	end
+end)
+
+floatingButton.InputEnded:Connect(function(input, gameProcessed)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		isDraggingButton = false
+		currentDragType = nil
+	end
+end)
+
+menuElements.main.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		local mouse = game:GetService("Mouse")
+		local mousePos = Vector2.new(mouse.X, mouse.Y)
+		local topBarAbsPos = menuElements.topBar.AbsolutePosition
+		local topBarAbsSize = menuElements.topBar.AbsoluteSize
+		
+		if mousePos.Y < topBarAbsPos.Y + topBarAbsSize.Y then
+			local distFromLeft = math.abs(mousePos.X - topBarAbsPos.X)
+			local distFromRight = math.abs(mousePos.X - (topBarAbsPos.X + menuElements.main.AbsoluteSize.X))
+			local distFromTop = math.abs(mousePos.Y - topBarAbsPos.Y)
+			local distFromBottom = math.abs(mousePos.Y - (topBarAbsPos.Y + topBarAbsSize.Y))
+			
+			if (distFromLeft < 30 or distFromRight < 30 or distFromTop < 30 or distFromBottom < 30) and
+			   distFromLeft < 100 and distFromRight < 100 then
+				isDraggingMenu = true
+				dragOffset = mousePos - menuElements.main.AbsolutePosition
+				currentDragType = "menu"
+			end
+		end
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input, gameProcessed)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		isDraggingMenu = false
+		if currentDragType == "menu" then
+			currentDragType = nil
+		end
+	end
+end)
+
+local mouse = game:GetService("Mouse")
+
+function getUserInputPosition()
+	return Vector2.new(mouse.X, mouse.Y)
+end
+
+RunService.RenderStepped:Connect(function()
+	if isDraggingButton and floatingButtonActive then
+		local inputPos = getUserInputPosition()
+		local newPosition = inputPos - dragOffset
+		floatingButton.Position = UDim2.new(0, newPosition.X, 0, newPosition.Y)
+		
+		local screenSize = screenGui.AbsoluteSize
+		local buttonSize = floatingButton.AbsoluteSize
+		
+		if newPosition.X < 0 then
+			floatingButton.Position = UDim2.new(0, 0, floatingButton.Position.Y.Scale, floatingButton.Position.Y.Offset)
+		elseif newPosition.X + buttonSize.X > screenSize.X then
+			floatingButton.Position = UDim2.new(0, screenSize.X - buttonSize.X, floatingButton.Position.Y.Scale, floatingButton.Position.Y.Offset)
+		end
+		
+		if newPosition.Y < 0 then
+			floatingButton.Position = UDim2.new(floatingButton.Position.X.Scale, floatingButton.Position.X.Offset, 0, 0)
+		elseif newPosition.Y + buttonSize.Y > screenSize.Y then
+			floatingButton.Position = UDim2.new(floatingButton.Position.X.Scale, floatingButton.Position.X.Offset, 0, screenSize.Y - buttonSize.Y)
+		end
+	end
+	
+	if isDraggingMenu then
+		local inputPos = getUserInputPosition()
+		local newPosition = inputPos - dragOffset
+		menuElements.main.Position = UDim2.new(0, newPosition.X, 0, newPosition.Y)
+		
+		local screenSize = screenGui.AbsoluteSize
+		local menuSize = menuElements.main.AbsoluteSize
+		
+		if newPosition.X + menuSize.X < 5 then
+			menuElements.main.Position = UDim2.new(0, -menuSize.X + 5, menuElements.main.Position.Y.Scale, menuElements.main.Position.Y.Offset)
+		elseif newPosition.X > screenSize.X - 5 then
+			menuElements.main.Position = UDim2.new(0, screenSize.X - 5, menuElements.main.Position.Y.Scale, menuElements.main.Position.Y.Offset)
+		end
+		
+		if newPosition.Y < 0 then
+			menuElements.main.Position = UDim2.new(menuElements.main.Position.X.Scale, menuElements.main.Position.X.Offset, 0, 0)
+		elseif newPosition.Y + menuSize.Y > screenSize.Y then
+			menuElements.main.Position = UDim2.new(menuElements.main.Position.X.Scale, menuElements.main.Position.X.Offset, 0, screenSize.Y - menuSize.Y)
+		end
+	end
+end)
