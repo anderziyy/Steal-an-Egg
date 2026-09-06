@@ -1,953 +1,1128 @@
 -- Phantom Hub | Steal an Egg
--- Responsive Roblox Luau LocalScript UI
+-- Responsive LocalScript UI
+-- Place as a LocalScript under StarterPlayerScripts or StarterGui.
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
-local GuiService = game:GetService("GuiService")
 
-local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
 
-local GUI_NAME = "PhantomHubUI"
-local GAME_TITLE = "Steal an Egg"
-local SCRIPT_TITLE = "Phantom Hub"
-local FULL_TITLE = SCRIPT_TITLE .. " | " .. GAME_TITLE
+local GUI_NAME = "PhantomHub_UI"
+local MENU_TITLE = "Phantom Hub | Steal an Egg"
+local MENU_SUBTITLE = "Mod Menu"
 
-local ICONS = {
-	Open = "rbxassetid://121715364276099",
-	Search = "rbxassetid://73858257403039",
-	Main = "rbxassetid://139357095045310",
-	AutoBuy = "rbxassetid://110805385284419",
-	Farm = "rbxassetid://102352181267949",
-	Config = "rbxassetid://114794077382466",
-	Credits = "rbxassetid://99243311837005",
+local TOGGLE_IMAGE = "rbxassetid://121715364276099"
+local SEARCH_IMAGE = "rbxassetid://73858257403039"
+
+local TABS = {
+	{ Name = "Main",    Icon = "rbxassetid://139357095045310" },
+	{ Name = "Auto Buy",Icon = "rbxassetid://110805385284419" },
+	{ Name = "Farm",   Icon = "rbxassetid://102352181267949" },
+	{ Name = "Config", Icon = "rbxassetid://114794077382466" },
+	{ Name = "Credits",Icon = "rbxassetid://99243311837005" },
 }
 
-local COLORS = {
+local C = {
 	Black = Color3.fromRGB(8, 8, 8),
-	Panel = Color3.fromRGB(14, 14, 14),
-	PanelSoft = Color3.fromRGB(19, 19, 19),
-	PanelRaised = Color3.fromRGB(25, 25, 25),
-	Selected = Color3.fromRGB(34, 34, 34),
+	NearBlack = Color3.fromRGB(14, 14, 14),
+	Dark = Color3.fromRGB(24, 24, 24),
+	Dark2 = Color3.fromRGB(31, 31, 31),
+	Gray = Color3.fromRGB(52, 52, 52),
+	Gray2 = Color3.fromRGB(68, 68, 68),
+	Gray3 = Color3.fromRGB(92, 92, 92),
+	LightGray = Color3.fromRGB(135, 135, 135),
 	White = Color3.fromRGB(245, 245, 245),
-	SoftWhite = Color3.fromRGB(205, 205, 205),
-	Gray = Color3.fromRGB(130, 130, 130),
-	DarkGray = Color3.fromRGB(68, 68, 68),
-	Line = Color3.fromRGB(55, 55, 55),
+	SoftWhite = Color3.fromRGB(215, 215, 215),
 }
 
-local existing = PlayerGui:FindFirstChild(GUI_NAME)
-if existing then
-	existing:Destroy()
+local function destroyOldGui()
+	local old = playerGui:FindFirstChild(GUI_NAME)
+	if old then
+		old:Destroy()
+	end
 end
 
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = GUI_NAME
-ScreenGui.ResetOnSpawn = false
-ScreenGui.IgnoreGuiInset = true
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.DisplayOrder = 10000
-ScreenGui.Parent = PlayerGui
+destroyOldGui()
 
-local function disableLocalization(object)
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = GUI_NAME
+screenGui.ResetOnSpawn = false
+screenGui.IgnoreGuiInset = true
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.DisplayOrder = 100
+screenGui.Parent = playerGui
+
+pcall(function()
+	screenGui.AutoLocalize = false
+end)
+
+local function noLocalize(instance)
 	pcall(function()
-		object.AutoLocalize = false
+		instance.AutoLocalize = false
 	end)
 end
 
-local function frame(parent, name, size, position, backgroundColor, transparency)
-	local object = Instance.new("Frame")
-	object.Name = name
-	object.Size = size
-	object.Position = position
-	object.BackgroundColor3 = backgroundColor
-	object.BackgroundTransparency = transparency or 0
-	object.BorderSizePixel = 0
-	object.Parent = parent
-	return object
+local function roundRect(parent, radius)
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(radius, 0)
+	corner.Parent = parent
+	return corner
 end
 
-local function stroke(parent, thickness, color, transparency)
-	local object = Instance.new("UIStroke")
-	object.Thickness = thickness
-	object.Color = color
-	object.Transparency = transparency or 0
-	object.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	object.Parent = parent
-	return object
+local function stroke(parent, color, thickness, transparency)
+	local uiStroke = Instance.new("UIStroke")
+	uiStroke.Color = color
+	uiStroke.Thickness = thickness
+	uiStroke.Transparency = transparency or 0
+	uiStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	uiStroke.Parent = parent
+	return uiStroke
 end
 
-local function text(parent, name, value, size, position, font, color, alignment)
-	local object = Instance.new("TextLabel")
-	object.Name = name
-	object.Size = size
-	object.Position = position
-	object.BackgroundTransparency = 1
-	object.Text = value
-	object.Font = font or Enum.Font.Gotham
-	object.TextColor3 = color or COLORS.White
-	object.TextXAlignment = alignment or Enum.TextXAlignment.Left
-	object.TextYAlignment = Enum.TextYAlignment.Center
-	object.TextScaled = true
-	object.ClipsDescendants = true
-	object.Parent = parent
-	disableLocalization(object)
-	return object
+local function addScaleConstraint(parent, ratio)
+	local constraint = Instance.new("UIAspectRatioConstraint")
+	constraint.AspectRatio = ratio
+	constraint.Parent = parent
+	return constraint
 end
 
-local function image(parent, name, asset, size, position)
-	local object = Instance.new("ImageLabel")
-	object.Name = name
-	object.Size = size
-	object.Position = position
-	object.BackgroundTransparency = 1
-	object.Image = asset
-	object.ImageColor3 = COLORS.White
-	object.ScaleType = Enum.ScaleType.Fit
-	object.Parent = parent
-	return object
+local function tween(instance, duration, props, style, direction)
+	local info = TweenInfo.new(
+		duration or 0.15,
+		style or Enum.EasingStyle.Quart,
+		direction or Enum.EasingDirection.Out
+	)
+	local t = TweenService:Create(instance, info, props)
+	t:Play()
+	return t
 end
 
-local function button(parent, name, size, position)
-	local object = Instance.new("TextButton")
-	object.Name = name
-	object.Size = size
-	object.Position = position
-	object.BackgroundTransparency = 1
-	object.BorderSizePixel = 0
-	object.Text = ""
-	object.AutoButtonColor = false
-	object.Parent = parent
-	disableLocalization(object)
-	return object
+local function newText(parent, text, font, size, color, alignX)
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.BorderSizePixel = 0
+	label.Text = text
+	label.Font = font or Enum.Font.Gotham
+	label.TextSize = size or 14
+	label.TextColor3 = color or C.White
+	label.TextXAlignment = alignX or Enum.TextXAlignment.Left
+	label.TextYAlignment = Enum.TextYAlignment.Center
+	label.TextWrapped = false
+	label.RichText = false
+	label.TextTruncate = Enum.TextTruncate.AtEnd
+	label.Active = false
+	label.Selectable = false
+	noLocalize(label)
+	label.Parent = parent
+	return label
 end
 
-local function viewport()
-	local camera = workspace.CurrentCamera
-	return camera and camera.ViewportSize or Vector2.new(1920, 1080)
-end
+-- =========================================================
+-- Floating toggle button
+-- =========================================================
 
-local function clamp(value, low, high)
-	return math.max(low, math.min(high, value))
-end
+local toggleShadow = Instance.new("Frame")
+toggleShadow.Name = "ToggleShadow"
+toggleShadow.AnchorPoint = Vector2.new(0.5, 0.5)
+toggleShadow.Position = UDim2.fromScale(0.073, 0.165)
+toggleShadow.Size = UDim2.fromScale(0.064, 0.064)
+toggleShadow.BackgroundColor3 = C.Black
+toggleShadow.BorderSizePixel = 0
+toggleShadow.ZIndex = 20
+toggleShadow.Parent = screenGui
+addScaleConstraint(toggleShadow, 1)
+roundRect(toggleShadow, 0.12)
 
-local function addAspect(parent, ratio)
-	local object = Instance.new("UIAspectRatioConstraint")
-	object.AspectRatio = ratio
-	object.DominantAxis = Enum.DominantAxis.Width
-	object.Parent = parent
-	return object
-end
+local toggleButton = Instance.new("ImageButton")
+toggleButton.Name = "ToggleButton"
+toggleButton.AnchorPoint = Vector2.new(0.5, 0.5)
+toggleButton.Position = UDim2.fromScale(0.5, 0.5)
+toggleButton.Size = UDim2.fromScale(0.94, 0.94)
+toggleButton.BackgroundColor3 = C.Dark2
+toggleButton.BorderSizePixel = 0
+toggleButton.AutoButtonColor = false
+toggleButton.Image = TOGGLE_IMAGE
+toggleButton.ImageColor3 = C.White
+toggleButton.ScaleType = Enum.ScaleType.Stretch
+toggleButton.ClipsDescendants = true
+toggleButton.ZIndex = 21
+toggleButton.Parent = toggleShadow
+addScaleConstraint(toggleButton, 1)
+roundRect(toggleButton, 0.08)
+stroke(toggleButton, C.Gray3, 0.025)
 
---==================================================
--- Floating launcher button
---==================================================
+pcall(function()
+	toggleButton.Modal = true
+end)
 
-local Launcher = Instance.new("ImageButton")
-Launcher.Name = "Launcher"
-Launcher.Size = UDim2.fromScale(0.075, 0.075)
-Launcher.Position = UDim2.fromScale(0.035, 0.22)
-Launcher.BackgroundColor3 = COLORS.Panel
-Launcher.BorderSizePixel = 0
-Launcher.AutoButtonColor = false
-Launcher.Image = ""
-Launcher.Parent = ScreenGui
-addAspect(Launcher, 1)
+-- =========================================================
+-- Main menu hierarchy
+-- =========================================================
 
-local launcherStroke = stroke(Launcher, 1.5, COLORS.SoftWhite, 0.22)
-local launcherIcon = image(
-	Launcher,
-	"Icon",
-	ICONS.Open,
-	UDim2.fromScale(0.60, 0.60),
-	UDim2.fromScale(0.20, 0.20)
-)
+local menuShadow = Instance.new("Frame")
+menuShadow.Name = "MenuShadow"
+menuShadow.AnchorPoint = Vector2.new(0.5, 0.5)
+menuShadow.Position = UDim2.fromScale(0.5, 0.5)
+menuShadow.Size = UDim2.fromScale(0.745, 0.72)
+menuShadow.BackgroundColor3 = C.Black
+menuShadow.BorderSizePixel = 0
+menuShadow.Visible = false
+menuShadow.ZIndex = 30
+menuShadow.Parent = screenGui
+stroke(menuShadow, C.Gray2, 0.009)
 
---==================================================
--- Main menu
---==================================================
+local menu = Instance.new("Frame")
+menu.Name = "MainMenu"
+menu.AnchorPoint = Vector2.new(0.5, 0.5)
+menu.Position = UDim2.fromScale(0.5, 0.5)
+menu.Size = UDim2.fromScale(0.732, 0.70)
+menu.BackgroundColor3 = C.Black
+menu.BorderSizePixel = 0
+menu.Visible = false
+menu.ZIndex = 31
+menu.Parent = screenGui
+stroke(menu, C.LightGray, 0.007)
 
-local Menu = frame(
-	ScreenGui,
-	"Menu",
-	UDim2.fromScale(0.70, 0.70),
-	UDim2.fromScale(0.50, 0.50),
-	COLORS.Panel
-)
-Menu.AnchorPoint = Vector2.new(0.5, 0.5)
-Menu.Visible = false
-stroke(Menu, 1.5, COLORS.SoftWhite, 0.20)
+-- Menu stays rectangular while remaining resolution-independent.
+local menuRatio = Instance.new("UIAspectRatioConstraint")
+menuRatio.AspectRatio = 1.48
+menuRatio.DominantAxis = Enum.DominantAxis.Width
+menuRatio.Parent = menu
 
-local menuScale = Instance.new("UIScale")
-menuScale.Scale = 1
-menuScale.Parent = Menu
+-- =========================================================
+-- Header
+-- =========================================================
 
-addAspect(Menu, 1.55)
+local header = Instance.new("Frame")
+header.Name = "Header"
+header.BackgroundColor3 = C.Dark
+header.BorderSizePixel = 0
+header.Position = UDim2.fromScale(0, 0)
+header.Size = UDim2.fromScale(1, 0.155)
+header.ZIndex = 32
+header.Parent = menu
 
-local MenuHeader = frame(
-	Menu,
-	"Header",
-	UDim2.fromScale(1, 0.105),
-	UDim2.fromScale(0, 0),
-	COLORS.Black
-)
+local title = newText(header, MENU_TITLE, Enum.Font.GothamBold, 19, C.White, Enum.TextXAlignment.Left)
+title.Position = UDim2.fromScale(0.035, 0.12)
+title.Size = UDim2.fromScale(0.68, 0.38)
 
-frame(
-	MenuHeader,
-	"HeaderLine",
-	UDim2.fromScale(1, 0.008),
-	UDim2.fromScale(0, 0.992),
-	COLORS.Line
-)
+local subtitle = newText(header, MENU_SUBTITLE, Enum.Font.Gotham, 11, C.LightGray, Enum.TextXAlignment.Left)
+subtitle.Position = UDim2.fromScale(0.035, 0.53)
+subtitle.Size = UDim2.fromScale(0.35, 0.28)
 
-local Title = text(
-	MenuHeader,
-	"Title",
-	FULL_TITLE,
-	UDim2.fromScale(0.70, 0.53),
-	UDim2.fromScale(0.028, 0.09),
-	Enum.Font.GothamBold,
-	COLORS.White
-)
+local hideButton = Instance.new("TextButton")
+hideButton.Name = "HideMenuButton"
+hideButton.AnchorPoint = Vector2.new(0, 0.5)
+hideButton.Position = UDim2.fromScale(0.825, 0.5)
+hideButton.Size = UDim2.fromScale(0.068, 0.72)
+hideButton.BackgroundColor3 = C.Gray
+hideButton.BorderSizePixel = 0
+hideButton.Text = "-"
+hideButton.Font = Enum.Font.GothamBold
+hideButton.TextSize = 20
+hideButton.TextColor3 = C.White
+hideButton.AutoButtonColor = false
+hideButton.ZIndex = 34
+hideButton.Parent = header
+noLocalize(hideButton)
+roundRect(hideButton, 0.08)
 
-local Subtitle = text(
-	MenuHeader,
-	"Subtitle",
-	"Mod Menu",
-	UDim2.fromScale(0.33, 0.29),
-	UDim2.fromScale(0.029, 0.60),
-	Enum.Font.GothamMedium,
-	COLORS.Gray
-)
+local closeButton = Instance.new("TextButton")
+closeButton.Name = "CloseButton"
+closeButton.AnchorPoint = Vector2.new(0, 0.5)
+closeButton.Position = UDim2.fromScale(0.905, 0.5)
+closeButton.Size = UDim2.fromScale(0.068, 0.72)
+closeButton.BackgroundColor3 = C.Gray
+closeButton.BorderSizePixel = 0
+closeButton.Text = "X"
+closeButton.Font = Enum.Font.GothamBold
+closeButton.TextSize = 16
+closeButton.TextColor3 = C.White
+closeButton.AutoButtonColor = false
+closeButton.ZIndex = 34
+closeButton.Parent = header
+noLocalize(closeButton)
+roundRect(closeButton, 0.08)
 
-local Minimize = button(
-	MenuHeader,
-	"Minimize",
-	UDim2.fromScale(0.065, 0.66),
-	UDim2.fromScale(0.846, 0.17)
-)
-local minimizeText = text(
-	Minimize,
-	"Glyph",
-	"—",
-	UDim2.fromScale(1, 1),
-	UDim2.fromScale(0, 0),
-	Enum.Font.GothamBold,
-	COLORS.SoftWhite,
-	Enum.TextXAlignment.Center
-)
+-- =========================================================
+-- Body / left tabs / right content
+-- =========================================================
 
-local Close = button(
-	MenuHeader,
-	"Close",
-	UDim2.fromScale(0.065, 0.66),
-	UDim2.fromScale(0.914, 0.17)
-)
-local closeText = text(
-	Close,
-	"Glyph",
-	"X",
-	UDim2.fromScale(1, 1),
-	UDim2.fromScale(0, 0),
-	Enum.Font.GothamBold,
-	COLORS.White,
-	Enum.TextXAlignment.Center
-)
+local body = Instance.new("Frame")
+body.Name = "Body"
+body.BackgroundTransparency = 1
+body.BorderSizePixel = 0
+body.Position = UDim2.fromScale(0.018, 0.175)
+body.Size = UDim2.fromScale(0.964, 0.805)
+body.ZIndex = 32
+body.Parent = menu
 
---==================================================
--- Sidebar tabs
---==================================================
+local tabPanel = Instance.new("Frame")
+tabPanel.Name = "TabPanel"
+tabPanel.BackgroundColor3 = C.NearBlack
+tabPanel.BorderSizePixel = 0
+tabPanel.Position = UDim2.fromScale(0, 0)
+tabPanel.Size = UDim2.fromScale(0.255, 1)
+tabPanel.ClipsDescendants = true
+tabPanel.ZIndex = 33
+tabPanel.Parent = body
+stroke(tabPanel, C.Gray, 0.006)
 
-local Sidebar = frame(
-	Menu,
-	"Sidebar",
-	UDim2.fromScale(0.245, 0.895),
-	UDim2.fromScale(0, 0.105),
-	COLORS.Black
-)
+local tabTitle = newText(tabPanel, "Tabs", Enum.Font.GothamBold, 12, C.SoftWhite, Enum.TextXAlignment.Left)
+tabTitle.Position = UDim2.fromScale(0.09, 0.035)
+tabTitle.Size = UDim2.fromScale(0.82, 0.08)
 
-frame(
-	Sidebar,
-	"SidebarLine",
-	UDim2.fromScale(0.006, 1),
-	UDim2.fromScale(0.994, 0),
-	COLORS.Line
-)
+local tabScroll = Instance.new("ScrollingFrame")
+tabScroll.Name = "TabScroll"
+tabScroll.BackgroundTransparency = 1
+tabScroll.BorderSizePixel = 0
+tabScroll.Position = UDim2.fromScale(0.055, 0.13)
+tabScroll.Size = UDim2.fromScale(0.89, 0.82)
+tabScroll.CanvasSize = UDim2.fromScale(0, 0)
+tabScroll.ScrollBarThickness = 0
+tabScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+tabScroll.ElasticBehavior = Enum.ElasticBehavior.WhenScrollable
+tabScroll.Active = true
+tabScroll.ZIndex = 34
+tabScroll.Parent = tabPanel
 
-local tabs = {
-	{Name = "Main", Icon = ICONS.Main},
-	{Name = "Auto Buy", Icon = ICONS.AutoBuy},
-	{Name = "Farm", Icon = ICONS.Farm},
-	{Name = "Config", Icon = ICONS.Config},
-	{Name = "Credits", Icon = ICONS.Credits},
-}
+local tabLayout = Instance.new("UIListLayout")
+tabLayout.FillDirection = Enum.FillDirection.Vertical
+tabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
+tabLayout.Padding = UDim.new(0.018, 0)
+tabLayout.Parent = tabScroll
 
+local tabPadding = Instance.new("UIPadding")
+tabPadding.PaddingTop = UDim.new(0.01, 0)
+tabPadding.PaddingBottom = UDim.new(0.015, 0)
+tabPadding.Parent = tabScroll
+
+local contentPanel = Instance.new("Frame")
+contentPanel.Name = "ContentPanel"
+contentPanel.BackgroundColor3 = C.NearBlack
+contentPanel.BorderSizePixel = 0
+contentPanel.Position = UDim2.fromScale(0.275, 0)
+contentPanel.Size = UDim2.fromScale(0.725, 1)
+contentPanel.ZIndex = 33
+contentPanel.Parent = body
+stroke(contentPanel, C.Gray, 0.006)
+
+-- =========================================================
+-- Search bar
+-- =========================================================
+
+local searchBox = Instance.new("Frame")
+searchBox.Name = "SearchBox"
+searchBox.BackgroundColor3 = C.Dark
+searchBox.BorderSizePixel = 0
+searchBox.Position = UDim2.fromScale(0.033, 0.035)
+searchBox.Size = UDim2.fromScale(0.934, 0.105)
+searchBox.ZIndex = 35
+searchBox.Parent = contentPanel
+roundRect(searchBox, 0.07)
+stroke(searchBox, C.Gray2, 0.006)
+
+local searchIcon = Instance.new("ImageLabel")
+searchIcon.Name = "SearchIcon"
+searchIcon.BackgroundTransparency = 1
+searchIcon.BorderSizePixel = 0
+searchIcon.Image = SEARCH_IMAGE
+searchIcon.ImageColor3 = C.White
+searchIcon.ScaleType = Enum.ScaleType.Fit
+searchIcon.Position = UDim2.fromScale(0.034, 0.19)
+searchIcon.Size = UDim2.fromScale(0.073, 0.62)
+searchIcon.ZIndex = 36
+searchIcon.Parent = searchBox
+
+local searchText = Instance.new("TextBox")
+searchText.Name = "SearchText"
+searchText.BackgroundTransparency = 1
+searchText.BorderSizePixel = 0
+searchText.ClearTextOnFocus = false
+searchText.Text = ""
+searchText.PlaceholderText = "Search..."
+searchText.PlaceholderColor3 = C.LightGray
+searchText.TextColor3 = C.White
+searchText.TextSize = 13
+searchText.Font = Enum.Font.Gotham
+searchText.TextXAlignment = Enum.TextXAlignment.Left
+searchText.TextYAlignment = Enum.TextYAlignment.Center
+searchText.Position = UDim2.fromScale(0.125, 0.08)
+searchText.Size = UDim2.fromScale(0.77, 0.84)
+searchText.ZIndex = 37
+searchText.Parent = searchBox
+noLocalize(searchText)
+
+local clearSearch = Instance.new("TextButton")
+clearSearch.Name = "ClearSearch"
+clearSearch.BackgroundTransparency = 1
+clearSearch.BorderSizePixel = 0
+clearSearch.Text = "X"
+clearSearch.Font = Enum.Font.GothamBold
+clearSearch.TextSize = 13
+clearSearch.TextColor3 = C.White
+clearSearch.AutoButtonColor = false
+clearSearch.Visible = false
+clearSearch.Position = UDim2.fromScale(0.905, 0.09)
+clearSearch.Size = UDim2.fromScale(0.075, 0.82)
+clearSearch.ZIndex = 38
+clearSearch.Parent = searchBox
+noLocalize(clearSearch)
+
+-- =========================================================
+-- Content scrolling
+-- =========================================================
+
+local contentScroll = Instance.new("ScrollingFrame")
+contentScroll.Name = "ContentScroll"
+contentScroll.BackgroundTransparency = 1
+contentScroll.BorderSizePixel = 0
+contentScroll.Position = UDim2.fromScale(0.03, 0.165)
+contentScroll.Size = UDim2.fromScale(0.94, 0.81)
+contentScroll.CanvasSize = UDim2.fromScale(0, 0)
+contentScroll.ScrollBarThickness = 0
+contentScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+contentScroll.ElasticBehavior = Enum.ElasticBehavior.WhenScrollable
+contentScroll.Active = true
+contentScroll.ZIndex = 34
+contentScroll.Parent = contentPanel
+
+local contentPadding = Instance.new("UIPadding")
+contentPadding.PaddingLeft = UDim.new(0.02, 0)
+contentPadding.PaddingRight = UDim.new(0.02, 0)
+contentPadding.PaddingTop = UDim.new(0.02, 0)
+contentPadding.PaddingBottom = UDim.new(0.02, 0)
+contentPadding.Parent = contentScroll
+
+local contentLayout = Instance.new("UIListLayout")
+contentLayout.FillDirection = Enum.FillDirection.Vertical
+contentLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+contentLayout.Padding = UDim.new(0.018, 0)
+contentLayout.Parent = contentScroll
+
+-- "No options" card
+local emptyCard = Instance.new("Frame")
+emptyCard.Name = "EmptyCard"
+emptyCard.BackgroundColor3 = C.Dark
+emptyCard.BorderSizePixel = 0
+emptyCard.Size = UDim2.fromScale(0.95, 0.20)
+emptyCard.LayoutOrder = 1
+emptyCard.ZIndex = 35
+emptyCard.Parent = contentScroll
+roundRect(emptyCard, 0.06)
+stroke(emptyCard, C.Gray2, 0.006)
+
+local emptyTitle = newText(emptyCard, "No Options", Enum.Font.GothamBold, 14, C.White, Enum.TextXAlignment.Center)
+emptyTitle.Position = UDim2.fromScale(0.08, 0.20)
+emptyTitle.Size = UDim2.fromScale(0.84, 0.28)
+emptyTitle.TextXAlignment = Enum.TextXAlignment.Center
+
+local emptyDescription = newText(emptyCard, "There are no options available in this tab.", Enum.Font.Gotham, 11, C.LightGray, Enum.TextXAlignment.Center)
+emptyDescription.Position = UDim2.fromScale(0.08, 0.52)
+emptyDescription.Size = UDim2.fromScale(0.84, 0.25)
+emptyDescription.TextXAlignment = Enum.TextXAlignment.Center
+
+-- =========================================================
+-- Tabs
+-- =========================================================
+
+local selectedTabName = TABS[1].Name
 local tabButtons = {}
-local selectedTab = "Main"
 
-local function setTabState(name)
-	for tabName, tabButton in pairs(tabButtons) do
-		local active = tabName == name
+local function updateTabVisuals(selectedName)
+	for name, data in pairs(tabButtons) do
+		local button = data.Button
+		local icon = data.Icon
+		local label = data.Label
 
-		tabButton.BackgroundColor3 = active and COLORS.Selected or COLORS.Black
-
-		local indicator = tabButton:FindFirstChild("Indicator")
-		local tabIcon = tabButton:FindFirstChild("Icon")
-		local tabText = tabButton:FindFirstChild("Text")
-
-		if indicator then
-			indicator.BackgroundTransparency = active and 0 or 1
-		end
-
-		if tabIcon then
-			tabIcon.ImageColor3 = active and COLORS.White or COLORS.Gray
-		end
-
-		if tabText then
-			tabText.TextColor3 = active and COLORS.White or COLORS.SoftWhite
+		if name == selectedName then
+			button.BackgroundColor3 = C.Gray
+			icon.ImageColor3 = C.White
+			label.TextColor3 = C.White
+		else
+			button.BackgroundColor3 = C.Dark
+			icon.ImageColor3 = C.SoftWhite
+			label.TextColor3 = C.SoftWhite
 		end
 	end
 end
 
-for index, tab in ipairs(tabs) do
-	local tabButton = button(
-		Sidebar,
-		tab.Name:gsub("%s", "") .. "Tab",
-		UDim2.fromScale(0.92, 0.135),
-		UDim2.fromScale(0.04, 0.040 + ((index - 1) * 0.145))
-	)
+for index, tab in ipairs(TABS) do
+	local button = Instance.new("TextButton")
+	button.Name = tab.Name:gsub("%s+", "") .. "Tab"
+	button.BackgroundColor3 = C.Dark
+	button.BorderSizePixel = 0
+	button.AutoButtonColor = false
+	button.Text = ""
+	button.Size = UDim2.fromScale(0.98, 0.16)
+	button.LayoutOrder = index
+	button.ZIndex = 35
+	button.Parent = tabScroll
+	noLocalize(button)
+	roundRect(button, 0.06)
 
-	tabButton.BackgroundColor3 = COLORS.Black
+	local iconFrame = Instance.new("Frame")
+	iconFrame.Name = "IconFrame"
+	iconFrame.BackgroundColor3 = C.Gray2
+	iconFrame.BorderSizePixel = 0
+	iconFrame.Position = UDim2.fromScale(0.055, 0.16)
+	iconFrame.Size = UDim2.fromScale(0.22, 0.68)
+	iconFrame.ZIndex = 36
+	iconFrame.Parent = button
+	addScaleConstraint(iconFrame, 1)
+	roundRect(iconFrame, 0.12)
 
-	local indicator = frame(
-		tabButton,
-		"Indicator",
-		UDim2.fromScale(0.012, 1),
-		UDim2.fromScale(0, 0),
-		COLORS.White
-	)
+	local icon = Instance.new("ImageLabel")
+	icon.Name = "Icon"
+	icon.BackgroundTransparency = 1
+	icon.BorderSizePixel = 0
+	icon.Image = tab.Icon
+	icon.ImageColor3 = C.SoftWhite
+	icon.ScaleType = Enum.ScaleType.Fit
+	icon.Position = UDim2.fromScale(0.15, 0.15)
+	icon.Size = UDim2.fromScale(0.70, 0.70)
+	icon.ZIndex = 37
+	icon.Parent = iconFrame
 
-	local tabIcon = image(
-		tabButton,
-		"Icon",
-		tab.Icon,
-		UDim2.fromScale(0.19, 0.56),
-		UDim2.fromScale(0.07, 0.22)
-	)
-	tabIcon.ImageColor3 = COLORS.Gray
+	local label = newText(button, tab.Name, Enum.Font.GothamSemibold, 12, C.SoftWhite, Enum.TextXAlignment.Left)
+	label.Position = UDim2.fromScale(0.34, 0.16)
+	label.Size = UDim2.fromScale(0.60, 0.68)
 
-	local tabText = text(
-		tabButton,
-		"Text",
-		tab.Name,
-		UDim2.fromScale(0.64, 0.58),
-		UDim2.fromScale(0.31, 0.21),
-		Enum.Font.GothamMedium,
-		COLORS.SoftWhite
-	)
+	tabButtons[tab.Name] = {
+		Button = button,
+		Icon = icon,
+		Label = label,
+	}
 
-	tabButtons[tab.Name] = tabButton
+	local hovering = false
 
-	tabButton.Activated:Connect(function()
-		selectedTab = tab.Name
-		setTabState(selectedTab)
+	button.MouseEnter:Connect(function()
+		hovering = true
+		if selectedTabName ~= tab.Name then
+			tween(button, 0.10, {BackgroundColor3 = C.Gray2})
+		end
+	end)
+
+	button.MouseLeave:Connect(function()
+		hovering = false
+		if selectedTabName ~= tab.Name then
+			tween(button, 0.10, {BackgroundColor3 = C.Dark})
+		end
+	end)
+
+	button.MouseButton1Down:Connect(function()
+		if selectedTabName ~= tab.Name then
+			tween(button, 0.08, {BackgroundColor3 = C.Gray3})
+		end
+	end)
+
+	button.MouseButton1Click:Connect(function()
+		selectedTabName = tab.Name
+		updateTabVisuals(selectedTabName)
+
+		-- The option system is intentionally empty for now.
+		emptyTitle.Text = "No Options"
+		emptyDescription.Text = "There are no options available in this tab."
 	end)
 end
 
-setTabState(selectedTab)
+updateTabVisuals(selectedTabName)
 
---==================================================
--- Content / search
---==================================================
+local function refreshCanvasSizes()
+	task.defer(function()
+		local tabHeight = tabLayout.AbsoluteContentSize.Y
+		local contentHeight = contentLayout.AbsoluteContentSize.Y
 
-local Content = frame(
-	Menu,
-	"Content",
-	UDim2.fromScale(0.755, 0.895),
-	UDim2.fromScale(0.245, 0.105),
-	COLORS.Panel
-)
+		tabScroll.CanvasSize = UDim2.fromScale(0, math.max(1, tabHeight / math.max(1, tabScroll.AbsoluteSize.Y)))
+		contentScroll.CanvasSize = UDim2.fromScale(0, math.max(1, contentHeight / math.max(1, contentScroll.AbsoluteSize.Y)))
+	end)
+end
 
-local SearchBar = frame(
-	Content,
-	"SearchBar",
-	UDim2.fromScale(0.93, 0.085),
-	UDim2.fromScale(0.035, 0.035),
-	COLORS.PanelSoft
-)
-stroke(SearchBar, 1, COLORS.Line, 0.12)
+contentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(refreshCanvasSizes)
+tabLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(refreshCanvasSizes)
 
-local SearchIcon = image(
-	SearchBar,
-	"SearchIcon",
-	ICONS.Search,
-	UDim2.fromScale(0.062, 0.65),
-	UDim2.fromScale(0.026, 0.175)
-)
-SearchIcon.ImageColor3 = COLORS.SoftWhite
+-- =========================================================
+-- Toggle / hide / close confirmation
+-- =========================================================
 
-local SearchBox = Instance.new("TextBox")
-SearchBox.Name = "SearchBox"
-SearchBox.Size = UDim2.fromScale(0.78, 0.90)
-SearchBox.Position = UDim2.fromScale(0.105, 0.05)
-SearchBox.BackgroundTransparency = 1
-SearchBox.BorderSizePixel = 0
-SearchBox.Text = ""
-SearchBox.PlaceholderText = ""
-SearchBox.TextColor3 = COLORS.White
-SearchBox.Font = Enum.Font.Gotham
-SearchBox.TextScaled = true
-SearchBox.TextXAlignment = Enum.TextXAlignment.Left
-SearchBox.TextYAlignment = Enum.TextYAlignment.Center
-SearchBox.ClearTextOnFocus = false
-SearchBox.Parent = SearchBar
-disableLocalization(SearchBox)
+local menuVisible = false
+local lastHiddenSide = "Left"
+local lastHiddenY = 0.5
 
-local SearchPlaceholder = text(
-	SearchBar,
-	"SearchPlaceholder",
-	"Search...",
-	UDim2.fromScale(0.78, 0.90),
-	UDim2.fromScale(0.105, 0.05),
+local function setMenuVisible(state)
+	menuVisible = state
+	menu.Visible = state
+	menuShadow.Visible = state
+
+	if state then
+		menu.ZIndex = 31
+		menuShadow.ZIndex = 30
+	end
+end
+
+local confirmOverlay = Instance.new("Frame")
+confirmOverlay.Name = "ConfirmOverlay"
+confirmOverlay.BackgroundColor3 = C.Black
+confirmOverlay.BackgroundTransparency = 0.42
+confirmOverlay.BorderSizePixel = 0
+confirmOverlay.Size = UDim2.fromScale(1, 1)
+confirmOverlay.Visible = false
+confirmOverlay.ZIndex = 90
+confirmOverlay.Parent = screenGui
+
+local confirmCard = Instance.new("Frame")
+confirmCard.Name = "ConfirmCard"
+confirmCard.AnchorPoint = Vector2.new(0.5, 0.5)
+confirmCard.Position = UDim2.fromScale(0.5, 0.5)
+confirmCard.Size = UDim2.fromScale(0.34, 0.255)
+confirmCard.BackgroundColor3 = C.Dark
+confirmCard.BorderSizePixel = 0
+confirmCard.ZIndex = 91
+confirmCard.Parent = confirmOverlay
+stroke(confirmCard, C.LightGray, 0.008)
+
+local confirmTitle = newText(confirmCard, "Close Phantom Hub?", Enum.Font.GothamBold, 16, C.White, Enum.TextXAlignment.Center)
+confirmTitle.Position = UDim2.fromScale(0.08, 0.12)
+confirmTitle.Size = UDim2.fromScale(0.84, 0.23)
+confirmTitle.TextXAlignment = Enum.TextXAlignment.Center
+
+local confirmDescription = newText(
+	confirmCard,
+	"Confirming will remove the mod menu and its opening button.",
 	Enum.Font.Gotham,
-	COLORS.Gray
-)
-SearchPlaceholder.TextXAlignment = Enum.TextXAlignment.Left
-SearchPlaceholder.Active = false
-SearchPlaceholder.ZIndex = SearchBox.ZIndex + 1
-
-local Clear = button(
-	SearchBar,
-	"Clear",
-	UDim2.fromScale(0.075, 0.78),
-	UDim2.fromScale(0.91, 0.11)
-)
-local clearText = text(
-	Clear,
-	"Glyph",
-	"X",
-	UDim2.fromScale(1, 1),
-	UDim2.fromScale(0, 0),
-	Enum.Font.GothamBold,
-	COLORS.SoftWhite,
+	10,
+	C.LightGray,
 	Enum.TextXAlignment.Center
 )
-Clear.Visible = false
+confirmDescription.Position = UDim2.fromScale(0.10, 0.36)
+confirmDescription.Size = UDim2.fromScale(0.80, 0.24)
+confirmDescription.TextWrapped = true
+confirmDescription.TextXAlignment = Enum.TextXAlignment.Center
 
-local Results = frame(
-	Content,
-	"Results",
-	UDim2.fromScale(0.93, 0.825),
-	UDim2.fromScale(0.035, 0.145),
-	COLORS.Panel
-)
+local cancelButton = Instance.new("TextButton")
+cancelButton.Name = "CancelButton"
+cancelButton.BackgroundColor3 = C.Gray
+cancelButton.BorderSizePixel = 0
+cancelButton.Text = "Cancel"
+cancelButton.Font = Enum.Font.GothamSemibold
+cancelButton.TextSize = 11
+cancelButton.TextColor3 = C.White
+cancelButton.AutoButtonColor = false
+cancelButton.Position = UDim2.fromScale(0.10, 0.70)
+cancelButton.Size = UDim2.fromScale(0.37, 0.18)
+cancelButton.ZIndex = 92
+cancelButton.Parent = confirmCard
+noLocalize(cancelButton)
+roundRect(cancelButton, 0.08)
 
-local Scroll = Instance.new("ScrollingFrame")
-Scroll.Name = "Scroll"
-Scroll.Size = UDim2.fromScale(1, 1)
-Scroll.Position = UDim2.fromScale(0, 0)
-Scroll.BackgroundTransparency = 1
-Scroll.BorderSizePixel = 0
-Scroll.ScrollBarThickness = 0
-Scroll.CanvasSize = UDim2.fromScale(0, 0)
-Scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-Scroll.ScrollingDirection = Enum.ScrollingDirection.Y
-Scroll.Parent = Results
+local confirmButton = Instance.new("TextButton")
+confirmButton.Name = "ConfirmButton"
+confirmButton.BackgroundColor3 = C.Gray2
+confirmButton.BorderSizePixel = 0
+confirmButton.Text = "Confirm"
+confirmButton.Font = Enum.Font.GothamSemibold
+confirmButton.TextSize = 11
+confirmButton.TextColor3 = C.White
+confirmButton.AutoButtonColor = false
+confirmButton.Position = UDim2.fromScale(0.53, 0.70)
+confirmButton.Size = UDim2.fromScale(0.37, 0.18)
+confirmButton.ZIndex = 92
+confirmButton.Parent = confirmCard
+noLocalize(confirmButton)
+roundRect(confirmButton, 0.08)
 
-local layout = Instance.new("UIListLayout")
-layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Padding = UDim.new(0, 0)
-layout.Parent = Scroll
-
-local EmptyTitle = text(
-	Scroll,
-	"EmptyTitle",
-	"No options available",
-	UDim2.fromScale(1, 0.18),
-	UDim2.fromScale(0, 0),
-	Enum.Font.GothamMedium,
-	COLORS.Gray,
-	Enum.TextXAlignment.Center
-)
-EmptyTitle.LayoutOrder = 1
-
-local EmptyDescription = text(
-	Scroll,
-	"EmptyDescription",
-	"This section currently has no options.",
-	UDim2.fromScale(1, 0.10),
-	UDim2.fromScale(0, 0),
-	Enum.Font.Gotham,
-	COLORS.DarkGray,
-	Enum.TextXAlignment.Center
-)
-EmptyDescription.LayoutOrder = 2
-
---==================================================
--- Future category / toggle helpers
---==================================================
-
-local function createToggle(parent, name, state, order)
-	local row = frame(
-		parent,
-		name .. "Row",
-		UDim2.fromScale(0.96, 0.11),
-		UDim2.fromScale(0.02, 0),
-		COLORS.PanelSoft
-	)
-	row.LayoutOrder = order
-
-	local label = text(
-		row,
-		"Label",
-		name,
-		UDim2.fromScale(0.70, 0.78),
-		UDim2.fromScale(0.035, 0.11),
-		Enum.Font.GothamMedium,
-		COLORS.White
-	)
-
-	local toggle = button(
-		row,
-		"Toggle",
-		UDim2.fromScale(0.15, 0.52),
-		UDim2.fromScale(0.81, 0.24)
-	)
-	toggle.BackgroundColor3 = state and COLORS.White or COLORS.DarkGray
-	addAspect(toggle, 1.90)
-
-	local knob = frame(
-		toggle,
-		"Knob",
-		UDim2.fromScale(0.42, 0.76),
-		state and UDim2.fromScale(0.52, 0.12) or UDim2.fromScale(0.06, 0.12),
-		state and COLORS.Black or COLORS.White
-	)
-
-	local function setState(newState)
-		state = newState
-
-		TweenService:Create(
-			toggle,
-			TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-			{BackgroundColor3 = state and COLORS.White or COLORS.DarkGray}
-		):Play()
-
-		TweenService:Create(
-			knob,
-			TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-			{
-				Position = state and UDim2.fromScale(0.52, 0.12) or UDim2.fromScale(0.06, 0.12),
-				BackgroundColor3 = state and COLORS.Black or COLORS.White,
-			}
-		):Play()
-	end
-
-	toggle.Activated:Connect(function()
-		setState(not state)
-	end)
-
-	return row, setState
+local function showConfirmation()
+	confirmOverlay.Visible = true
+	tween(confirmCard, 0.16, {
+		Size = UDim2.fromScale(0.35, 0.265),
+	})
 end
 
---==================================================
--- Search state
---==================================================
-
-local function updateSearch()
-	local hasText = SearchBox.Text ~= ""
-	SearchPlaceholder.Visible = not hasText
-	Clear.Visible = hasText
-end
-
-SearchBox:GetPropertyChangedSignal("Text"):Connect(updateSearch)
-
-Clear.Activated:Connect(function()
-	SearchBox.Text = ""
-	SearchBox:CaptureFocus()
-	updateSearch()
-end)
-
-updateSearch()
-
---==================================================
--- Confirm close dialog
---==================================================
-
-local Overlay = frame(
-	ScreenGui,
-	"Overlay",
-	UDim2.fromScale(1, 1),
-	UDim2.fromScale(0, 0),
-	COLORS.Black,
-	0.40
-)
-Overlay.Visible = false
-Overlay.ZIndex = 100
-
-local Confirm = frame(
-	Overlay,
-	"Confirm",
-	UDim2.fromScale(0.45, 0.32),
-	UDim2.fromScale(0.50, 0.50),
-	COLORS.PanelSoft
-)
-Confirm.AnchorPoint = Vector2.new(0.5, 0.5)
-Confirm.ZIndex = 101
-stroke(Confirm, 1.5, COLORS.SoftWhite, 0.18)
-addAspect(Confirm, 1.70)
-
-local ConfirmTitle = text(
-	Confirm,
-	"Title",
-	"Close Phantom Hub?",
-	UDim2.fromScale(0.84, 0.20),
-	UDim2.fromScale(0.08, 0.09),
-	Enum.Font.GothamBold,
-	COLORS.White,
-	Enum.TextXAlignment.Center
-)
-ConfirmTitle.ZIndex = 102
-
-local ConfirmDescription = text(
-	Confirm,
-	"Description",
-	"Confirming will remove the menu and its launcher button.",
-	UDim2.fromScale(0.82, 0.28),
-	UDim2.fromScale(0.09, 0.31),
-	Enum.Font.Gotham,
-	COLORS.SoftWhite,
-	Enum.TextXAlignment.Center
-)
-ConfirmDescription.TextWrapped = true
-ConfirmDescription.ZIndex = 102
-
-local Cancel = button(
-	Confirm,
-	"Cancel",
-	UDim2.fromScale(0.35, 0.23),
-	UDim2.fromScale(0.10, 0.69)
-)
-Cancel.BackgroundColor3 = COLORS.PanelRaised
-stroke(Cancel, 1, COLORS.Line, 0.10)
-
-local CancelLabel = text(
-	Cancel,
-	"Label",
-	"Cancel",
-	UDim2.fromScale(1, 1),
-	UDim2.fromScale(0, 0),
-	Enum.Font.GothamBold,
-	COLORS.White,
-	Enum.TextXAlignment.Center
-)
-
-local ConfirmButton = button(
-	Confirm,
-	"Confirm",
-	UDim2.fromScale(0.35, 0.23),
-	UDim2.fromScale(0.55, 0.69)
-)
-ConfirmButton.BackgroundColor3 = COLORS.White
-
-local ConfirmLabel = text(
-	ConfirmButton,
-	"Label",
-	"Confirm",
-	UDim2.fromScale(1, 1),
-	UDim2.fromScale(0, 0),
-	Enum.Font.GothamBold,
-	COLORS.Black,
-	Enum.TextXAlignment.Center
-)
-
---==================================================
--- Generic smooth drag using only Scale for Position
---==================================================
-
-local function scalePositionFromAbsolute(x, y)
-	local vp = viewport()
-	return UDim2.fromScale(
-		x / math.max(vp.X, 1),
-		y / math.max(vp.Y, 1)
-	)
-end
-
-local function installLauncherDrag()
-	local dragging = false
-	local moved = false
-	local startInput
-	local startAbs
-
-	Launcher.InputBegan:Connect(function(input)
-		if input.UserInputType ~= Enum.UserInputType.MouseButton1
-			and input.UserInputType ~= Enum.UserInputType.Touch then
-			return
+local function hideConfirmation()
+	tween(confirmCard, 0.12, {
+		Size = UDim2.fromScale(0.34, 0.255),
+	})
+	task.delay(0.12, function()
+		if confirmOverlay then
+			confirmOverlay.Visible = false
 		end
-
-		dragging = true
-		moved = false
-		startInput = input.Position
-		startAbs = Launcher.AbsolutePosition
-
-		local moveConnection
-		local endConnection
-
-		moveConnection = UserInputService.InputChanged:Connect(function(changed)
-			if not dragging then
-				return
-			end
-
-			if changed.UserInputType ~= Enum.UserInputType.MouseMovement
-				and changed.UserInputType ~= Enum.UserInputType.Touch then
-				return
-			end
-
-			local delta = changed.Position - startInput
-
-			if delta.Magnitude > 6 then
-				moved = true
-			end
-
-			local vp = viewport()
-			local size = Launcher.AbsoluteSize
-			local paddingX = vp.X * 0.006
-			local paddingY = vp.Y * 0.006
-
-			local x = clamp(
-				startAbs.X + delta.X,
-				paddingX,
-				math.max(paddingX, vp.X - size.X - paddingX)
-			)
-
-			local y = clamp(
-				startAbs.Y + delta.Y,
-				paddingY,
-				math.max(paddingY, vp.Y - size.Y - paddingY)
-			)
-
-			Launcher.Position = scalePositionFromAbsolute(x, y)
-		end)
-
-		endConnection = UserInputService.InputEnded:Connect(function(ended)
-			if ended.UserInputType ~= Enum.UserInputType.MouseButton1
-				and ended.UserInputType ~= Enum.UserInputType.Touch then
-				return
-			end
-
-			dragging = false
-
-			if moveConnection then
-				moveConnection:Disconnect()
-			end
-
-			if endConnection then
-				endConnection:Disconnect()
-			end
-
-			if not moved then
-				if Menu.Visible then
-					Menu.Visible = false
-				else
-					Menu.Visible = true
-				end
-			end
-		end)
 	end)
 end
 
-installLauncherDrag()
+hideButton.MouseEnter:Connect(function()
+	tween(hideButton, 0.10, {BackgroundColor3 = C.Gray2})
+end)
+hideButton.MouseLeave:Connect(function()
+	tween(hideButton, 0.10, {BackgroundColor3 = C.Gray})
+end)
 
---==================================================
--- Menu dragging: only corner handles + hold
--- Partial off-screen is allowed.
--- If the whole menu leaves the screen, it returns to
--- the nearest visible edge while preserving the axis.
---==================================================
+closeButton.MouseEnter:Connect(function()
+	tween(closeButton, 0.10, {BackgroundColor3 = C.Gray2})
+end)
+closeButton.MouseLeave:Connect(function()
+	tween(closeButton, 0.10, {BackgroundColor3 = C.Gray})
+end)
 
-local function menuIsFullyOutside()
-	local vp = viewport()
-	local p = Menu.AbsolutePosition
-	local s = Menu.AbsoluteSize
+cancelButton.MouseEnter:Connect(function()
+	tween(cancelButton, 0.10, {BackgroundColor3 = C.Gray2})
+end)
+cancelButton.MouseLeave:Connect(function()
+	tween(cancelButton, 0.10, {BackgroundColor3 = C.Gray})
+end)
 
-	return p.X + s.X <= 0
-		or p.X >= vp.X
-		or p.Y + s.Y <= 0
-		or p.Y >= vp.Y
+confirmButton.MouseEnter:Connect(function()
+	tween(confirmButton, 0.10, {BackgroundColor3 = C.LightGray})
+	confirmButton.TextColor3 = C.Black
+end)
+confirmButton.MouseLeave:Connect(function()
+	tween(confirmButton, 0.10, {BackgroundColor3 = C.Gray2})
+	confirmButton.TextColor3 = C.White
+end)
+
+hideButton.MouseButton1Click:Connect(function()
+	setMenuVisible(false)
+end)
+
+closeButton.MouseButton1Click:Connect(showConfirmation)
+cancelButton.MouseButton1Click:Connect(hideConfirmation)
+
+confirmButton.MouseButton1Click:Connect(function()
+	confirmOverlay:Destroy()
+	screenGui:Destroy()
+end)
+
+local function toggleMenu()
+	setMenuVisible(not menuVisible)
 end
 
-local function recoverMenu()
-	local vp = viewport()
-	local p = Menu.AbsolutePosition
-	local s = Menu.AbsoluteSize
+-- =========================================================
+-- Smooth drag helpers
+-- =========================================================
 
-	local x = p.X
-	local y = p.Y
+local function clamp(v, minValue, maxValue)
+	return math.clamp(v, minValue, maxValue)
+end
 
-	if p.X + s.X <= 0 then
-		x = -s.X + (vp.X * 0.008)
-	elseif p.X >= vp.X then
-		x = vp.X - (vp.X * 0.008)
+local draggingToggle = false
+local toggleDragStart = nil
+local toggleStartPos = nil
+local toggleMoved = false
+local toggleInputObject = nil
+
+local function setTogglePosition(scaleX, scaleY, animate)
+	local x = clamp(scaleX, 0.035, 0.965)
+	local y = clamp(scaleY, 0.045, 0.955)
+
+	local target = UDim2.fromScale(x, y)
+	if animate then
+		tween(toggleShadow, 0.10, {Position = target})
+	else
+		toggleShadow.Position = target
 	end
-
-	if p.Y + s.Y <= 0 then
-		y = -s.Y + (vp.Y * 0.008)
-	elseif p.Y >= vp.Y then
-		y = vp.Y - (vp.Y * 0.008)
-	end
-
-	Menu.Position = scalePositionFromAbsolute(
-		x + (s.X * 0.5),
-		y + (s.Y * 0.5)
-	)
 end
 
-local cornerSizeX = 0.075
-local cornerSizeY = 0.075
-
-local corners = {
-	TopLeft = UDim2.fromScale(0, 0),
-	TopRight = UDim2.fromScale(1 - cornerSizeX, 0),
-	BottomLeft = UDim2.fromScale(0, 1 - cornerSizeY),
-	BottomRight = UDim2.fromScale(1 - cornerSizeX, 1 - cornerSizeY),
-}
-
-local function addMenuCorner(name, position)
-	local handle = button(
-		Menu,
-		name,
-		UDim2.fromScale(cornerSizeX, cornerSizeY),
-		position
-	)
-	handle.ZIndex = 90
-	return handle
-end
-
-local function installMenuCornerDrag(handle)
-	handle.InputBegan:Connect(function(input)
-		if input.UserInputType ~= Enum.UserInputType.MouseButton1
-			and input.UserInputType ~= Enum.UserInputType.Touch then
-			return
-		end
-
-		local dragging = true
-		local startInput = input.Position
-		local startMenuAbs = Menu.AbsolutePosition
-
-		local moveConnection
-		local endConnection
-
-		moveConnection = UserInputService.InputChanged:Connect(function(changed)
-			if not dragging then
-				return
-			end
-
-			if changed.UserInputType ~= Enum.UserInputType.MouseMovement
-				and changed.UserInputType ~= Enum.UserInputType.Touch then
-				return
-			end
-
-			local delta = changed.Position - startInput
-			local x = startMenuAbs.X + delta.X
-			local y = startMenuAbs.Y + delta.Y
-
-			Menu.Position = scalePositionFromAbsolute(
-				x + (Menu.AbsoluteSize.X * 0.5),
-				y + (Menu.AbsoluteSize.Y * 0.5)
-			)
-		end)
-
-		endConnection = UserInputService.InputEnded:Connect(function(ended)
-			if ended.UserInputType ~= Enum.UserInputType.MouseButton1
-				and ended.UserInputType ~= Enum.UserInputType.Touch then
-				return
-			end
-
-			dragging = false
-
-			if moveConnection then
-				moveConnection:Disconnect()
-			end
-
-			if endConnection then
-				endConnection:Disconnect()
-			end
-
-			if menuIsFullyOutside() then
-				recoverMenu()
-			end
-		end)
-	end)
-end
-
-for name, position in pairs(corners) do
-	installMenuCornerDrag(addMenuCorner(name, position))
-end
-
---==================================================
--- Header interactions
---==================================================
-
-Minimize.Activated:Connect(function()
-	Menu.Visible = false
-	Overlay.Visible = false
-end)
-
-Close.Activated:Connect(function()
-	Overlay.Visible = true
-end)
-
-Cancel.Activated:Connect(function()
-	Overlay.Visible = false
-end)
-
-ConfirmButton.Activated:Connect(function()
-	ScreenGui:Destroy()
-end)
-
---==================================================
--- Resolution / viewport adaptation
--- All element Position and Size values use Scale.
--- No UDim2 pixel offsets are used.
--- UIScale stays at 1 because Scale is the sizing system.
---==================================================
-
-local function keepLauncherVisible()
-	if not Launcher.Parent then
+local function finishToggleDrag()
+	if not draggingToggle then
 		return
 	end
 
-	local vp = viewport()
-	local p = Launcher.AbsolutePosition
-	local s = Launcher.AbsoluteSize
-	local padX = vp.X * 0.006
-	local padY = vp.Y * 0.006
+	draggingToggle = false
 
-	local x = clamp(p.X, padX, math.max(padX, vp.X - s.X - padX))
-	local y = clamp(p.Y, padY, math.max(padY, vp.Y - s.Y - padY))
+	local x = toggleShadow.Position.X.Scale
+	local y = toggleShadow.Position.Y.Scale
 
-	Launcher.Position = scalePositionFromAbsolute(x, y)
+	if x <= 0.08 then
+		lastHiddenSide = "Left"
+	elseif x >= 0.92 then
+		lastHiddenSide = "Right"
+	end
+
+	setTogglePosition(x, y, true)
 end
 
-local function adaptViewport()
-	keepLauncherVisible()
+toggleButton.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1
+		or input.UserInputType == Enum.UserInputType.Touch then
 
-	if Menu.Parent and Menu.Visible and menuIsFullyOutside() then
-		recoverMenu()
+		draggingToggle = true
+		toggleMoved = false
+		toggleDragStart = input.Position
+		toggleStartPos = toggleShadow.Position
+		toggleInputObject = input
+	end
+end)
+
+toggleButton.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement
+		or input.UserInputType == Enum.UserInputType.Touch then
+		toggleInputObject = input
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if not draggingToggle or not toggleInputObject then
+		return
+	end
+
+	if input ~= toggleInputObject and input.UserInputType ~= Enum.UserInputType.MouseMovement then
+		return
+	end
+
+	local current = input.Position
+	local delta = current - toggleDragStart
+
+	local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
+	if viewport.X <= 0 or viewport.Y <= 0 then
+		return
+	end
+
+	local deltaScaleX = delta.X / viewport.X
+	local deltaScaleY = delta.Y / viewport.Y
+
+	if math.abs(delta.X) + math.abs(delta.Y) > 6 then
+		toggleMoved = true
+	end
+
+	local startX = toggleStartPos.X.Scale
+	local startY = toggleStartPos.Y.Scale
+
+	setTogglePosition(startX + deltaScaleX, startY + deltaScaleY, false)
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	if not draggingToggle then
+		return
+	end
+
+	if input.UserInputType == Enum.UserInputType.MouseButton1
+		or input.UserInputType == Enum.UserInputType.Touch then
+
+		local shouldToggle = not toggleMoved
+		finishToggleDrag()
+
+		if shouldToggle then
+			toggleMenu()
+		end
+	end
+end)
+
+-- =========================================================
+-- Menu drag: only the corners can be held and dragged
+-- =========================================================
+
+local cornerHandles = {}
+local menuDragging = false
+local menuDragStart = nil
+local menuStartPos = nil
+local activeCorner = nil
+local menuMoved = false
+local menuInputObject = nil
+
+local CORNER_SIZE = 0.085
+
+local function buildCorner(name, position, anchorPoint)
+	local corner = Instance.new("TextButton")
+	corner.Name = name
+	corner.AnchorPoint = anchorPoint
+	corner.Position = position
+	corner.Size = UDim2.fromScale(CORNER_SIZE, CORNER_SIZE)
+	corner.BackgroundTransparency = 1
+	corner.BorderSizePixel = 0
+	corner.Text = ""
+	corner.AutoButtonColor = false
+	corner.TextTransparency = 1
+	corner.ZIndex = 45
+	corner.Parent = menu
+	noLocalize(corner)
+	addScaleConstraint(corner, 1)
+	table.insert(cornerHandles, corner)
+	return corner
+end
+
+local topLeft = buildCorner("TopLeftDragHandle", UDim2.fromScale(0, 0), Vector2.new(0, 0))
+local topRight = buildCorner("TopRightDragHandle", UDim2.fromScale(1, 0), Vector2.new(1, 0))
+local bottomLeft = buildCorner("BottomLeftDragHandle", UDim2.fromScale(0, 1), Vector2.new(0, 1))
+local bottomRight = buildCorner("BottomRightDragHandle", UDim2.fromScale(1, 1), Vector2.new(1, 1))
+
+local function visibleEnough()
+	local cam = workspace.CurrentCamera
+	if not cam then
+		return true
+	end
+
+	local viewport = cam.ViewportSize
+	local menuSize = menu.AbsoluteSize
+
+	if viewport.X <= 0 or viewport.Y <= 0 or menuSize.X <= 0 or menuSize.Y <= 0 then
+		return true
+	end
+
+	local pos = menu.AbsolutePosition
+
+	local left = pos.X
+	local right = pos.X + menuSize.X
+	local top = pos.Y
+	local bottom = pos.Y + menuSize.Y
+
+	-- "Fully outside" means no visible pixel area remains.
+	local overlapsX = right > 0 and left < viewport.X
+	local overlapsY = bottom > 0 and top < viewport.Y
+
+	return overlapsX and overlapsY
+end
+
+local function restoreMenuFromOutside()
+	local y = clamp(lastHiddenY, 0.16, 0.84)
+	local x
+
+	if lastHiddenSide == "Right" then
+		x = 0.62
+	else
+		x = 0.38
+	end
+
+	menu.Position = UDim2.fromScale(x, y)
+	menuShadow.Position = UDim2.fromScale(x, y)
+
+	tween(menu, 0.18, {Position = UDim2.fromScale(x, y)})
+	tween(menuShadow, 0.18, {Position = UDim2.fromScale(x, y)})
+end
+
+local function setMenuPosition(scaleX, scaleY, animate)
+	local x = scaleX
+	local y = scaleY
+
+	-- Safe region in normal cases. This keeps the menu entirely visible.
+	x = clamp(x, 0.38, 0.62)
+	y = clamp(y, 0.38, 0.62)
+
+	local target = UDim2.fromScale(x, y)
+
+	if animate then
+		tween(menu, 0.12, {Position = target})
+		tween(menuShadow, 0.12, {Position = target})
+	else
+		menu.Position = target
+		menuShadow.Position = target
 	end
 end
 
-task.defer(adaptViewport)
+local function beginMenuDrag(input, corner)
+	menuDragging = true
+	menuMoved = false
+	activeCorner = corner
+	menuDragStart = input.Position
+	menuStartPos = menu.Position
+	menuInputObject = input
+end
 
-local camera = workspace.CurrentCamera
-if camera then
-	camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
-		task.defer(adaptViewport)
+local function endMenuDrag()
+	if not menuDragging then
+		return
+	end
+
+	menuDragging = false
+
+	if not visibleEnough() then
+		restoreMenuFromOutside()
+	else
+		local x = menu.Position.X.Scale
+		local y = menu.Position.Y.Scale
+
+		lastHiddenY = y
+		if x < 0.5 then
+			lastHiddenSide = "Left"
+		else
+			lastHiddenSide = "Right"
+		end
+
+		setMenuPosition(x, y, true)
+	end
+
+	activeCorner = nil
+	menuInputObject = nil
+end
+
+for _, handle in ipairs(cornerHandles) do
+	handle.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.Touch then
+
+			beginMenuDrag(input, handle)
+		end
+	end)
+
+	handle.InputChanged:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseMovement
+			or input.UserInputType == Enum.UserInputType.Touch then
+			menuInputObject = input
+		end
 	end)
 end
 
--- Keep visible English text fixed against automatic localization.
-for _, descendant in ipairs(ScreenGui:GetDescendants()) do
-	disableLocalization(descendant)
+UserInputService.InputChanged:Connect(function(input)
+	if not menuDragging or not menuInputObject then
+		return
+	end
+
+	if input ~= menuInputObject and input.UserInputType ~= Enum.UserInputType.MouseMovement then
+		return
+	end
+
+	local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
+	if viewport.X <= 0 or viewport.Y <= 0 then
+		return
+	end
+
+	local delta = input.Position - menuDragStart
+	local deltaX = delta.X / viewport.X
+	local deltaY = delta.Y / viewport.Y
+
+	if math.abs(delta.X) + math.abs(delta.Y) > 7 then
+		menuMoved = true
+	end
+
+	local x = menuStartPos.X.Scale + deltaX
+	local y = menuStartPos.Y.Scale + deltaY
+
+	-- During dragging, allow the panel to move toward/outside an edge.
+	-- The exact recovery happens on release only if the whole menu is outside.
+	x = clamp(x, -0.70, 1.70)
+	y = clamp(y, -0.70, 1.70)
+
+	menu.Position = UDim2.fromScale(x, y)
+	menuShadow.Position = UDim2.fromScale(x, y)
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	if not menuDragging then
+		return
+	end
+
+	if input.UserInputType == Enum.UserInputType.MouseButton1
+		or input.UserInputType == Enum.UserInputType.Touch then
+		endMenuDrag()
+	end
+end)
+
+-- =========================================================
+-- Search filtering
+-- =========================================================
+
+local function updateSearch()
+	local query = string.lower(searchText.Text or "")
+	clearSearch.Visible = query ~= ""
+
+	if query == "" then
+		searchText.PlaceholderText = "Search..."
+		emptyCard.Visible = true
+		return
+	end
+
+	searchText.PlaceholderText = ""
+	-- No option dataset exists yet, so the empty state remains visible.
+	emptyCard.Visible = true
+	emptyTitle.Text = "No Matching Options"
+	emptyDescription.Text = "No options match \"" .. searchText.Text .. "\"."
 end
+
+searchText:GetPropertyChangedSignal("Text"):Connect(updateSearch)
+
+clearSearch.MouseEnter:Connect(function()
+	tween(clearSearch, 0.10, {TextColor3 = C.LightGray})
+end)
+
+clearSearch.MouseLeave:Connect(function()
+	tween(clearSearch, 0.10, {TextColor3 = C.White})
+end)
+
+clearSearch.MouseButton1Click:Connect(function()
+	searchText.Text = ""
+	searchText:CaptureFocus()
+	updateSearch()
+end)
+
+-- =========================================================
+-- Hover polish for the floating button
+-- =========================================================
+
+toggleButton.MouseEnter:Connect(function()
+	tween(toggleShadow, 0.12, {BackgroundColor3 = C.Gray})
+	tween(toggleButton, 0.12, {Size = UDim2.fromScale(0.97, 0.97)})
+end)
+
+toggleButton.MouseLeave:Connect(function()
+	tween(toggleShadow, 0.12, {BackgroundColor3 = C.Black})
+	tween(toggleButton, 0.12, {Size = UDim2.fromScale(0.94, 0.94)})
+end)
+
+-- =========================================================
+-- Responsive handling
+-- =========================================================
+
+local function keepToggleInBounds()
+	local x = toggleShadow.Position.X.Scale
+	local y = toggleShadow.Position.Y.Scale
+	setTogglePosition(x, y, false)
+end
+
+local function keepMenuInBounds()
+	if not menu.Visible then
+		return
+	end
+
+	if not visibleEnough() then
+		restoreMenuFromOutside()
+		return
+	end
+
+	-- Do not force a menu back when even a portion remains visible.
+	local x = menu.Position.X.Scale
+	local y = menu.Position.Y.Scale
+
+	if x < 0.05 or x > 0.95 or y < 0.05 or y > 0.95 then
+		-- Keep the user's visible placement, but move gently toward a usable center.
+		local targetX = clamp(x, 0.10, 0.90)
+		local targetY = clamp(y, 0.10, 0.90)
+		menu.Position = UDim2.fromScale(targetX, targetY)
+		menuShadow.Position = UDim2.fromScale(targetX, targetY)
+	end
+end
+
+local camera = workspace.CurrentCamera
+
+if camera then
+	camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+		task.defer(function()
+			keepToggleInBounds()
+			keepMenuInBounds()
+			refreshCanvasSizes()
+		end)
+	end)
+end
+
+workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+	local currentCamera = workspace.CurrentCamera
+	if currentCamera then
+		currentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+			task.defer(function()
+				keepToggleInBounds()
+				keepMenuInBounds()
+				refreshCanvasSizes()
+			end)
+		end)
+	end
+end)
+
+-- =========================================================
+-- Initial state
+-- =========================================================
+
+setTogglePosition(0.073, 0.165, false)
+setMenuVisible(false)
+refreshCanvasSizes()
+updateSearch()
