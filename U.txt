@@ -1,0 +1,1188 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+if not player then return end
+
+local playerGui = player:WaitForChild("PlayerGui")
+local guiParent = playerGui
+pcall(function()
+    if typeof(gethui) == "function" then
+        local h = gethui()
+        if h then guiParent = h end
+    elseif game:GetService("CoreGui") then
+        guiParent = game:GetService("CoreGui")
+    end
+end)
+
+local oldGui = guiParent:FindFirstChild("PhantomHubUI")
+if oldGui then
+    oldGui:Destroy()
+end
+
+local DiscordInvite = "https://discord.gg/72P6NhC5Pf"
+local CLICK_ICON = "rbxassetid://97594499544606"
+local DISCORD_NOTIFY_ICON = "rbxassetid://132744109593099"
+local SERVER_NOTIFY_ICON = "rbxassetid://88704800286791"
+local BUTTON_ICON = "rbxassetid://121715364276099"
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "PhantomHubUI"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.DisplayOrder = 999999
+gui.Parent = guiParent
+
+local function make(className, props, parent)
+    local o = Instance.new(className)
+    for k, v in pairs(props or {}) do
+        o[k] = v
+    end
+    o.Parent = parent
+    return o
+end
+
+local function addStroke(obj, thickness, transparency)
+    local s = make("UIStroke", {
+        Thickness = thickness or 1,
+        Color = Color3.fromRGB(210, 210, 210),
+        Transparency = transparency or 0.2,
+        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+    }, obj)
+    return s
+end
+
+local function addTextConstraint(obj)
+    make("UITextSizeConstraint", {
+        MinTextSize = 8,
+        MaxTextSize = 28,
+    }, obj)
+end
+
+local function setImage(imageObj, id)
+    imageObj.Image = id
+end
+
+local function getCharacter()
+    return player.Character or player.CharacterAdded:Wait()
+end
+
+local function getHumanoid()
+    local char = player.Character
+    if not char then return nil end
+    return char:FindFirstChildOfClass("Humanoid")
+end
+
+local function notify(message, iconId, duration)
+    duration = duration or 2.7
+    local holder = make("Frame", {
+        Name = "Notification",
+        AnchorPoint = Vector2.new(0, 1),
+        Position = UDim2.fromScale(1.16, 0.94),
+        Size = UDim2.fromScale(0.25, 0.075),
+        BackgroundColor3 = Color3.fromRGB(24, 24, 24),
+        BorderSizePixel = 0,
+        ClipsDescendants = true,
+        ZIndex = 100,
+    }, gui)
+    addStroke(holder, 1.2, 0.15)
+
+    local icon = make("ImageLabel", {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromScale(0.055, 0.2),
+        Size = UDim2.fromScale(0.16, 0.6),
+        Image = iconId,
+        ScaleType = Enum.ScaleType.Fit,
+        ZIndex = 101,
+    }, holder)
+
+    local label = make("TextLabel", {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromScale(0.235, 0.12),
+        Size = UDim2.fromScale(0.72, 0.68),
+        Font = Enum.Font.GothamMedium,
+        Text = message,
+        TextColor3 = Color3.fromRGB(245, 245, 245),
+        TextScaled = true,
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Center,
+        ZIndex = 101,
+    }, holder)
+    addTextConstraint(label)
+
+    local progressBack = make("Frame", {
+        BackgroundColor3 = Color3.fromRGB(60, 60, 60),
+        BorderSizePixel = 0,
+        Position = UDim2.fromScale(0.04, 0.88),
+        Size = UDim2.fromScale(0.92, 0.035),
+        ZIndex = 102,
+    }, holder)
+
+    local progress = make("Frame", {
+        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+        BorderSizePixel = 0,
+        Position = UDim2.fromScale(0, 0),
+        Size = UDim2.fromScale(1, 1),
+        ZIndex = 103,
+    }, progressBack)
+
+    TweenService:Create(holder, TweenInfo.new(0.28, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+        Position = UDim2.fromScale(0.735, 0.94),
+    }):Play()
+
+    local progressTween = TweenService:Create(progress, TweenInfo.new(duration, Enum.EasingStyle.Linear), {
+        Size = UDim2.fromScale(0, 1),
+    })
+    progressTween:Play()
+
+    task.delay(duration, function()
+        if not holder.Parent then return end
+        local out = TweenService:Create(holder, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+            Position = UDim2.fromScale(1.16, 0.94),
+        })
+        out:Play()
+        out.Completed:Wait()
+        if holder then holder:Destroy() end
+    end)
+end
+
+local function copyText(text)
+    local ok = false
+    pcall(function()
+        if typeof(setclipboard) == "function" then
+            setclipboard(text)
+            ok = true
+        end
+    end)
+    if not ok then
+        pcall(function()
+            if typeof(toclipboard) == "function" then
+                toclipboard(text)
+                ok = true
+            end
+        end)
+    end
+    return ok
+end
+
+local function getRequestFunction()
+    local candidates = {
+        typeof(request) == "function" and request or nil,
+        typeof(http_request) == "function" and http_request or nil,
+        typeof(syn) == "table" and typeof(syn.request) == "function" and syn.request or nil,
+        typeof(fluxus) == "table" and typeof(fluxus.request) == "function" and fluxus.request or nil,
+    }
+    for _, fn in ipairs(candidates) do
+        if fn then return fn end
+    end
+    return nil
+end
+
+local function getRandomServerId()
+    local req = getRequestFunction()
+    if not req then return nil end
+    local cursor = ""
+    local servers = {}
+    for _ = 1, 8 do
+        local url = "https://games.roblox.com/v1/games/" .. tostring(game.PlaceId) .. "/servers/Public?sortOrder=Asc&limit=100"
+        if cursor ~= "" then
+            url = url .. "&cursor=" .. HttpService:UrlEncode(cursor)
+        end
+        local ok, response = pcall(function()
+            return req({
+                Url = url,
+                Method = "GET",
+                Headers = { ["Content-Type"] = "application/json" },
+            })
+        end)
+        if not ok or not response then break end
+        local body = response.Body or response.body
+        if type(body) ~= "string" then break end
+        local decodedOk, decoded = pcall(function() return HttpService:JSONDecode(body) end)
+        if not decodedOk or type(decoded) ~= "table" then break end
+        for _, server in ipairs(decoded.data or {}) do
+            if server.id and server.playing and server.maxPlayers and server.playing < server.maxPlayers and server.id ~= game.JobId then
+                table.insert(servers, server.id)
+            end
+        end
+        cursor = decoded.nextPageCursor or ""
+        if cursor == "" or #servers > 12 then break end
+    end
+    if #servers == 0 then return nil end
+    return servers[math.random(1, #servers)]
+end
+
+local function teleportRandom()
+    local target = getRandomServerId()
+    if target then
+        pcall(function()
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, target, player)
+        end)
+        return
+    end
+    pcall(function()
+        TeleportService:Teleport(game.PlaceId, player)
+    end)
+end
+
+local function rejoinCurrent()
+    pcall(function()
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, player)
+    end)
+end
+
+local tabData = {
+    { name = "Main", icon = "rbxassetid://139357095045310" },
+    { name = "Auto Buy", icon = "rbxassetid://110805385284419" },
+    { name = "Farm", icon = "rbxassetid://102352181267949" },
+    { name = "Config", icon = "rbxassetid://114794077382466" },
+    { name = "Credits", icon = "rbxassetid://99243311837005" },
+}
+
+local optionData = {
+    ["Credits"] = {
+        {
+            type = "visual",
+            title = "By: Cleiton10HDx",
+            description = "Script creator and owner.",
+        },
+        {
+            type = "click",
+            title = "Join Discord",
+            description = "Copy the official Phantom Hub Discord invite.",
+            icon = CLICK_ICON,
+            action = function()
+                if copyText(DiscordInvite) then
+                    notify("Discord invite copied successfully.", DISCORD_NOTIFY_ICON)
+                else
+                    notify("Clipboard access is unavailable.", DISCORD_NOTIFY_ICON)
+                end
+            end,
+        },
+    },
+    ["Config"] = {
+        category = {
+            name = "Player",
+            icon = "rbxassetid://102791662357524",
+            open = true,
+        },
+        options = {
+            {
+                type = "confirm_click",
+                title = "Auto Rejoin",
+                description = "Switch to a random public server.",
+                icon = CLICK_ICON,
+                confirmText = "Would you like to switch to another server?",
+                action = teleportRandom,
+            },
+            {
+                type = "confirm_click",
+                title = "Rejoin Server",
+                description = "Re-enter the server you are currently in.",
+                icon = CLICK_ICON,
+                confirmText = "Would you like to rejoin this server?",
+                action = rejoinCurrent,
+            },
+            {
+                type = "click",
+                title = "Copy Server ID",
+                description = "Copy the current server instance ID.",
+                icon = CLICK_ICON,
+                action = function()
+                    if copyText(tostring(game.JobId)) then
+                        notify("Current server ID copied.", SERVER_NOTIFY_ICON)
+                    else
+                        notify("Clipboard access is unavailable.", SERVER_NOTIFY_ICON)
+                    end
+                end,
+            },
+            {
+                type = "click",
+                title = "Copy Game ID",
+                description = "Copy the current game's Place ID.",
+                icon = CLICK_ICON,
+                action = function()
+                    if copyText(tostring(game.PlaceId)) then
+                        notify("Game ID copied successfully.", SERVER_NOTIFY_ICON)
+                    else
+                        notify("Clipboard access is unavailable.", SERVER_NOTIFY_ICON)
+                    end
+                end,
+            },
+            {
+                type = "toggle",
+                title = "Anti AFK",
+                description = "Move slightly every minute to stay active.",
+                value = false,
+            },
+            {
+                type = "toggle",
+                title = "Infinity Jump",
+                description = "Jump repeatedly while the jump input is held.",
+                value = false,
+            },
+        },
+    },
+}
+
+local allOptions = {}
+for tabName, data in pairs(optionData) do
+    local list = {}
+    if data.category then
+        for _, opt in ipairs(data.options or {}) do
+            table.insert(list, opt)
+        end
+    else
+        for _, opt in ipairs(data) do
+            table.insert(list, opt)
+        end
+    end
+    allOptions[tabName] = list
+end
+
+local mainFrame = make("Frame", {
+    Name = "MainFrame",
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    Position = UDim2.fromScale(0.5, 0.52),
+    Size = UDim2.fromScale(0.69, 0.68),
+    BackgroundColor3 = Color3.fromRGB(20, 20, 20),
+    BorderSizePixel = 0,
+    Visible = false,
+    ZIndex = 10,
+    ClipsDescendants = true,
+}, gui)
+addStroke(mainFrame, 1.4, 0.08)
+
+local header = make("Frame", {
+    BackgroundColor3 = Color3.fromRGB(27, 27, 27),
+    BorderSizePixel = 0,
+    Position = UDim2.fromScale(0, 0),
+    Size = UDim2.fromScale(1, 0.115),
+    ZIndex = 11,
+}, mainFrame)
+
+local title = make("TextLabel", {
+    BackgroundTransparency = 1,
+    Position = UDim2.fromScale(0.028, 0.15),
+    Size = UDim2.fromScale(0.64, 0.7),
+    Font = Enum.Font.GothamBold,
+    Text = "Phantom Hub | Steal an Egg",
+    TextColor3 = Color3.fromRGB(248, 248, 248),
+    TextScaled = true,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    ZIndex = 12,
+}, header)
+addTextConstraint(title)
+
+local hideButton = make("TextButton", {
+    BackgroundTransparency = 1,
+    Position = UDim2.fromScale(0.86, 0),
+    Size = UDim2.fromScale(0.06, 1),
+    Font = Enum.Font.GothamBold,
+    Text = "-",
+    TextColor3 = Color3.fromRGB(205, 205, 205),
+    TextScaled = true,
+    AutoButtonColor = false,
+    ZIndex = 14,
+}, header)
+addTextConstraint(hideButton)
+
+local closeButton = make("TextButton", {
+    BackgroundTransparency = 1,
+    Position = UDim2.fromScale(0.93, 0),
+    Size = UDim2.fromScale(0.07, 1),
+    Font = Enum.Font.GothamBold,
+    Text = "X",
+    TextColor3 = Color3.fromRGB(225, 225, 225),
+    TextScaled = true,
+    AutoButtonColor = false,
+    ZIndex = 14,
+}, header)
+addTextConstraint(closeButton)
+
+local tabsFrame = make("ScrollingFrame", {
+    BackgroundColor3 = Color3.fromRGB(24, 24, 24),
+    BorderSizePixel = 0,
+    Position = UDim2.fromScale(0, 0.115),
+    Size = UDim2.fromScale(0.265, 0.885),
+    ScrollBarThickness = 3,
+    ScrollBarImageColor3 = Color3.fromRGB(130, 130, 130),
+    CanvasSize = UDim2.fromScale(1, 0),
+    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    Active = true,
+    ScrollingDirection = Enum.ScrollingDirection.Y,
+    ZIndex = 11,
+}, mainFrame)
+
+local content = make("Frame", {
+    BackgroundColor3 = Color3.fromRGB(17, 17, 17),
+    BorderSizePixel = 0,
+    Position = UDim2.fromScale(0.265, 0.115),
+    Size = UDim2.fromScale(0.735, 0.885),
+    ZIndex = 11,
+    ClipsDescendants = true,
+}, mainFrame)
+
+local searchBox = make("TextBox", {
+    BackgroundColor3 = Color3.fromRGB(27, 27, 27),
+    BorderSizePixel = 0,
+    Position = UDim2.fromScale(0.035, 0.025),
+    Size = UDim2.fromScale(0.93, 0.09),
+    Font = Enum.Font.GothamMedium,
+    PlaceholderText = "",
+    Text = "",
+    TextColor3 = Color3.fromRGB(235, 235, 235),
+    TextScaled = true,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    ClearTextOnFocus = false,
+    ZIndex = 15,
+}, content)
+addStroke(searchBox, 1, 0.25)
+addTextConstraint(searchBox)
+
+local searchIcon = make("ImageLabel", {
+    BackgroundTransparency = 1,
+    Position = UDim2.fromScale(0.055, 0.235),
+    Size = UDim2.fromScale(0.065, 0.55),
+    Image = "rbxassetid://73858257403039",
+    ScaleType = Enum.ScaleType.Fit,
+    ZIndex = 16,
+}, searchBox)
+
+local searchHint = make("TextLabel", {
+    BackgroundTransparency = 1,
+    Position = UDim2.fromScale(0.14, 0.14),
+    Size = UDim2.fromScale(0.7, 0.72),
+    Font = Enum.Font.GothamMedium,
+    Text = "Search...",
+    TextColor3 = Color3.fromRGB(155, 155, 155),
+    TextScaled = true,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    ZIndex = 16,
+}, searchBox)
+addTextConstraint(searchHint)
+
+local searchClear = make("TextButton", {
+    BackgroundTransparency = 1,
+    Position = UDim2.fromScale(0.88, 0),
+    Size = UDim2.fromScale(0.12, 1),
+    Font = Enum.Font.GothamBold,
+    Text = "X",
+    TextColor3 = Color3.fromRGB(225, 225, 225),
+    TextScaled = true,
+    Visible = false,
+    AutoButtonColor = false,
+    ZIndex = 17,
+}, searchBox)
+addTextConstraint(searchClear)
+
+local listFrame = make("ScrollingFrame", {
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    Position = UDim2.fromScale(0.035, 0.145),
+    Size = UDim2.fromScale(0.93, 0.82),
+    ScrollBarThickness = 3,
+    ScrollBarImageColor3 = Color3.fromRGB(120, 120, 120),
+    Active = true,
+    ScrollingDirection = Enum.ScrollingDirection.Y,
+    CanvasSize = UDim2.fromScale(1, 0),
+    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    ZIndex = 12,
+}, content)
+
+local listLayout = make("UIListLayout", {
+    FillDirection = Enum.FillDirection.Vertical,
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Padding = UDim.new(0, 0),
+}, listFrame)
+
+local emptyLabel = make("TextLabel", {
+    BackgroundTransparency = 1,
+    Position = UDim2.fromScale(0.12, 0.43),
+    Size = UDim2.fromScale(0.76, 0.13),
+    Font = Enum.Font.GothamMedium,
+    Text = "No options available.",
+    TextColor3 = Color3.fromRGB(125, 125, 125),
+    TextScaled = true,
+    Visible = false,
+    ZIndex = 13,
+}, listFrame)
+addTextConstraint(emptyLabel)
+
+local currentTab = "Main"
+local categoryOpen = true
+local menuOpen = false
+local confirmModal
+
+local toggleStates = {
+    antiAfk = false,
+    infinityJump = false,
+}
+
+local antiAfkThread
+local infinityConnection
+
+local function setAntiAfk(enabled)
+    toggleStates.antiAfk = enabled
+    if antiAfkThread then
+        task.cancel(antiAfkThread)
+        antiAfkThread = nil
+    end
+    if enabled then
+        antiAfkThread = task.spawn(function()
+            while toggleStates.antiAfk do
+                task.wait(60)
+                if not toggleStates.antiAfk then break end
+                local hum = getHumanoid()
+                if hum and hum.Health > 0 then
+                    hum:Move(Vector3.new(0, 0, -1), false)
+                    task.wait(0.18)
+                    hum:Move(Vector3.zero, false)
+                end
+            end
+        end)
+    end
+end
+
+local function setInfinityJump(enabled)
+    toggleStates.infinityJump = enabled
+    if infinityConnection then
+        infinityConnection:Disconnect()
+        infinityConnection = nil
+    end
+    if enabled then
+        infinityConnection = UserInputService.JumpRequest:Connect(function()
+            local hum = getHumanoid()
+            if hum and hum.Health > 0 then
+                hum:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end)
+    end
+end
+
+local function buildToggle(parent, option)
+    local toggle = make("TextButton", {
+        BackgroundColor3 = Color3.fromRGB(40, 40, 40),
+        BorderSizePixel = 0,
+        Position = UDim2.fromScale(0.78, 0.24),
+        Size = UDim2.fromScale(0.17, 0.52),
+        Text = "",
+        AutoButtonColor = false,
+        ZIndex = 18,
+    }, parent)
+    addStroke(toggle, 1, 0.15)
+
+    local knob = make("Frame", {
+        BackgroundColor3 = Color3.fromRGB(205, 205, 205),
+        BorderSizePixel = 0,
+        Position = UDim2.fromScale(0.06, 0.13),
+        Size = UDim2.fromScale(0.31, 0.74),
+        ZIndex = 19,
+    }, toggle)
+
+    local state = false
+    local function update()
+        local x = state and 0.63 or 0.06
+        local bg = state and Color3.fromRGB(220, 220, 220) or Color3.fromRGB(45, 45, 45)
+        local fg = state and Color3.fromRGB(20, 20, 20) or Color3.fromRGB(210, 210, 210)
+        TweenService:Create(toggle, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = bg}):Play()
+        TweenService:Create(knob, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.fromScale(x, 0.13), BackgroundColor3 = fg}):Play()
+    end
+
+    toggle.MouseButton1Click:Connect(function()
+        state = not state
+        update()
+        if option.title == "Anti AFK" then
+            setAntiAfk(state)
+        elseif option.title == "Infinity Jump" then
+            setInfinityJump(state)
+        end
+    end)
+    update()
+end
+
+local function makeOption(option, order, parent)
+    local row = make("Frame", {
+        BackgroundColor3 = Color3.fromRGB(24, 24, 24),
+        BorderSizePixel = 0,
+        Size = UDim2.fromScale(1, 0.135),
+        LayoutOrder = order,
+        ZIndex = 16,
+    }, parent)
+    addStroke(row, 1, 0.82)
+
+    local titleLabel = make("TextLabel", {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromScale(0.045, 0.14),
+        Size = UDim2.fromScale(0.67, 0.34),
+        Font = Enum.Font.GothamSemibold,
+        Text = option.title,
+        TextColor3 = Color3.fromRGB(242, 242, 242),
+        TextScaled = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 17,
+    }, row)
+    addTextConstraint(titleLabel)
+
+    local descLabel = make("TextLabel", {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromScale(0.045, 0.52),
+        Size = UDim2.fromScale(0.67, 0.32),
+        Font = Enum.Font.Gotham,
+        Text = option.description,
+        TextColor3 = Color3.fromRGB(145, 145, 145),
+        TextScaled = true,
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Center,
+        ZIndex = 17,
+    }, row)
+    addTextConstraint(descLabel)
+
+    if option.type == "toggle" then
+        buildToggle(row, option)
+    elseif option.type == "click" or option.type == "confirm_click" then
+        local button = make("TextButton", {
+            BackgroundTransparency = 1,
+            Position = UDim2.fromScale(0.77, 0.12),
+            Size = UDim2.fromScale(0.18, 0.72),
+            Text = "",
+            AutoButtonColor = false,
+            ZIndex = 18,
+        }, row)
+        local icon = make("ImageLabel", {
+            BackgroundTransparency = 1,
+            Position = UDim2.fromScale(0.1, 0.1),
+            Size = UDim2.fromScale(0.8, 0.8),
+            Image = option.icon or CLICK_ICON,
+            ScaleType = Enum.ScaleType.Fit,
+            ZIndex = 19,
+        }, button)
+        button.MouseButton1Click:Connect(function()
+            if option.type == "confirm_click" then
+                local p = option.confirmText
+                local m = confirmModal and confirmModal("Action Confirmation", p, function()
+                    option.action()
+                end)
+                if m then
+                    m()
+                end
+            else
+                option.action()
+            end
+        end)
+    end
+
+    return row
+end
+
+local function clearList()
+    for _, child in ipairs(listFrame:GetChildren()) do
+        if child:IsA("Frame") or child:IsA("TextButton") then
+            child:Destroy()
+        end
+    end
+end
+
+local function matches(option, query)
+    if query == "" then return true end
+    local hay = string.lower((option.title or "") .. " " .. (option.description or ""))
+    return string.find(hay, string.lower(query), 1, true) ~= nil
+end
+
+local function populateList()
+    clearList()
+    local query = searchBox.Text
+    local found = 0
+    local order = 1
+
+    if query ~= "" then
+        for _, tab in ipairs(tabData) do
+            for _, option in ipairs(allOptions[tab.name] or {}) do
+                if matches(option, query) then
+                    makeOption(option, order, listFrame)
+                    order += 1
+                    found += 1
+                end
+            end
+        end
+    else
+        local data = optionData[currentTab]
+        if data and data.category then
+            local categoryRow = make("Frame", {
+                BackgroundColor3 = Color3.fromRGB(29, 29, 29),
+                BorderSizePixel = 0,
+                Size = UDim2.fromScale(1, 0.115),
+                LayoutOrder = order,
+                ZIndex = 16,
+            }, listFrame)
+            addStroke(categoryRow, 1, 0.75)
+
+            local categoryIcon = make("ImageLabel", {
+                BackgroundTransparency = 1,
+                Position = UDim2.fromScale(0.04, 0.17),
+                Size = UDim2.fromScale(0.08, 0.66),
+                Image = data.category.icon,
+                ScaleType = Enum.ScaleType.Fit,
+                ZIndex = 17,
+            }, categoryRow)
+
+            local categoryButton = make("TextButton", {
+                BackgroundTransparency = 1,
+                Position = UDim2.fromScale(0.13, 0),
+                Size = UDim2.fromScale(0.78, 1),
+                Text = "",
+                AutoButtonColor = false,
+                ZIndex = 18,
+            }, categoryRow)
+
+            local categoryName = make("TextLabel", {
+                BackgroundTransparency = 1,
+                Position = UDim2.fromScale(0, 0),
+                Size = UDim2.fromScale(0.82, 1),
+                Font = Enum.Font.GothamSemibold,
+                Text = data.category.name,
+                TextColor3 = Color3.fromRGB(235, 235, 235),
+                TextScaled = true,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                ZIndex = 18,
+            }, categoryButton)
+            addTextConstraint(categoryName)
+
+            local arrow = make("TextLabel", {
+                BackgroundTransparency = 1,
+                Position = UDim2.fromScale(0.91, 0),
+                Size = UDim2.fromScale(0.065, 1),
+                Font = Enum.Font.GothamBold,
+                Text = categoryOpen and "▼" or "▶",
+                TextColor3 = Color3.fromRGB(185, 185, 185),
+                TextScaled = true,
+                ZIndex = 18,
+            }, categoryRow)
+            addTextConstraint(arrow)
+
+            categoryButton.MouseButton1Click:Connect(function()
+                categoryOpen = not categoryOpen
+                populateList()
+            end)
+
+            found += 1
+            order += 1
+            if categoryOpen then
+                for _, option in ipairs(data.options or {}) do
+                    makeOption(option, order, listFrame)
+                    found += 1
+                    order += 1
+                end
+            end
+        elseif data then
+            for _, option in ipairs(data) do
+                makeOption(option, order, listFrame)
+                found += 1
+                order += 1
+            end
+        end
+    end
+
+    emptyLabel.Visible = found == 0
+    listFrame.CanvasPosition = Vector2.new(0, 0)
+end
+
+local function makeTabButton(tab, order)
+    local button = make("TextButton", {
+        BackgroundColor3 = Color3.fromRGB(24, 24, 24),
+        BorderSizePixel = 0,
+        Size = UDim2.fromScale(1, 0.095),
+        LayoutOrder = order,
+        Text = "",
+        AutoButtonColor = false,
+        ZIndex = 15,
+    }, tabsFrame)
+    addStroke(button, 1, 0.82)
+
+    local icon = make("ImageLabel", {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromScale(0.08, 0.18),
+        Size = UDim2.fromScale(0.16, 0.64),
+        Image = tab.icon,
+        ScaleType = Enum.ScaleType.Fit,
+        ZIndex = 16,
+    }, button)
+
+    local text = make("TextLabel", {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromScale(0.29, 0),
+        Size = UDim2.fromScale(0.62, 1),
+        Font = Enum.Font.GothamSemibold,
+        Text = tab.name,
+        TextColor3 = Color3.fromRGB(215, 215, 215),
+        TextScaled = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 16,
+    }, button)
+    addTextConstraint(text)
+
+    local function refresh()
+        local selected = currentTab == tab.name and searchBox.Text == ""
+        button.BackgroundColor3 = selected and Color3.fromRGB(38, 38, 38) or Color3.fromRGB(24, 24, 24)
+        text.TextColor3 = selected and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(190, 190, 190)
+    end
+
+    button.MouseButton1Click:Connect(function()
+        currentTab = tab.name
+        categoryOpen = true
+        searchBox.Text = ""
+        refresh()
+        for _, child in ipairs(tabsFrame:GetChildren()) do
+            if child:IsA("TextButton") then
+                local t = child:FindFirstChildWhichIsA("TextLabel")
+                if t then
+                    local selected = child == button
+                    child.BackgroundColor3 = selected and Color3.fromRGB(38, 38, 38) or Color3.fromRGB(24, 24, 24)
+                    t.TextColor3 = selected and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(190, 190, 190)
+                end
+            end
+        end
+        populateList()
+    end)
+    refresh()
+end
+
+local tabsLayout = make("UIListLayout", {
+    FillDirection = Enum.FillDirection.Vertical,
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Padding = UDim.new(0, 0),
+}, tabsFrame)
+
+for i, tab in ipairs(tabData) do
+    makeTabButton(tab, i)
+end
+
+local function updateSearchVisuals()
+    local hasText = searchBox.Text ~= ""
+    searchHint.Visible = not hasText
+    searchClear.Visible = hasText
+    populateList()
+end
+
+searchBox:GetPropertyChangedSignal("Text"):Connect(updateSearchVisuals)
+searchClear.MouseButton1Click:Connect(function()
+    searchBox.Text = ""
+    searchBox:CaptureFocus()
+end)
+
+local button = make("ImageButton", {
+    Name = "OpenButton",
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    Position = UDim2.fromScale(0.075, 0.26),
+    Size = UDim2.fromScale(0.078, 0.078),
+    BackgroundColor3 = Color3.fromRGB(23, 23, 23),
+    BorderSizePixel = 0,
+    Image = BUTTON_ICON,
+    ScaleType = Enum.ScaleType.Fit,
+    AutoButtonColor = false,
+    ZIndex = 50,
+}, gui)
+addStroke(button, 1.4, 0.05)
+
+local buttonPress = false
+local buttonDragging = false
+local buttonStartPosition
+local buttonStartInput
+local buttonStartPoint
+local dragThreshold = 7
+
+local function inputPoint(input)
+    return Vector2.new(input.Position.X, input.Position.Y)
+end
+
+local function clampScalePosition(frame, desired)
+    local camera = workspace.CurrentCamera
+    if not camera then return desired end
+    local view = camera.ViewportSize
+    local absoluteSize = frame.AbsoluteSize
+    local halfX = absoluteSize.X / 2
+    local halfY = absoluteSize.Y / 2
+    local x = desired.X.Scale * view.X + desired.X.Offset
+    local y = desired.Y.Scale * view.Y + desired.Y.Offset
+    local minX = halfX + 6
+    local maxX = view.X - halfX - 6
+    local minY = halfY + 6
+    local maxY = view.Y - halfY - 6
+    x = math.clamp(x, minX, math.max(minX, maxX))
+    y = math.clamp(y, minY, math.max(minY, maxY))
+    return UDim2.fromScale(x / view.X, y / view.Y)
+end
+
+local function moveButtonToScreenPoint(point)
+    local camera = workspace.CurrentCamera
+    if not camera then return end
+    local view = camera.ViewportSize
+    local pos = UDim2.fromScale(point.X / view.X, point.Y / view.Y)
+    button.Position = clampScalePosition(button, pos)
+end
+
+button.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        buttonPress = true
+        buttonDragging = false
+        buttonStartInput = input
+        buttonStartPoint = inputPoint(input)
+        buttonStartPosition = button.Position
+    end
+end)
+
+button.InputChanged:Connect(function(input)
+    if buttonPress and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local now = inputPoint(input)
+        if (now - buttonStartPoint).Magnitude >= dragThreshold then
+            buttonDragging = true
+            local delta = now - buttonStartPoint
+            local camera = workspace.CurrentCamera
+            if camera then
+                local view = camera.ViewportSize
+                local desired = UDim2.fromScale(
+                    buttonStartPosition.X.Scale + delta.X / view.X,
+                    buttonStartPosition.Y.Scale + delta.Y / view.Y
+                )
+                button.Position = desired
+            end
+        end
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input == buttonStartInput and buttonPress then
+        buttonPress = false
+        if buttonDragging then
+            button.Position = clampScalePosition(button, button.Position)
+        else
+            menuOpen = not menuOpen
+            mainFrame.Visible = menuOpen
+        end
+        buttonStartInput = nil
+    end
+end)
+
+local modalLayer = make("Frame", {
+    BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+    BackgroundTransparency = 0.5,
+    BorderSizePixel = 0,
+    Position = UDim2.fromScale(0, 0),
+    Size = UDim2.fromScale(1, 1),
+    Visible = false,
+    ZIndex = 80,
+}, gui)
+
+local function showConfirm(titleText, bodyText, confirmAction)
+    if modalLayer.Visible then return end
+    modalLayer.Visible = true
+
+    local card = make("Frame", {
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.fromScale(0.34, 0.24),
+        BackgroundColor3 = Color3.fromRGB(25, 25, 25),
+        BorderSizePixel = 0,
+        ZIndex = 81,
+    }, modalLayer)
+    addStroke(card, 1.4, 0.08)
+
+    local heading = make("TextLabel", {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromScale(0.07, 0.09),
+        Size = UDim2.fromScale(0.86, 0.22),
+        Font = Enum.Font.GothamBold,
+        Text = titleText,
+        TextColor3 = Color3.fromRGB(245, 245, 245),
+        TextScaled = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 82,
+    }, card)
+    addTextConstraint(heading)
+
+    local body = make("TextLabel", {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromScale(0.07, 0.34),
+        Size = UDim2.fromScale(0.86, 0.31),
+        Font = Enum.Font.Gotham,
+        Text = bodyText,
+        TextColor3 = Color3.fromRGB(175, 175, 175),
+        TextScaled = true,
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Top,
+        ZIndex = 82,
+    }, card)
+    addTextConstraint(body)
+
+    local cancel = make("TextButton", {
+        BackgroundColor3 = Color3.fromRGB(70, 70, 70),
+        BorderSizePixel = 0,
+        Position = UDim2.fromScale(0.07, 0.76),
+        Size = UDim2.fromScale(0.39, 0.15),
+        Font = Enum.Font.GothamBold,
+        Text = "Cancel",
+        TextColor3 = Color3.fromRGB(235, 85, 85),
+        TextScaled = true,
+        AutoButtonColor = false,
+        ZIndex = 82,
+    }, card)
+    addStroke(cancel, 1, 0.22)
+    addTextConstraint(cancel)
+
+    local confirm = make("TextButton", {
+        BackgroundColor3 = Color3.fromRGB(70, 70, 70),
+        BorderSizePixel = 0,
+        Position = UDim2.fromScale(0.54, 0.76),
+        Size = UDim2.fromScale(0.39, 0.15),
+        Font = Enum.Font.GothamBold,
+        Text = "Confirm",
+        TextColor3 = Color3.fromRGB(90, 220, 120),
+        TextScaled = true,
+        AutoButtonColor = false,
+        ZIndex = 82,
+    }, card)
+    addStroke(confirm, 1, 0.22)
+    addTextConstraint(confirm)
+
+    local closed = false
+    local function close()
+        if closed then return end
+        closed = true
+        modalLayer.Visible = false
+        card:Destroy()
+    end
+
+    cancel.MouseButton1Click:Connect(close)
+    confirm.MouseButton1Click:Connect(function()
+        close()
+        if confirmAction then
+            task.spawn(confirmAction)
+        end
+    end)
+end
+
+confirmModal = function(titleText, bodyText, action)
+    return function()
+        showConfirm(titleText, bodyText, action)
+    end
+end
+
+closeButton.MouseButton1Click:Connect(function()
+    showConfirm("Close Phantom Hub?", "Confirming will remove the mod menu and its open button from your screen.", function()
+        gui:Destroy()
+    end)
+end)
+
+hideButton.MouseButton1Click:Connect(function()
+    mainFrame.Visible = false
+    menuOpen = false
+end)
+
+local function addCornerDrag(areaPosition)
+    local zone = make("TextButton", {
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        Position = areaPosition,
+        Size = UDim2.fromScale(0.085, 0.085),
+        Text = "",
+        AutoButtonColor = false,
+        ZIndex = 25,
+    }, mainFrame)
+
+    local active = false
+    local startPoint
+    local startPos
+
+    zone.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            active = true
+            startPoint = inputPoint(input)
+            startPos = mainFrame.Position
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if not active then return end
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            local now = inputPoint(input)
+            local delta = now - startPoint
+            local camera = workspace.CurrentCamera
+            if camera then
+                local view = camera.ViewportSize
+                local nextPos = UDim2.fromScale(
+                    startPos.X.Scale + delta.X / view.X,
+                    startPos.Y.Scale + delta.Y / view.Y
+                )
+                mainFrame.Position = nextPos
+            end
+        end
+    end)
+
+    UserInputService.InputEnded:Connect(function(input)
+        if not active then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            active = false
+        end
+    end)
+end
+
+addCornerDrag(UDim2.fromScale(0, 0))
+addCornerDrag(UDim2.fromScale(0.915, 0))
+addCornerDrag(UDim2.fromScale(0, 0.915))
+addCornerDrag(UDim2.fromScale(0.915, 0.915))
+
+local function correctMainFrameIfFullyOffscreen()
+    local camera = workspace.CurrentCamera
+    if not camera or not mainFrame.Visible then return end
+    local view = camera.ViewportSize
+    local p = mainFrame.AbsolutePosition
+    local s = mainFrame.AbsoluteSize
+    local right = p.X + s.X
+    local bottom = p.Y + s.Y
+    local fullyLeft = right <= 0
+    local fullyRight = p.X >= view.X
+    local fullyTop = bottom <= 0
+    local fullyBottom = p.Y >= view.Y
+    if fullyLeft or fullyRight or fullyTop or fullyBottom then
+        local targetX
+        if fullyLeft then
+            targetX = (s.X / 2 + 10) / view.X
+        elseif fullyRight then
+            targetX = (view.X - s.X / 2 - 10) / view.X
+        else
+            targetX = mainFrame.Position.X.Scale
+        end
+        local targetY = math.clamp(
+            (p.Y + s.Y / 2) / view.Y,
+            s.Y / 2 / view.Y + 0.01,
+            1 - s.Y / 2 / view.Y - 0.01
+        )
+        TweenService:Create(mainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            Position = UDim2.fromScale(math.clamp(targetX, 0.01, 0.99), targetY)
+        }):Play()
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    if button.Parent then
+        button.Position = clampScalePosition(button, button.Position)
+    end
+    correctMainFrameIfFullyOffscreen()
+end)
+
+player.CharacterAdded:Connect(function()
+    task.wait(1)
+    if toggleStates.infinityJump then
+        setInfinityJump(true)
+    end
+end)
+
+populateList()
