@@ -1,0 +1,1060 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+local GUI_NAME = "PhantomHub_StealAnEgg"
+local MENU_TITLE = "Phantom Hub | Steal an Egg"
+local MENU_SUBTITLE = "Mod Menu"
+
+local ASSET = {
+    Toggle = "rbxassetid://121715364276099",
+    Search = "rbxassetid://73858257403039",
+    Main = "rbxassetid://139357095045310",
+    AutoBuy = "rbxassetid://110805385284419",
+    Farm = "rbxassetid://102352181267949",
+    Config = "rbxassetid://114794077382466",
+    Credits = "rbxassetid://99243311837005",
+}
+
+local TAB_INFO = {
+    {Name = "Main", Icon = ASSET.Main},
+    {Name = "Auto Buy", Icon = ASSET.AutoBuy},
+    {Name = "Farm", Icon = ASSET.Farm},
+    {Name = "Config", Icon = ASSET.Config},
+    {Name = "Credits", Icon = ASSET.Credits},
+}
+
+local COLORS = {
+    Black = Color3.fromRGB(8, 8, 10),
+    Black2 = Color3.fromRGB(13, 13, 15),
+    Dark = Color3.fromRGB(23, 23, 26),
+    DarkGray = Color3.fromRGB(31, 31, 34),
+    Gray = Color3.fromRGB(46, 46, 50),
+    Gray2 = Color3.fromRGB(61, 61, 66),
+    Gray3 = Color3.fromRGB(76, 76, 82),
+    White = Color3.fromRGB(246, 246, 248),
+    SoftWhite = Color3.fromRGB(213, 213, 218),
+    Muted = Color3.fromRGB(149, 149, 157),
+}
+
+local oldGui = PlayerGui:FindFirstChild(GUI_NAME)
+if oldGui then
+    oldGui:Destroy()
+end
+
+local function create(className, properties, parent)
+    local object = Instance.new(className)
+    for property, value in pairs(properties or {}) do
+        object[property] = value
+    end
+    object.Parent = parent
+    return object
+end
+
+local function preventTranslation(object)
+    pcall(function()
+        object.AutoLocalize = false
+    end)
+end
+
+local function corner(parent, radius)
+    return create("UICorner", {
+        CornerRadius = UDim.new(radius, 0),
+    }, parent)
+end
+
+local function outline(parent, color, thickness, transparency)
+    return create("UIStroke", {
+        Color = color,
+        Thickness = thickness,
+        Transparency = transparency or 0,
+        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+    }, parent)
+end
+
+local function tween(object, duration, properties, easingStyle, easingDirection)
+    local info = TweenInfo.new(
+        duration or 0.16,
+        easingStyle or Enum.EasingStyle.Quint,
+        easingDirection or Enum.EasingDirection.Out
+    )
+    local animation = TweenService:Create(object, info, properties)
+    animation:Play()
+    return animation
+end
+
+local function viewport()
+    local camera = workspace.CurrentCamera
+    return camera and camera.ViewportSize or Vector2.new(1280, 720)
+end
+
+local function clamp(value, minimum, maximum)
+    return math.clamp(value, minimum, maximum)
+end
+
+local ScreenGui = create("ScreenGui", {
+    Name = GUI_NAME,
+    ResetOnSpawn = false,
+    IgnoreGuiInset = true,
+    DisplayOrder = 999999,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+}, PlayerGui)
+
+pcall(function()
+    ScreenGui.AutoLocalize = false
+end)
+
+-- =========================================================
+-- Floating launcher: only Scale is used for Position/Size.
+-- =========================================================
+
+local Launcher = create("Frame", {
+    Name = "Launcher",
+    Position = UDim2.fromScale(0.075, 0.165),
+    Size = UDim2.fromScale(0.065, 0.065),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+}, ScreenGui)
+
+create("UIAspectRatioConstraint", {
+    AspectRatio = 1,
+    DominantAxis = Enum.DominantAxis.Width,
+}, Launcher)
+
+local LauncherButton = create("ImageButton", {
+    Name = "ToggleButton",
+    Position = UDim2.fromScale(0.5, 0.5),
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    Size = UDim2.fromScale(0.94, 0.94),
+    BackgroundColor3 = COLORS.Black,
+    BorderSizePixel = 0,
+    AutoButtonColor = false,
+    Active = true,
+    Image = ASSET.Toggle,
+    ImageColor3 = COLORS.White,
+    ScaleType = Enum.ScaleType.Stretch,
+    ZIndex = 20,
+}, Launcher)
+corner(LauncherButton, 0.05)
+outline(LauncherButton, COLORS.Gray3, 0.014, 0.06)
+create("UIAspectRatioConstraint", {
+    AspectRatio = 1,
+    DominantAxis = Enum.DominantAxis.Width,
+}, LauncherButton)
+
+-- =========================================================
+-- Main menu
+-- =========================================================
+
+local MenuShadow = create("Frame", {
+    Name = "MenuShadow",
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    Position = UDim2.fromScale(0.5, 0.5),
+    Size = UDim2.fromScale(0.552, 0.618),
+    BackgroundColor3 = COLORS.Black,
+    BackgroundTransparency = 0.28,
+    BorderSizePixel = 0,
+    Visible = false,
+    ZIndex = 28,
+}, ScreenGui)
+outline(MenuShadow, COLORS.Black, 0.012, 0)
+
+local Menu = create("Frame", {
+    Name = "Menu",
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    Position = UDim2.fromScale(0.5, 0.5),
+    Size = UDim2.fromScale(0.54, 0.61),
+    BackgroundColor3 = COLORS.Black,
+    BorderSizePixel = 0,
+    Visible = false,
+    Active = true,
+    ClipsDescendants = true,
+    ZIndex = 30,
+}, ScreenGui)
+outline(Menu, COLORS.Gray3, 0.008, 0.05)
+
+local menuAspect = create("UIAspectRatioConstraint", {
+    AspectRatio = 1.50,
+    DominantAxis = Enum.DominantAxis.Width,
+}, Menu)
+
+local Header = create("Frame", {
+    Name = "Header",
+    Position = UDim2.fromScale(0, 0),
+    Size = UDim2.fromScale(1, 0.105),
+    BackgroundColor3 = COLORS.Black2,
+    BorderSizePixel = 0,
+    ZIndex = 32,
+}, Menu)
+outline(Header, COLORS.Gray, 0.004, 0.40)
+
+local HeaderTitle = create("TextLabel", {
+    Name = "Title",
+    Position = UDim2.fromScale(0.032, 0.11),
+    Size = UDim2.fromScale(0.69, 0.40),
+    BackgroundTransparency = 1,
+    Text = MENU_TITLE,
+    TextColor3 = COLORS.White,
+    Font = Enum.Font.GothamBold,
+    TextSize = 17,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    TextYAlignment = Enum.TextYAlignment.Center,
+    ZIndex = 34,
+}, Header)
+preventTranslation(HeaderTitle)
+
+local HeaderSubtitle = create("TextLabel", {
+    Name = "Subtitle",
+    Position = UDim2.fromScale(0.032, 0.51),
+    Size = UDim2.fromScale(0.35, 0.32),
+    BackgroundTransparency = 1,
+    Text = MENU_SUBTITLE,
+    TextColor3 = COLORS.Muted,
+    Font = Enum.Font.Gotham,
+    TextSize = 10,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    TextYAlignment = Enum.TextYAlignment.Center,
+    ZIndex = 34,
+}, Header)
+preventTranslation(HeaderSubtitle)
+
+local MinimizeButton = create("TextButton", {
+    Name = "Minimize",
+    AnchorPoint = Vector2.new(1, 0.5),
+    Position = UDim2.fromScale(0.900, 0.5),
+    Size = UDim2.fromScale(0.050, 0.66),
+    BackgroundColor3 = COLORS.Gray,
+    BackgroundTransparency = 0.12,
+    BorderSizePixel = 0,
+    AutoButtonColor = false,
+    Text = "-",
+    TextColor3 = COLORS.White,
+    Font = Enum.Font.GothamBold,
+    TextSize = 18,
+    ZIndex = 40,
+}, Header)
+corner(MinimizeButton, 0.08)
+preventTranslation(MinimizeButton)
+
+local CloseButton = create("TextButton", {
+    Name = "Close",
+    AnchorPoint = Vector2.new(1, 0.5),
+    Position = UDim2.fromScale(0.975, 0.5),
+    Size = UDim2.fromScale(0.060, 0.70),
+    BackgroundColor3 = COLORS.Gray,
+    BackgroundTransparency = 0.12,
+    BorderSizePixel = 0,
+    AutoButtonColor = false,
+    Text = "X",
+    TextColor3 = COLORS.White,
+    Font = Enum.Font.GothamBold,
+    TextSize = 14,
+    ZIndex = 40,
+}, Header)
+corner(CloseButton, 0.08)
+preventTranslation(CloseButton)
+
+local Body = create("Frame", {
+    Name = "Body",
+    Position = UDim2.fromScale(0, 0.105),
+    Size = UDim2.fromScale(1, 0.895),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ZIndex = 31,
+}, Menu)
+
+local Sidebar = create("Frame", {
+    Name = "Sidebar",
+    Position = UDim2.fromScale(0, 0),
+    Size = UDim2.fromScale(0.235, 1),
+    BackgroundColor3 = COLORS.Black2,
+    BorderSizePixel = 0,
+    ZIndex = 33,
+}, Body)
+outline(Sidebar, COLORS.Gray, 0.005, 0.44)
+
+local Content = create("Frame", {
+    Name = "Content",
+    Position = UDim2.fromScale(0.235, 0),
+    Size = UDim2.fromScale(0.765, 1),
+    BackgroundColor3 = COLORS.Black,
+    BorderSizePixel = 0,
+    ZIndex = 33,
+}, Body)
+
+-- =========================================================
+-- Sidebar tabs, vertically scrollable.
+-- =========================================================
+
+local TabList = create("ScrollingFrame", {
+    Name = "Tabs",
+    Position = UDim2.fromScale(0.055, 0.045),
+    Size = UDim2.fromScale(0.89, 0.91),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ScrollBarThickness = 0,
+    CanvasSize = UDim2.fromScale(0, 1.08),
+    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    ScrollingDirection = Enum.ScrollingDirection.Y,
+    ScrollingEnabled = true,
+    Active = true,
+    ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
+    ZIndex = 34,
+}, Sidebar)
+
+local TabLayout = create("UIListLayout", {
+    Padding = UDim.new(0.018, 0),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    HorizontalAlignment = Enum.HorizontalAlignment.Center,
+}, TabList)
+
+local tabButtons = {}
+local selectedTab = "Main"
+
+local function setTabVisual(tabName, selected, pressed)
+    local data = tabButtons[tabName]
+    if not data then
+        return
+    end
+
+    local background
+    if selected then
+        background = COLORS.Gray
+    elseif pressed then
+        background = COLORS.Gray2
+    else
+        background = COLORS.Black2
+    end
+
+    tween(data.Button, 0.10, {
+        BackgroundColor3 = background,
+        BackgroundTransparency = selected and 0 or 0.12,
+    })
+
+    if selected then
+        data.Icon.ImageColor3 = COLORS.White
+        data.Label.TextColor3 = COLORS.White
+    else
+        data.Icon.ImageColor3 = COLORS.SoftWhite
+        data.Label.TextColor3 = COLORS.SoftWhite
+    end
+end
+
+for index, info in ipairs(TAB_INFO) do
+    local Button = create("TextButton", {
+        Name = info.Name,
+        Size = UDim2.fromScale(1, 0.105),
+        BackgroundColor3 = COLORS.Black2,
+        BackgroundTransparency = 0.12,
+        BorderSizePixel = 0,
+        AutoButtonColor = false,
+        Text = "",
+        LayoutOrder = index,
+        Active = true,
+        ZIndex = 35,
+    }, TabList)
+    outline(Button, COLORS.Gray, 0.004, 0.58)
+
+    local Icon = create("ImageLabel", {
+        Name = "Icon",
+        Position = UDim2.fromScale(0.065, 0.22),
+        Size = UDim2.fromScale(0.18, 0.56),
+        BackgroundTransparency = 1,
+        Image = info.Icon,
+        ImageColor3 = COLORS.SoftWhite,
+        ScaleType = Enum.ScaleType.Fit,
+        ZIndex = 36,
+    }, Button)
+
+    local Label = create("TextLabel", {
+        Name = "Label",
+        Position = UDim2.fromScale(0.30, 0),
+        Size = UDim2.fromScale(0.62, 1),
+        BackgroundTransparency = 1,
+        Text = info.Name,
+        TextColor3 = COLORS.SoftWhite,
+        Font = Enum.Font.GothamSemibold,
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Center,
+        ZIndex = 36,
+    }, Button)
+
+    preventTranslation(Button)
+    preventTranslation(Label)
+
+    tabButtons[info.Name] = {
+        Button = Button,
+        Icon = Icon,
+        Label = Label,
+    }
+
+    Button.MouseEnter:Connect(function()
+        if selectedTab ~= info.Name then
+            setTabVisual(info.Name, false, true)
+        end
+    end)
+
+    Button.MouseLeave:Connect(function()
+        if selectedTab ~= info.Name then
+            setTabVisual(info.Name, false, false)
+        end
+    end)
+
+    Button.InputBegan:Connect(function(input)
+        if selectedTab == info.Name then
+            return
+        end
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            setTabVisual(info.Name, false, true)
+        end
+    end)
+
+    Button.Activated:Connect(function()
+        selectedTab = info.Name
+        for _, other in ipairs(TAB_INFO) do
+            setTabVisual(other.Name, other.Name == selectedTab, false)
+        end
+        renderContent()
+    end)
+end
+
+-- =========================================================
+-- Search bar
+-- =========================================================
+
+local SearchBar = create("Frame", {
+    Name = "SearchBar",
+    Position = UDim2.fromScale(0.035, 0.035),
+    Size = UDim2.fromScale(0.93, 0.095),
+    BackgroundColor3 = COLORS.Dark,
+    BorderSizePixel = 0,
+    ZIndex = 36,
+}, Content)
+outline(SearchBar, COLORS.Gray2, 0.005, 0.20)
+
+local SearchIcon = create("ImageLabel", {
+    Name = "Icon",
+    Position = UDim2.fromScale(0.035, 0.23),
+    Size = UDim2.fromScale(0.075, 0.54),
+    BackgroundTransparency = 1,
+    Image = ASSET.Search,
+    ImageColor3 = COLORS.SoftWhite,
+    ScaleType = Enum.ScaleType.Fit,
+    ZIndex = 37,
+}, SearchBar)
+
+local SearchHint = create("TextLabel", {
+    Name = "Hint",
+    Position = UDim2.fromScale(0.12, 0),
+    Size = UDim2.fromScale(0.78, 1),
+    BackgroundTransparency = 1,
+    Text = "Search...",
+    TextColor3 = COLORS.Muted,
+    Font = Enum.Font.Gotham,
+    TextSize = 12,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    TextYAlignment = Enum.TextYAlignment.Center,
+    ZIndex = 37,
+}, SearchBar)
+preventTranslation(SearchHint)
+
+local SearchBox = create("TextBox", {
+    Name = "Input",
+    Position = UDim2.fromScale(0.12, 0),
+    Size = UDim2.fromScale(0.78, 1),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ClearTextOnFocus = false,
+    Text = "",
+    TextColor3 = COLORS.White,
+    Font = Enum.Font.Gotham,
+    TextSize = 12,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    TextYAlignment = Enum.TextYAlignment.Center,
+    ZIndex = 38,
+}, SearchBar)
+preventTranslation(SearchBox)
+
+local SearchClear = create("TextButton", {
+    Name = "Clear",
+    AnchorPoint = Vector2.new(1, 0.5),
+    Position = UDim2.fromScale(0.965, 0.5),
+    Size = UDim2.fromScale(0.07, 0.62),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    AutoButtonColor = false,
+    Text = "X",
+    TextColor3 = COLORS.SoftWhite,
+    Font = Enum.Font.GothamBold,
+    TextSize = 12,
+    Visible = false,
+    ZIndex = 39,
+}, SearchBar)
+preventTranslation(SearchClear)
+
+-- =========================================================
+-- Results, scrollable on mobile and PC.
+-- No game options/categories are supplied yet.
+-- =========================================================
+
+local Results = create("ScrollingFrame", {
+    Name = "Results",
+    Position = UDim2.fromScale(0.035, 0.155),
+    Size = UDim2.fromScale(0.93, 0.815),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ScrollBarThickness = 3,
+    ScrollBarImageColor3 = COLORS.Gray3,
+    ScrollBarImageTransparency = 0.04,
+    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    CanvasSize = UDim2.fromScale(0, 1),
+    ScrollingDirection = Enum.ScrollingDirection.Y,
+    ScrollingEnabled = true,
+    Active = true,
+    ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
+    ZIndex = 35,
+}, Content)
+
+local ResultsPadding = create("UIPadding", {
+    PaddingTop = UDim.new(0.02, 0),
+    PaddingBottom = UDim.new(0.03, 0),
+    PaddingLeft = UDim.new(0.012, 0),
+    PaddingRight = UDim.new(0.012, 0),
+}, Results)
+
+local ResultsLayout = create("UIListLayout", {
+    Padding = UDim.new(0.02, 0),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    HorizontalAlignment = Enum.HorizontalAlignment.Center,
+}, Results)
+
+local function clearResults()
+    for _, child in ipairs(Results:GetChildren()) do
+        if not child:IsA("UIListLayout") and not child:IsA("UIPadding") then
+            child:Destroy()
+        end
+    end
+end
+
+local function addEmptyState(message)
+    local Card = create("Frame", {
+        Name = "EmptyState",
+        Size = UDim2.fromScale(0.95, 0.23),
+        BackgroundColor3 = COLORS.Black2,
+        BorderSizePixel = 0,
+        LayoutOrder = 1,
+        ZIndex = 36,
+    }, Results)
+    outline(Card, COLORS.Gray2, 0.004, 0.25)
+
+    local MainText = create("TextLabel", {
+        Position = UDim2.fromScale(0.07, 0.20),
+        Size = UDim2.fromScale(0.86, 0.28),
+        BackgroundTransparency = 1,
+        Text = message,
+        TextColor3 = COLORS.White,
+        Font = Enum.Font.GothamBold,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Center,
+        TextYAlignment = Enum.TextYAlignment.Center,
+        ZIndex = 37,
+    }, Card)
+
+    local SubText = create("TextLabel", {
+        Position = UDim2.fromScale(0.08, 0.52),
+        Size = UDim2.fromScale(0.84, 0.27),
+        BackgroundTransparency = 1,
+        Text = "This tab does not contain any options yet.",
+        TextColor3 = COLORS.Muted,
+        Font = Enum.Font.Gotham,
+        TextSize = 10,
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Center,
+        TextYAlignment = Enum.TextYAlignment.Center,
+        ZIndex = 37,
+    }, Card)
+
+    preventTranslation(MainText)
+    preventTranslation(SubText)
+end
+
+local function renderContent()
+    clearResults()
+
+    if SearchBox.Text ~= "" then
+        addEmptyState("No Matching Options")
+    else
+        addEmptyState("No Options")
+    end
+end
+
+-- =========================================================
+-- Close confirmation
+-- =========================================================
+
+local ConfirmationOverlay = create("Frame", {
+    Name = "ConfirmationOverlay",
+    Position = UDim2.fromScale(0, 0),
+    Size = UDim2.fromScale(1, 1),
+    BackgroundColor3 = COLORS.Black,
+    BackgroundTransparency = 0.44,
+    BorderSizePixel = 0,
+    Visible = false,
+    Active = true,
+    ZIndex = 1000,
+}, ScreenGui)
+
+local Confirmation = create("Frame", {
+    Name = "ConfirmationPanel",
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    Position = UDim2.fromScale(0.5, 0.5),
+    Size = UDim2.fromScale(0.36, 0.255),
+    BackgroundColor3 = COLORS.Black2,
+    BorderSizePixel = 0,
+    ZIndex = 1001,
+}, ConfirmationOverlay)
+outline(Confirmation, COLORS.Gray3, 0.007, 0.05)
+
+create("UIAspectRatioConstraint", {
+    AspectRatio = 1.75,
+    DominantAxis = Enum.DominantAxis.Width,
+}, Confirmation)
+
+local ConfirmTitle = create("TextLabel", {
+    Position = UDim2.fromScale(0.08, 0.10),
+    Size = UDim2.fromScale(0.84, 0.22),
+    BackgroundTransparency = 1,
+    Text = "Close Phantom Hub?",
+    TextColor3 = COLORS.White,
+    Font = Enum.Font.GothamBold,
+    TextSize = 14,
+    TextXAlignment = Enum.TextXAlignment.Center,
+    TextYAlignment = Enum.TextYAlignment.Center,
+    ZIndex = 1002,
+}, Confirmation)
+preventTranslation(ConfirmTitle)
+
+local ConfirmDescription = create("TextLabel", {
+    Position = UDim2.fromScale(0.08, 0.33),
+    Size = UDim2.fromScale(0.84, 0.27),
+    BackgroundTransparency = 1,
+    Text = "Confirming will remove the mod menu and its opening button.",
+    TextColor3 = COLORS.Muted,
+    Font = Enum.Font.Gotham,
+    TextSize = 10,
+    TextWrapped = true,
+    TextXAlignment = Enum.TextXAlignment.Center,
+    TextYAlignment = Enum.TextYAlignment.Center,
+    ZIndex = 1002,
+}, Confirmation)
+preventTranslation(ConfirmDescription)
+
+local ConfirmButton = create("TextButton", {
+    Position = UDim2.fromScale(0.09, 0.69),
+    Size = UDim2.fromScale(0.37, 0.18),
+    BackgroundColor3 = COLORS.Gray,
+    BorderSizePixel = 0,
+    AutoButtonColor = false,
+    Text = "Confirm",
+    TextColor3 = COLORS.White,
+    Font = Enum.Font.GothamSemibold,
+    TextSize = 11,
+    ZIndex = 1003,
+}, Confirmation)
+corner(ConfirmButton, 0.07)
+preventTranslation(ConfirmButton)
+
+local CancelButton = create("TextButton", {
+    Position = UDim2.fromScale(0.54, 0.69),
+    Size = UDim2.fromScale(0.37, 0.18),
+    BackgroundColor3 = COLORS.Gray,
+    BorderSizePixel = 0,
+    AutoButtonColor = false,
+    Text = "Cancel",
+    TextColor3 = COLORS.White,
+    Font = Enum.Font.GothamSemibold,
+    TextSize = 11,
+    ZIndex = 1003,
+}, Confirmation)
+corner(CancelButton, 0.07)
+preventTranslation(CancelButton)
+
+-- =========================================================
+-- Visibility
+-- =========================================================
+
+local menuOpen = false
+
+local function setMenuVisible(value)
+    menuOpen = value
+    Menu.Visible = value
+    MenuShadow.Visible = value
+    if not value then
+        ConfirmationOverlay.Visible = false
+    end
+end
+
+local function openConfirmation()
+    if not menuOpen then
+        return
+    end
+
+    ConfirmationOverlay.Visible = true
+    Confirmation.Size = UDim2.fromScale(0.34, 0.24)
+    tween(Confirmation, 0.16, {
+        Size = UDim2.fromScale(0.36, 0.255),
+    })
+end
+
+local function closeConfirmation()
+    ConfirmationOverlay.Visible = false
+end
+
+MinimizeButton.Activated:Connect(function()
+    setMenuVisible(false)
+end)
+
+CloseButton.Activated:Connect(function()
+    openConfirmation()
+end)
+
+CancelButton.Activated:Connect(function()
+    closeConfirmation()
+end)
+
+ConfirmButton.Activated:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+for _, button in ipairs({MinimizeButton, CloseButton, ConfirmButton, CancelButton}) do
+    button.MouseEnter:Connect(function()
+        tween(button, 0.10, {
+            BackgroundColor3 = COLORS.Gray2,
+            BackgroundTransparency = 0,
+        })
+    end)
+
+    button.MouseLeave:Connect(function()
+        tween(button, 0.10, {
+            BackgroundColor3 = COLORS.Gray,
+            BackgroundTransparency = 0.12,
+        })
+    end)
+end
+
+-- =========================================================
+-- Search
+-- =========================================================
+
+local function refreshSearch()
+    local hasText = SearchBox.Text ~= ""
+    SearchHint.Visible = not hasText
+    SearchClear.Visible = hasText
+    renderContent()
+end
+
+SearchBox:GetPropertyChangedSignal("Text"):Connect(refreshSearch)
+
+SearchClear.Activated:Connect(function()
+    SearchBox.Text = ""
+    refreshSearch()
+    SearchBox:CaptureFocus()
+end)
+
+-- =========================================================
+-- Launcher drag
+-- Hold to move; release without movement to toggle.
+-- Drag remains screen-local and does not move the game camera.
+-- =========================================================
+
+local launcherDragging = false
+local launcherMoved = false
+local launcherInput = nil
+local launcherStartInput = nil
+local launcherStartPosition = nil
+
+local function setLauncherPosition(x, y, smooth)
+    x = clamp(x, 0.04, 0.96)
+    y = clamp(y, 0.04, 0.96)
+
+    local target = UDim2.fromScale(x, y)
+    if smooth then
+        tween(Launcher, 0.10, {Position = target})
+    else
+        Launcher.Position = target
+    end
+end
+
+local function updateLauncher(input)
+    if not launcherDragging or not launcherStartInput or not launcherStartPosition then
+        return
+    end
+
+    local view = viewport()
+    if view.X <= 0 or view.Y <= 0 then
+        return
+    end
+
+    local delta = input.Position - launcherStartInput
+    if delta.Magnitude > 6 then
+        launcherMoved = true
+    end
+
+    setLauncherPosition(
+        launcherStartPosition.X.Scale + delta.X / view.X,
+        launcherStartPosition.Y.Scale + delta.Y / view.Y,
+        false
+    )
+end
+
+LauncherButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+
+        launcherDragging = true
+        launcherMoved = false
+        launcherInput = input
+        launcherStartInput = input.Position
+        launcherStartPosition = Launcher.Position
+    end
+end)
+
+LauncherButton.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch then
+        launcherInput = input
+    end
+end)
+
+-- =========================================================
+-- Main menu drag: only the four corner hit zones can start drag.
+-- Touch requires a hold/movement, so a simple tap is not treated as drag.
+-- =========================================================
+
+local menuDragging = false
+local menuMoved = false
+local menuInput = nil
+local menuStartInput = nil
+local menuStartPosition = nil
+local menuPressTime = 0
+local menuDragSide = "Left"
+local menuLastY = 0.5
+
+local cornerHitSize = UDim2.fromScale(0.075, 0.105)
+local dragHandles = {}
+
+local function makeDragHandle(name, position, anchorPoint)
+    local handle = create("TextButton", {
+        Name = name,
+        AnchorPoint = anchorPoint,
+        Position = position,
+        Size = cornerHitSize,
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        AutoButtonColor = false,
+        Text = "",
+        Active = true,
+        ZIndex = 49,
+    }, Menu)
+    preventTranslation(handle)
+    dragHandles[name] = handle
+    return handle
+end
+
+makeDragHandle("TopLeftDrag", UDim2.fromScale(0, 0), Vector2.new(0, 0))
+makeDragHandle("TopRightDrag", UDim2.fromScale(1, 0), Vector2.new(1, 0))
+makeDragHandle("BottomLeftDrag", UDim2.fromScale(0, 1), Vector2.new(0, 1))
+makeDragHandle("BottomRightDrag", UDim2.fromScale(1, 1), Vector2.new(1, 1))
+
+local function beginMenuDrag(input)
+    menuDragging = false
+    menuMoved = false
+    menuInput = input
+    menuStartInput = input.Position
+    menuStartPosition = Menu.Position
+    menuPressTime = os.clock()
+end
+
+for _, handle in pairs(dragHandles) do
+    handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            beginMenuDrag(input)
+        end
+    end)
+
+    handle.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch then
+            menuInput = input
+        end
+    end)
+end
+
+local function updateMenuDrag(input)
+    if not menuStartInput or not menuStartPosition then
+        return
+    end
+
+    local view = viewport()
+    if view.X <= 0 or view.Y <= 0 then
+        return
+    end
+
+    local delta = input.Position - menuStartInput
+
+    if delta.Magnitude > 6 and (os.clock() - menuPressTime) >= 0.05 then
+        menuMoved = true
+        menuDragging = true
+    end
+
+    if not menuDragging then
+        return
+    end
+
+    -- Allow temporary movement outside the viewport.
+    -- Recovery is checked only on release, exactly as requested.
+    local newX = clamp(menuStartPosition.X.Scale + delta.X / view.X, -0.75, 1.75)
+    local newY = clamp(menuStartPosition.Y.Scale + delta.Y / view.Y, -0.75, 1.75)
+
+    Menu.Position = UDim2.fromScale(newX, newY)
+    MenuShadow.Position = UDim2.fromScale(newX, newY)
+end
+
+local function menuIsFullyOutside()
+    local view = viewport()
+    local position = Menu.AbsolutePosition
+    local size = Menu.AbsoluteSize
+
+    local left = position.X
+    local right = position.X + size.X
+    local top = position.Y
+    local bottom = position.Y + size.Y
+
+    return right <= 0 or left >= view.X or bottom <= 0 or top >= view.Y
+end
+
+local function recoverMenu()
+    local y = clamp(menuLastY, 0.16, 0.84)
+    local x = menuDragSide == "Right" and 0.62 or 0.38
+
+    local target = UDim2.fromScale(x, y)
+
+    tween(Menu, 0.18, {Position = target})
+    tween(MenuShadow, 0.18, {Position = target})
+end
+
+local function endMenuDrag()
+    if not menuInput then
+        return
+    end
+
+    if menuDragging then
+        if menuIsFullyOutside() then
+            recoverMenu()
+        else
+            local x = Menu.Position.X.Scale
+            local y = Menu.Position.Y.Scale
+            menuLastY = y
+            menuDragSide = x < 0.5 and "Left" or "Right"
+        end
+    end
+
+    menuDragging = false
+    menuMoved = false
+    menuInput = nil
+    menuStartInput = nil
+    menuStartPosition = nil
+end
+
+UserInputService.InputChanged:Connect(function(input)
+    if launcherDragging and launcherInput then
+        if input == launcherInput or input.UserInputType == Enum.UserInputType.MouseMovement then
+            updateLauncher(input)
+        end
+    end
+
+    if menuInput then
+        if input == menuInput or input.UserInputType == Enum.UserInputType.MouseMovement then
+            updateMenuDrag(input)
+        end
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType ~= Enum.UserInputType.MouseButton1
+        and input.UserInputType ~= Enum.UserInputType.Touch then
+        return
+    end
+
+    if launcherDragging then
+        local shouldToggle = not launcherMoved
+        launcherDragging = false
+        launcherInput = nil
+        launcherStartInput = nil
+        launcherStartPosition = nil
+
+        if shouldToggle then
+            setMenuVisible(not menuOpen)
+        else
+            local p = Launcher.Position
+            setLauncherPosition(p.X.Scale, p.Y.Scale, true)
+        end
+    end
+
+    if menuInput then
+        endMenuDrag()
+    end
+end)
+
+-- =========================================================
+-- Launcher hover
+-- =========================================================
+
+LauncherButton.MouseEnter:Connect(function()
+    tween(LauncherButton, 0.12, {
+        BackgroundColor3 = COLORS.Dark,
+    })
+end)
+
+LauncherButton.MouseLeave:Connect(function()
+    tween(LauncherButton, 0.12, {
+        BackgroundColor3 = COLORS.Black,
+    })
+end)
+
+-- =========================================================
+-- Viewport maintenance: preserve Scale-based sizing/position.
+-- A partially visible menu is not forcibly repositioned.
+-- =========================================================
+
+local function connectViewport(camera)
+    if not camera then
+        return
+    end
+
+    camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+        -- Clamp the launcher so it cannot remain outside its normal safe zone.
+        setLauncherPosition(Launcher.Position.X.Scale, Launcher.Position.Y.Scale, false)
+    end)
+end
+
+connectViewport(workspace.CurrentCamera)
+
+workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+    connectViewport(workspace.CurrentCamera)
+end)
+
+-- Initial rendering/state
+for _, tab in ipairs(TAB_INFO) do
+    setTabVisual(tab.Name, tab.Name == selectedTab, false)
+end
+
+renderContent()
+setLauncherPosition(0.075, 0.165, false)
+setMenuVisible(false)
