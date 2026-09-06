@@ -114,7 +114,7 @@ end)
 local Launcher = create("Frame", {
     Name = "Launcher",
     Position = UDim2.fromScale(0.075, 0.165),
-    Size = UDim2.fromScale(0.105, 0.105),
+    Size = UDim2.fromScale(0.10, 0.10),
     BackgroundTransparency = 1,
     BorderSizePixel = 0,
 }, ScreenGui)
@@ -135,7 +135,7 @@ local LauncherButton = create("ImageButton", {
     Active = true,
     Image = ASSET.Toggle,
     ImageColor3 = COLORS.White,
-    ScaleType = Enum.ScaleType.Stretch,
+    ScaleType = Enum.ScaleType.Crop,
     ImageTransparency = 0,
     ZIndex = 20,
 }, Launcher)
@@ -251,13 +251,13 @@ preventTranslation(CloseButton)
 local CloseHitbox = create("TextButton", {
     Name = "CloseHitbox",
     AnchorPoint = Vector2.new(1, 0.5),
-    Position = UDim2.fromScale(0.975, 0.5),
-    Size = UDim2.fromScale(0.105, 0.90),
+    Position = UDim2.fromScale(0.990, 0.5),
+    Size = UDim2.fromScale(0.14, 1),
     BackgroundTransparency = 1,
     BorderSizePixel = 0,
     AutoButtonColor = false,
     Text = "",
-    Active = false,
+    Active = true,
     ZIndex = 45,
 }, Header)
 preventTranslation(CloseHitbox)
@@ -588,201 +588,40 @@ local function addEmptyState(message)
     preventTranslation(SubText)
 end
 
-local DISCORD_LINK = "https://discord.gg/72P6NhC5Pf"
-local DISCORD_OPTION_ICON = "rbxassetid://97594499544606"
-local COPY_NOTIFICATION_ICON = "rbxassetid://132744109593099"
-
--- Notification stack is kept in Scale space so its overall placement/sizing
--- remains resolution-independent. Individual notification content also uses
--- Scale for Position/Size rather than fixed pixel dimensions.
-local NotificationStack = create("Frame", {
-    Name = "NotificationStack",
-    AnchorPoint = Vector2.new(1, 1),
-    Position = UDim2.fromScale(0.985, 0.975),
-    Size = UDim2.fromScale(0.29, 0.36),
-    BackgroundTransparency = 1,
-    BorderSizePixel = 0,
-    ZIndex = 2000,
-}, ScreenGui)
-
-local NotificationLayout = create("UIListLayout", {
-    Padding = UDim.new(0.018, 0),
-    FillDirection = Enum.FillDirection.Vertical,
-    HorizontalAlignment = Enum.HorizontalAlignment.Right,
-    VerticalAlignment = Enum.VerticalAlignment.Bottom,
-    SortOrder = Enum.SortOrder.LayoutOrder,
-}, NotificationStack)
-
-local notificationOrder = 0
-local notificationDuration = 2.8
-
-local function copyDiscordLink()
-    local copier = rawget(getfenv and getfenv() or _G, "setclipboard")
-
-    if typeof(copier) == "function" then
-        local ok = pcall(copier, DISCORD_LINK)
-        if ok then
-            return true
-        end
-    end
-
-    if typeof(setclipboard) == "function" then
-        local ok = pcall(setclipboard, DISCORD_LINK)
-        if ok then
-            return true
-        end
-    end
-
-    if typeof(toclipboard) == "function" then
-        local ok = pcall(toclipboard, DISCORD_LINK)
-        if ok then
-            return true
-        end
-    end
-
-    if typeof(set_clipboard) == "function" then
-        local ok = pcall(set_clipboard, DISCORD_LINK)
-        if ok then
-            return true
-        end
-    end
-
-    return false
-end
-
-local function showCopyNotification()
-    notificationOrder -= 1
-
-    local Wrapper = create("Frame", {
-        Name = "CopyNotificationWrapper",
-        Size = UDim2.fromScale(1, 0.225),
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        LayoutOrder = notificationOrder,
-        ZIndex = 2000,
-    }, NotificationStack)
-
+local function addCreditCard()
     local Card = create("Frame", {
-        Name = "CopyNotification",
-        Position = UDim2.fromScale(1.15, 0),
-        Size = UDim2.fromScale(1, 1),
-        BackgroundColor3 = COLORS.Black2,
-        BorderSizePixel = 0,
-        ZIndex = 2001,
-    }, Wrapper)
-    corner(Card, 0.08)
-    outline(Card, COLORS.Gray3, 0.004, 0.24)
-
-    local Icon = create("ImageLabel", {
-        Name = "Icon",
-        Position = UDim2.fromScale(0.055, 0.20),
-        Size = UDim2.fromScale(0.18, 0.50),
-        BackgroundTransparency = 1,
-        Image = COPY_NOTIFICATION_ICON,
-        ImageColor3 = COLORS.White,
-        ScaleType = Enum.ScaleType.Fit,
-        ZIndex = 2002,
-    }, Card)
-
-    local Message = create("TextLabel", {
-        Name = "Message",
-        Position = UDim2.fromScale(0.275, 0.18),
-        Size = UDim2.fromScale(0.67, 0.50),
-        BackgroundTransparency = 1,
-        Text = "Discord link copied!",
-        TextColor3 = COLORS.White,
-        Font = Enum.Font.GothamSemibold,
-        TextSize = 11,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        TextYAlignment = Enum.TextYAlignment.Center,
-        ZIndex = 2002,
-    }, Card)
-
-    local ProgressTrack = create("Frame", {
-        Name = "ProgressTrack",
-        Position = UDim2.fromScale(0.055, 0.805),
-        Size = UDim2.fromScale(0.89, 0.055),
-        BackgroundColor3 = COLORS.Gray,
-        BackgroundTransparency = 0.18,
-        BorderSizePixel = 0,
-        ZIndex = 2002,
-    }, Card)
-    corner(ProgressTrack, 0.5)
-
-    local Progress = create("Frame", {
-        Name = "Progress",
-        Position = UDim2.fromScale(0, 0),
-        Size = UDim2.fromScale(0, 1),
-        BackgroundColor3 = COLORS.White,
-        BorderSizePixel = 0,
-        ZIndex = 2003,
-    }, ProgressTrack)
-    corner(Progress, 0.5)
-
-    preventTranslation(Message)
-
-    tween(Card, 0.18, {
-        Position = UDim2.fromScale(0, 0),
-    }, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-
-    tween(Progress, notificationDuration, {
-        Size = UDim2.fromScale(1, 1),
-    }, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
-
-    task.delay(notificationDuration, function()
-        if not Wrapper.Parent then
-            return
-        end
-
-        local exitTween = tween(Card, 0.18, {
-            Position = UDim2.fromScale(1.15, 0),
-        }, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
-
-        exitTween.Completed:Connect(function()
-            if Wrapper.Parent then
-                Wrapper:Destroy()
-            end
-        end)
-    end)
-end
-
-local function makeCreditCard(name, order, titleText, descriptionText)
-    local Card = create("Frame", {
-        Name = name,
+        Name = "OwnerCredit",
         Size = UDim2.fromScale(0.95, 0.23),
         BackgroundColor3 = COLORS.Black2,
         BorderSizePixel = 0,
-        LayoutOrder = order,
+        LayoutOrder = 1,
         ZIndex = 36,
     }, Results)
-    corner(Card, 0.055)
     outline(Card, COLORS.Gray2, 0.004, 0.25)
 
     local Title = create("TextLabel", {
-        Name = "Title",
-        Position = UDim2.fromScale(0.07, 0.15),
-        Size = UDim2.fromScale(0.79, 0.28),
+        Position = UDim2.fromScale(0.07, 0.16),
+        Size = UDim2.fromScale(0.86, 0.28),
         BackgroundTransparency = 1,
-        Text = titleText,
+        Text = "By: Cleiton10HDx",
         TextColor3 = COLORS.White,
         Font = Enum.Font.GothamBold,
         TextSize = 13,
-        TextXAlignment = Enum.TextXAlignment.Left,
+        TextXAlignment = Enum.TextXAlignment.Center,
         TextYAlignment = Enum.TextYAlignment.Center,
         ZIndex = 37,
     }, Card)
 
     local Description = create("TextLabel", {
-        Name = "Description",
-        Position = UDim2.fromScale(0.07, 0.48),
-        Size = UDim2.fromScale(0.79, 0.31),
+        Position = UDim2.fromScale(0.08, 0.49),
+        Size = UDim2.fromScale(0.84, 0.30),
         BackgroundTransparency = 1,
-        Text = descriptionText,
+        Text = "This script is owned and maintained by Cleiton10HDx.",
         TextColor3 = COLORS.Muted,
         Font = Enum.Font.Gotham,
         TextSize = 10,
         TextWrapped = true,
-        TextXAlignment = Enum.TextXAlignment.Left,
+        TextXAlignment = Enum.TextXAlignment.Center,
         TextYAlignment = Enum.TextYAlignment.Center,
         ZIndex = 37,
     }, Card)
@@ -790,102 +629,93 @@ local function makeCreditCard(name, order, titleText, descriptionText)
     preventTranslation(Title)
     preventTranslation(Description)
 
-    return Card
-end
+    local DiscordCard = create("Frame", {
+        Name = "DiscordLink",
+        Size = UDim2.fromScale(0.95, 0.23),
+        BackgroundColor3 = COLORS.Black2,
+        BorderSizePixel = 0,
+        LayoutOrder = 2,
+        ZIndex = 36,
+    }, Results)
+    outline(DiscordCard, COLORS.Gray2, 0.004, 0.25)
 
-local function addOwnerCreditCard()
-    makeCreditCard(
-        "OwnerCredit",
-        1,
-        "By: Cleiton10HDx",
-        "This script is owned and maintained by Cleiton10HDx."
-    )
-end
+    local DiscordTitle = create("TextLabel", {
+        Position = UDim2.fromScale(0.07, 0.16),
+        Size = UDim2.fromScale(0.73, 0.28),
+        BackgroundTransparency = 1,
+        Text = "Join Our Discord",
+        TextColor3 = COLORS.White,
+        Font = Enum.Font.GothamBold,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Center,
+        ZIndex = 37,
+    }, DiscordCard)
 
-local function addDiscordCreditCard()
-    local Card = makeCreditCard(
-        "DiscordCredit",
-        2,
-        "Discord Server",
-        "Copy the official Discord server invite link."
-    )
+    local DiscordDescription = create("TextLabel", {
+        Position = UDim2.fromScale(0.08, 0.49),
+        Size = UDim2.fromScale(0.73, 0.30),
+        BackgroundTransparency = 1,
+        Text = "Click to copy our Discord server link.",
+        TextColor3 = COLORS.Muted,
+        Font = Enum.Font.Gotham,
+        TextSize = 10,
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Center,
+        ZIndex = 37,
+    }, DiscordCard)
 
-    -- The action icon sits on the right side while all option text stays
-    -- aligned to the left, matching the requested option-card structure.
-    local IconButton = create("ImageButton", {
-        Name = "DiscordAction",
+    local DiscordIcon = create("ImageButton", {
+        Name = "DiscordIcon",
         AnchorPoint = Vector2.new(1, 0.5),
-        Position = UDim2.fromScale(0.94, 0.5),
-        Size = UDim2.fromScale(0.15, 0.64),
+        Position = UDim2.fromScale(0.95, 0.5),
+        Size = UDim2.fromScale(0.12, 0.60),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        AutoButtonColor = false,
-        Image = DISCORD_OPTION_ICON,
+        Image = "rbxassetid://97594499544606",
         ImageColor3 = COLORS.White,
         ScaleType = Enum.ScaleType.Fit,
-        Active = true,
-        ZIndex = 39,
-    }, Card)
-    corner(IconButton, 0.20)
-    preventTranslation(IconButton)
-
-    -- Transparent full-card action layer: clicking anywhere on this option,
-    -- including the empty/text area, performs the same copy action as the icon.
-    local ActionButton = create("TextButton", {
-        Name = "DiscordActionHitbox",
-        Position = UDim2.fromScale(0, 0),
-        Size = UDim2.fromScale(1, 1),
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
         AutoButtonColor = false,
-        Text = "",
         Active = true,
-        ZIndex = 38,
-    }, Card)
-    corner(ActionButton, 0.055)
-    preventTranslation(ActionButton)
+        ZIndex = 37,
+    }, DiscordCard)
 
-    local normalBackground = COLORS.Black2
-    local hoverBackground = COLORS.DarkGray
+    preventTranslation(DiscordTitle)
+    preventTranslation(DiscordDescription)
 
-    local function setCardHover(active)
-        tween(Card, 0.10, {
-            BackgroundColor3 = active and hoverBackground or normalBackground,
-            BackgroundTransparency = active and 0.08 or 0,
-        })
-        tween(IconButton, 0.10, {
-            ImageTransparency = active and 0.10 or 0,
-        })
+    local function onDiscordClick()
+        setclipboard("https://discord.gg/72P6NhC5Pf")
+        showNotification("Discord link copied!", "132744109593099")
     end
 
-    ActionButton.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement
+    DiscordCard.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
             or input.UserInputType == Enum.UserInputType.Touch then
-            setCardHover(true)
+            onDiscordClick()
         end
     end)
 
-    ActionButton.MouseEnter:Connect(function()
-        setCardHover(true)
-    end)
-
-    ActionButton.MouseLeave:Connect(function()
-        setCardHover(false)
-    end)
-
-    ActionButton.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch then
-            setCardHover(false)
+    DiscordIcon.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            onDiscordClick()
         end
     end)
 
-    local function performDiscordCopy()
-        copyDiscordLink()
-        showCopyNotification()
-    end
+    DiscordCard.MouseEnter:Connect(function()
+        tween(DiscordCard, 0.12, {
+            BackgroundColor3 = COLORS.Gray,
+            BackgroundTransparency = 0.25,
+        })
+    end)
 
-    ActionButton.Activated:Connect(performDiscordCopy)
-    IconButton.Activated:Connect(performDiscordCopy)
+    DiscordCard.MouseLeave:Connect(function()
+        tween(DiscordCard, 0.12, {
+            BackgroundColor3 = COLORS.Black2,
+            BackgroundTransparency = 0,
+        })
+    end)
 end
 
 local function renderContent()
@@ -897,8 +727,7 @@ local function renderContent()
     end
 
     if selectedTab == "Credits" then
-        addOwnerCreditCard()
-        addDiscordCreditCard()
+        addCreditCard()
     else
         addEmptyState("No Options")
     end
@@ -1035,6 +864,100 @@ local function runCleanupTasks()
 end
 
 -- =========================================================
+-- Notification System
+-- =========================================================
+
+local NotificationContainer = create("Frame", {
+    Name = "NotificationContainer",
+    AnchorPoint = Vector2.new(1, 1),
+    Position = UDim2.fromScale(0.98, 0.98),
+    Size = UDim2.fromScale(0.25, 0.50),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ZIndex = 900,
+}, ScreenGui)
+
+local NotificationLayout = create("UIListLayout", {
+    Padding = UDim.new(0.01, 0),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    VerticalAlignment = Enum.VerticalAlignment.Bottom,
+}, NotificationContainer)
+
+local activeNotifications = {}
+
+local function showNotification(message, iconId)
+    local notifFrame = create("Frame", {
+        Name = "Notification",
+        Size = UDim2.fromScale(1, 0.20),
+        BackgroundColor3 = COLORS.Black2,
+        BorderSizePixel = 0,
+        LayoutOrder = #activeNotifications + 1,
+        ZIndex = 901,
+    }, NotificationContainer)
+    outline(notifFrame, COLORS.Gray2, 0.004, 0.30)
+    corner(notifFrame, 0.08)
+
+    local iconLabel = create("ImageLabel", {
+        Name = "Icon",
+        Position = UDim2.fromScale(0.08, 0.20),
+        Size = UDim2.fromScale(0.20, 0.60),
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://" .. iconId,
+        ImageColor3 = COLORS.White,
+        ScaleType = Enum.ScaleType.Fit,
+        ZIndex = 902,
+    }, notifFrame)
+
+    local messageLabel = create("TextLabel", {
+        Name = "Message",
+        Position = UDim2.fromScale(0.32, 0.15),
+        Size = UDim2.fromScale(0.63, 0.70),
+        BackgroundTransparency = 1,
+        Text = message,
+        TextColor3 = COLORS.White,
+        Font = Enum.Font.Gotham,
+        TextSize = 10,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Center,
+        TextWrapped = true,
+        ZIndex = 902,
+    }, notifFrame)
+    preventTranslation(messageLabel)
+
+    local progressBar = create("Frame", {
+        Name = "Progress",
+        Position = UDim2.fromScale(0, 1),
+        Size = UDim2.fromScale(0, 0.08),
+        BackgroundColor3 = COLORS.White,
+        BorderSizePixel = 0,
+        ZIndex = 902,
+    }, notifFrame)
+
+    table.insert(activeNotifications, notifFrame)
+
+    -- Animation: progress bar fills
+    tween(progressBar, 3, {Size = UDim2.fromScale(1, 0.08)})
+
+    -- Remove after 3 seconds
+    task.wait(3)
+    
+    tween(notifFrame, 0.30, {
+        BackgroundTransparency = 1,
+    })
+    
+    task.wait(0.30)
+    
+    for i, notif in ipairs(activeNotifications) do
+        if notif == notifFrame then
+            table.remove(activeNotifications, i)
+            break
+        end
+    end
+    
+    notifFrame:Destroy()
+end
+
+-- =========================================================
 -- Visibility
 -- =========================================================
 
@@ -1075,52 +998,8 @@ local function requestClose()
     end
 end
 
--- The X uses an explicit screen-space hit test in addition to its GUI bounds.
--- This avoids relying on a small clickable sub-region or on Activated routing.
-local function pointInsideGuiObject(guiObject, point)
-    local absolutePosition = guiObject.AbsolutePosition
-    local absoluteSize = guiObject.AbsoluteSize
-
-    return point.X >= absolutePosition.X
-        and point.X <= absolutePosition.X + absoluteSize.X
-        and point.Y >= absolutePosition.Y
-        and point.Y <= absolutePosition.Y + absoluteSize.Y
-end
-
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed or not menuOpen or ConfirmationOverlay.Visible then
-        return
-    end
-
-    if input.UserInputType ~= Enum.UserInputType.MouseButton1
-        and input.UserInputType ~= Enum.UserInputType.Touch then
-        return
-    end
-
-    local point = Vector2.new(input.Position.X, input.Position.Y)
-
-    -- Check the real visible button first.
-    if pointInsideGuiObject(CloseButton, point) then
-        requestClose()
-        return
-    end
-
-    -- Add the larger logical range as a fallback around the X. This is
-    -- deliberately expressed with Scale so the tolerance follows the UI.
-    local headerPosition = Header.AbsolutePosition
-    local headerSize = Header.AbsoluteSize
-    local xCenter = CloseButton.AbsolutePosition.X + CloseButton.AbsoluteSize.X * 0.5
-    local yCenter = CloseButton.AbsolutePosition.Y + CloseButton.AbsoluteSize.Y * 0.5
-    local rangeX = headerSize.X * 0.055
-    local rangeY = headerSize.Y * 0.11
-
-    if point.X >= xCenter - rangeX
-        and point.X <= xCenter + rangeX
-        and point.Y >= yCenter - rangeY
-        and point.Y <= yCenter + rangeY then
-        requestClose()
-    end
-end)
+CloseButton.Activated:Connect(requestClose)
+CloseHitbox.Activated:Connect(requestClose)
 
 CancelButton.Activated:Connect(function()
     closeConfirmation()
