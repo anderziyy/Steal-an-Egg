@@ -1,0 +1,2470 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local GuiService = game:GetService("GuiService")
+local CoreGui = game:GetService("CoreGui")
+
+local LocalPlayer = Players.LocalPlayer
+if not LocalPlayer then
+    return
+end
+
+local GUI_NAME = "PhantomHub_StealAnEgg_UI"
+local TITLE_TEXT = "Phantom Hub | Steal an Egg"
+local MAIN_ICON = "rbxassetid://121715364276099"
+local SEARCH_ICON = "rbxassetid://73858257403039"
+local TAB_ICONS = {
+    Main = "rbxassetid://139357095045310",
+    ["Auto Buy"] = "rbxassetid://110805385284419",
+    Farm = "rbxassetid://102352181267949",
+    Config = "rbxassetid://114794077382466",
+    Credits = "rbxassetid://99243311837005",
+}
+
+local COLORS = {
+    Black = Color3.fromRGB(9, 9, 11),
+    DeepBlack = Color3.fromRGB(5, 5, 7),
+    Panel = Color3.fromRGB(17, 17, 20),
+    Panel2 = Color3.fromRGB(22, 22, 26),
+    Panel3 = Color3.fromRGB(29, 29, 33),
+    Gray = Color3.fromRGB(86, 86, 92),
+    Gray2 = Color3.fromRGB(108, 108, 115),
+    Gray3 = Color3.fromRGB(145, 145, 153),
+    Light = Color3.fromRGB(216, 216, 222),
+    White = Color3.fromRGB(248, 248, 250),
+    SoftWhite = Color3.fromRGB(232, 232, 236),
+    Red = Color3.fromRGB(235, 82, 82),
+    Green = Color3.fromRGB(87, 214, 118),
+}
+
+local function safeDestroy(instance)
+    if instance and instance.Parent then
+        pcall(function()
+            instance:Destroy()
+        end)
+    end
+end
+
+local oldGui
+pcall(function()
+    oldGui = CoreGui:FindFirstChild(GUI_NAME)
+end)
+if not oldGui then
+    pcall(function()
+        oldGui = LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild(GUI_NAME)
+    end)
+end
+safeDestroy(oldGui)
+
+local function getParentContainer()
+    local candidates = {}
+    local okCore = pcall(function()
+        table.insert(candidates, CoreGui)
+    end)
+    if not okCore then
+        table.insert(candidates, LocalPlayer:WaitForChild("PlayerGui"))
+    end
+
+    for _, parent in ipairs(candidates) do
+        local accepted = pcall(function()
+            local probe = Instance.new("Folder")
+            probe.Name = "__PhantomHubProbe"
+            probe.Parent = parent
+            probe:Destroy()
+        end)
+        if accepted then
+            return parent
+        end
+    end
+
+    return LocalPlayer:WaitForChild("PlayerGui")
+end
+
+local ParentContainer = getParentContainer()
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = GUI_NAME
+ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.DisplayOrder = 1000000
+pcall(function()
+    ScreenGui.AutoLocalize = false
+end)
+ScreenGui.Parent = ParentContainer
+
+local function setNoLocalize(instance)
+    pcall(function()
+        instance.AutoLocalize = false
+    end)
+    pcall(function()
+        instance.RootLocalizationTable = nil
+    end)
+end
+
+local function addStroke(parent, thickness, transparency, color)
+    local stroke = Instance.new("UIStroke")
+    stroke.Thickness = thickness or 1
+    stroke.Transparency = transparency or 0
+    stroke.Color = color or COLORS.Gray
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent = parent
+    return stroke
+end
+
+local function addAspect(parent, ratio)
+    local aspect = Instance.new("UIAspectRatioConstraint")
+    aspect.AspectRatio = ratio or 1
+    aspect.DominantAxis = Enum.DominantAxis.Width
+    aspect.Parent = parent
+    return aspect
+end
+
+local function makeText(parent, text, position, size, textSize, weight, color)
+    local label = Instance.new("TextLabel")
+    label.BackgroundTransparency = 1
+    label.Text = text or ""
+    label.Position = position or UDim2.fromScale(0, 0)
+    label.Size = size or UDim2.fromScale(1, 1)
+    label.TextSize = textSize or 14
+    label.TextColor3 = color or COLORS.White
+    label.Font = weight or Enum.Font.Gotham
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.TextYAlignment = Enum.TextYAlignment.Center
+    label.TextWrapped = false
+    label.TextTruncate = Enum.TextTruncate.AtEnd
+    label.BorderSizePixel = 0
+    setNoLocalize(label)
+    label.Parent = parent
+    return label
+end
+
+local function makeImage(parent, image, position, size, transparency)
+    local icon = Instance.new("ImageLabel")
+    icon.BackgroundTransparency = 1
+    icon.Image = image or ""
+    icon.Position = position or UDim2.fromScale(0, 0)
+    icon.Size = size or UDim2.fromScale(1, 1)
+    icon.ImageTransparency = transparency or 0
+    icon.ScaleType = Enum.ScaleType.Fit
+    icon.BorderSizePixel = 0
+    icon.Parent = parent
+    return icon
+end
+
+local function makeButton(parent, text, position, size, textSize)
+    local button = Instance.new("TextButton")
+    button.AutoButtonColor = false
+    button.BackgroundColor3 = COLORS.Panel2
+    button.BorderSizePixel = 0
+    button.Text = text or ""
+    button.Position = position or UDim2.fromScale(0, 0)
+    button.Size = size or UDim2.fromScale(1, 1)
+    button.TextSize = textSize or 14
+    button.TextColor3 = COLORS.White
+    button.Font = Enum.Font.GothamMedium
+    button.TextWrapped = false
+    button.ZIndex = 5
+    setNoLocalize(button)
+    button.Parent = parent
+    return button
+end
+
+local function clamp01(value)
+    if value < 0 then
+        return 0
+    end
+    if value > 1 then
+        return 1
+    end
+    return value
+end
+
+local function smoothTween(instance, properties, duration, style, direction)
+    local info = TweenInfo.new(
+        duration or 0.16,
+        style or Enum.EasingStyle.Quart,
+        direction or Enum.EasingDirection.Out,
+        0,
+        false,
+        0
+    )
+    local tween = TweenService:Create(instance, info, properties)
+    tween:Play()
+    return tween
+end
+
+local function getAbsoluteViewport()
+    local camera = workspace.CurrentCamera
+    if camera then
+        local viewport = camera.ViewportSize
+        if viewport.X > 0 and viewport.Y > 0 then
+            return viewport
+        end
+    end
+    return Vector2.new(1280, 720)
+end
+
+local function pixelToScaleDelta(parent, pixelDelta)
+    local absolute = parent.AbsoluteSize
+    local x = absolute.X > 0 and pixelDelta.X / absolute.X or 0
+    local y = absolute.Y > 0 and pixelDelta.Y / absolute.Y or 0
+    return x, y
+end
+
+local function scaleToPixel(parent, scaleX, scaleY)
+    local absolute = parent.AbsoluteSize
+    return Vector2.new(absolute.X * scaleX, absolute.Y * scaleY)
+end
+
+local function clampFrameScale(frame, desiredX, desiredY, minimumX, minimumY, maximumX, maximumY)
+    local sizeX = frame.Size.X.Scale
+    local sizeY = frame.Size.Y.Scale
+    local maxX = maximumX
+    local maxY = maximumY
+    if maxX == nil then
+        maxX = 1 - sizeX
+    end
+    if maxY == nil then
+        maxY = 1 - sizeY
+    end
+    local x = math.clamp(desiredX, minimumX or 0, maxX)
+    local y = math.clamp(desiredY, minimumY or 0, maxY)
+    return x, y
+end
+
+local function attachScaleDrag(target, dragHandle, config)
+    config = config or {}
+    local active = false
+    local dragging = false
+    local activeInput = nil
+    local dragStart = nil
+    local startPosition = nil
+    local moveConnection = nil
+    local endConnection = nil
+    local clickThreshold = config.ClickThreshold or 5
+
+    local function finish()
+        active = false
+        dragging = false
+        activeInput = nil
+        dragStart = nil
+        startPosition = nil
+        if moveConnection then
+            moveConnection:Disconnect()
+            moveConnection = nil
+        end
+        if endConnection then
+            endConnection:Disconnect()
+            endConnection = nil
+        end
+    end
+
+    local function move(input)
+        if not active or not dragStart or not startPosition then
+            return
+        end
+        local delta = input.Position - dragStart
+        if math.abs(delta.X) >= clickThreshold or math.abs(delta.Y) >= clickThreshold then
+            dragging = true
+        end
+        if not dragging then
+            return
+        end
+        local dx, dy = pixelToScaleDelta(target.Parent, delta)
+        local desiredX = startPosition.X.Scale + dx
+        local desiredY = startPosition.Y.Scale + dy
+        local x, y = clampFrameScale(
+            target,
+            desiredX,
+            desiredY,
+            config.MinX or 0,
+            config.MinY or 0,
+            config.MaxX,
+            config.MaxY
+        )
+        target.Position = UDim2.fromScale(x, y)
+        if config.OnDrag then
+            config.OnDrag(x, y)
+        end
+    end
+
+    dragHandle.InputBegan:Connect(function(input)
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1
+            and input.UserInputType ~= Enum.UserInputType.Touch then
+            return
+        end
+        active = true
+        activeInput = input
+        dragStart = input.Position
+        startPosition = target.Position
+
+        moveConnection = UserInputService.InputChanged:Connect(function(changed)
+            if changed.UserInputType == Enum.UserInputType.MouseMovement
+                or changed.UserInputType == Enum.UserInputType.Touch then
+                move(changed)
+            end
+        end)
+
+        endConnection = UserInputService.InputEnded:Connect(function(ended)
+            if ended == activeInput
+                or ended.UserInputType == Enum.UserInputType.MouseButton1
+                or ended.UserInputType == Enum.UserInputType.Touch then
+                local wasDragging = dragging
+                finish()
+                if config.OnRelease then
+                    config.OnRelease(wasDragging)
+                end
+            end
+        end)
+    end)
+
+    return {
+        IsDragging = function()
+            return dragging
+        end,
+        Stop = finish,
+    }
+end
+
+local Root = Instance.new("Frame")
+Root.Name = "Root"
+Root.BackgroundTransparency = 1
+Root.Size = UDim2.fromScale(1, 1)
+Root.Position = UDim2.fromScale(0, 0)
+Root.BorderSizePixel = 0
+Root.Parent = ScreenGui
+
+local MainButton = Instance.new("ImageButton")
+MainButton.Name = "OpenButton"
+MainButton.AutoButtonColor = false
+MainButton.BackgroundColor3 = COLORS.Panel
+MainButton.BorderSizePixel = 0
+MainButton.Position = UDim2.fromScale(0.055, 0.22)
+MainButton.Size = UDim2.fromScale(0.075, 0.075)
+MainButton.Image = MAIN_ICON
+MainButton.ImageColor3 = COLORS.White
+MainButton.ScaleType = Enum.ScaleType.Fit
+MainButton.ZIndex = 30
+setNoLocalize(MainButton)
+MainButton.Parent = Root
+addStroke(MainButton, 1, 0.12, COLORS.Gray3)
+addAspect(MainButton, 1)
+
+local MainButtonGlow = Instance.new("Frame")
+MainButtonGlow.Name = "InnerFrame"
+MainButtonGlow.BackgroundTransparency = 1
+MainButtonGlow.Position = UDim2.fromScale(0.08, 0.08)
+MainButtonGlow.Size = UDim2.fromScale(0.84, 0.84)
+MainButtonGlow.BorderSizePixel = 0
+MainButtonGlow.ZIndex = 31
+MainButtonGlow.Parent = MainButton
+addStroke(MainButtonGlow, 0.75, 0.65, COLORS.White)
+
+local MainButtonScale = Instance.new("UIScale")
+MainButtonScale.Scale = 1
+MainButtonScale.Parent = MainButton
+
+local mainDrag = attachScaleDrag(MainButton, MainButton, {
+    ClickThreshold = 6,
+    OnRelease = function(wasDragging)
+        if not wasDragging then
+            toggleMenu()
+        end
+    end,
+})
+
+local Menu = Instance.new("Frame")
+Menu.Name = "ModMenu"
+Menu.BackgroundColor3 = COLORS.DeepBlack
+Menu.BorderSizePixel = 0
+Menu.Position = UDim2.fromScale(0.18, 0.14)
+Menu.Size = UDim2.fromScale(0.64, 0.72)
+Menu.Visible = false
+Menu.ZIndex = 20
+Menu.ClipsDescendants = false
+Menu.Parent = Root
+addStroke(Menu, 1.25, 0.08, COLORS.Gray2)
+
+local MenuScale = Instance.new("UIScale")
+MenuScale.Scale = 1
+MenuScale.Parent = Menu
+
+local Header = Instance.new("Frame")
+Header.Name = "Header"
+Header.BackgroundColor3 = COLORS.Panel
+Header.BorderSizePixel = 0
+Header.Position = UDim2.fromScale(0, 0)
+Header.Size = UDim2.fromScale(1, 0.125)
+Header.ZIndex = 22
+Header.Parent = Menu
+addStroke(Header, 1, 0.55, COLORS.Gray)
+
+local Title = makeText(
+    Header,
+    TITLE_TEXT,
+    UDim2.fromScale(0.035, 0),
+    UDim2.fromScale(0.70, 1),
+    18,
+    Enum.Font.GothamBold,
+    COLORS.White
+)
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+local HideButton = makeButton(
+    Header,
+    "-",
+    UDim2.fromScale(0.79, 0.15),
+    UDim2.fromScale(0.08, 0.70),
+    19
+)
+HideButton.BackgroundColor3 = COLORS.Panel2
+HideButton.TextColor3 = COLORS.Light
+HideButton.ZIndex = 27
+addStroke(HideButton, 1, 0.65, COLORS.Gray2)
+
+local CloseButton = makeButton(
+    Header,
+    "X",
+    UDim2.fromScale(0.885, 0.15),
+    UDim2.fromScale(0.08, 0.70),
+    16
+)
+CloseButton.BackgroundColor3 = COLORS.Panel2
+CloseButton.TextColor3 = COLORS.White
+CloseButton.ZIndex = 27
+addStroke(CloseButton, 1, 0.55, COLORS.Gray2)
+
+local Body = Instance.new("Frame")
+Body.Name = "Body"
+Body.BackgroundTransparency = 1
+Body.BorderSizePixel = 0
+Body.Position = UDim2.fromScale(0, 0.125)
+Body.Size = UDim2.fromScale(1, 0.875)
+Body.ZIndex = 21
+Body.Parent = Menu
+
+local TabsPanel = Instance.new("Frame")
+TabsPanel.Name = "TabsPanel"
+TabsPanel.BackgroundColor3 = COLORS.Panel
+TabsPanel.BorderSizePixel = 0
+TabsPanel.Position = UDim2.fromScale(0, 0)
+TabsPanel.Size = UDim2.fromScale(0.25, 1)
+TabsPanel.ZIndex = 22
+TabsPanel.Parent = Body
+addStroke(TabsPanel, 1, 0.60, COLORS.Gray)
+
+local TabsHeader = makeText(
+    TabsPanel,
+    "MENU",
+    UDim2.fromScale(0.09, 0.025),
+    UDim2.fromScale(0.80, 0.07),
+    11,
+    Enum.Font.GothamBold,
+    COLORS.Gray3
+)
+TabsHeader.TextXAlignment = Enum.TextXAlignment.Left
+
+local TabsScroll = Instance.new("ScrollingFrame")
+TabsScroll.Name = "TabsScroll"
+TabsScroll.BackgroundTransparency = 1
+TabsScroll.BorderSizePixel = 0
+TabsScroll.Position = UDim2.fromScale(0.035, 0.105)
+TabsScroll.Size = UDim2.fromScale(0.93, 0.865)
+TabsScroll.CanvasSize = UDim2.fromScale(0, 0)
+TabsScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+TabsScroll.ScrollBarThickness = 0
+TabsScroll.ScrollBarImageTransparency = 1
+TabsScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+TabsScroll.Active = true
+TabsScroll.ZIndex = 23
+TabsScroll.Parent = TabsPanel
+
+local TabsLayout = Instance.new("UIListLayout")
+TabsLayout.FillDirection = Enum.FillDirection.Vertical
+TabsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+TabsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+TabsLayout.Padding = UDim.new(0, 0)
+TabsLayout.Parent = TabsScroll
+
+local ContentPanel = Instance.new("Frame")
+ContentPanel.Name = "ContentPanel"
+ContentPanel.BackgroundColor3 = COLORS.DeepBlack
+ContentPanel.BorderSizePixel = 0
+ContentPanel.Position = UDim2.fromScale(0.25, 0)
+ContentPanel.Size = UDim2.fromScale(0.75, 1)
+ContentPanel.ZIndex = 22
+ContentPanel.Parent = Body
+
+local SearchHolder = Instance.new("Frame")
+SearchHolder.Name = "SearchHolder"
+SearchHolder.BackgroundColor3 = COLORS.Panel
+SearchHolder.BorderSizePixel = 0
+SearchHolder.Position = UDim2.fromScale(0.035, 0.032)
+SearchHolder.Size = UDim2.fromScale(0.93, 0.085)
+SearchHolder.ZIndex = 25
+SearchHolder.Parent = ContentPanel
+addStroke(SearchHolder, 1, 0.45, COLORS.Gray)
+
+local SearchIcon = makeImage(
+    SearchHolder,
+    SEARCH_ICON,
+    UDim2.fromScale(0.025, 0.20),
+    UDim2.fromScale(0.075, 0.60),
+    0
+)
+SearchIcon.ZIndex = 27
+
+local SearchBox = Instance.new("TextBox")
+SearchBox.Name = "SearchBox"
+SearchBox.BackgroundTransparency = 1
+SearchBox.BorderSizePixel = 0
+SearchBox.Position = UDim2.fromScale(0.115, 0)
+SearchBox.Size = UDim2.fromScale(0.75, 1)
+SearchBox.ClearTextOnFocus = false
+SearchBox.Text = ""
+SearchBox.PlaceholderText = "Search..."
+SearchBox.PlaceholderColor3 = COLORS.Gray3
+SearchBox.TextColor3 = COLORS.White
+SearchBox.TextSize = 14
+SearchBox.Font = Enum.Font.Gotham
+SearchBox.TextXAlignment = Enum.TextXAlignment.Left
+SearchBox.TextYAlignment = Enum.TextYAlignment.Center
+SearchBox.TextTruncate = Enum.TextTruncate.AtEnd
+SearchBox.ZIndex = 28
+setNoLocalize(SearchBox)
+SearchBox.Parent = SearchHolder
+
+local SearchClear = makeButton(
+    SearchHolder,
+    "X",
+    UDim2.fromScale(0.88, 0.16),
+    UDim2.fromScale(0.09, 0.68),
+    13
+)
+SearchClear.BackgroundTransparency = 1
+SearchClear.TextColor3 = COLORS.White
+SearchClear.Visible = false
+SearchClear.ZIndex = 29
+
+local ContentScroll = Instance.new("ScrollingFrame")
+ContentScroll.Name = "ContentScroll"
+ContentScroll.BackgroundTransparency = 1
+ContentScroll.BorderSizePixel = 0
+ContentScroll.Position = UDim2.fromScale(0.025, 0.145)
+ContentScroll.Size = UDim2.fromScale(0.95, 0.83)
+ContentScroll.CanvasSize = UDim2.fromScale(0, 0)
+ContentScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+ContentScroll.ScrollBarThickness = 0
+ContentScroll.ScrollBarImageTransparency = 1
+ContentScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+ContentScroll.Active = true
+ContentScroll.ZIndex = 23
+ContentScroll.Parent = ContentPanel
+
+local ContentLayout = Instance.new("UIListLayout")
+ContentLayout.FillDirection = Enum.FillDirection.Vertical
+ContentLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+ContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ContentLayout.Padding = UDim.new(0, 0)
+ContentLayout.Parent = ContentScroll
+
+local EmptyState = Instance.new("Frame")
+EmptyState.Name = "EmptyState"
+EmptyState.BackgroundColor3 = COLORS.Panel
+EmptyState.BorderSizePixel = 0
+EmptyState.Position = UDim2.fromScale(0.04, 0.04)
+EmptyState.Size = UDim2.fromScale(0.92, 0.30)
+EmptyState.ZIndex = 24
+EmptyState.Parent = ContentScroll
+addStroke(EmptyState, 1, 0.58, COLORS.Gray)
+
+local EmptyIconHolder = Instance.new("Frame")
+EmptyIconHolder.Name = "EmptyIconHolder"
+EmptyIconHolder.BackgroundColor3 = COLORS.Panel2
+EmptyIconHolder.BorderSizePixel = 0
+EmptyIconHolder.Position = UDim2.fromScale(0.425, 0.12)
+EmptyIconHolder.Size = UDim2.fromScale(0.15, 0.33)
+EmptyIconHolder.ZIndex = 25
+EmptyIconHolder.Parent = EmptyState
+addStroke(EmptyIconHolder, 1, 0.60, COLORS.Gray2)
+addAspect(EmptyIconHolder, 1)
+
+local EmptyIcon = makeImage(
+    EmptyIconHolder,
+    SEARCH_ICON,
+    UDim2.fromScale(0.18, 0.18),
+    UDim2.fromScale(0.64, 0.64),
+    0.30
+)
+EmptyIcon.ZIndex = 26
+
+local EmptyTitle = makeText(
+    EmptyState,
+    "No options yet",
+    UDim2.fromScale(0.12, 0.50),
+    UDim2.fromScale(0.76, 0.19),
+    15,
+    Enum.Font.GothamBold,
+    COLORS.White
+)
+EmptyTitle.TextXAlignment = Enum.TextXAlignment.Center
+
+local EmptyDescription = makeText(
+    EmptyState,
+    "This tab is ready for future options.",
+    UDim2.fromScale(0.08, 0.70),
+    UDim2.fromScale(0.84, 0.16),
+    11,
+    Enum.Font.Gotham,
+    COLORS.Gray3
+)
+EmptyDescription.TextXAlignment = Enum.TextXAlignment.Center
+
+local ConfirmOverlay = Instance.new("Frame")
+ConfirmOverlay.Name = "ConfirmOverlay"
+ConfirmOverlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+ConfirmOverlay.BackgroundTransparency = 0.32
+ConfirmOverlay.BorderSizePixel = 0
+ConfirmOverlay.Size = UDim2.fromScale(1, 1)
+ConfirmOverlay.Position = UDim2.fromScale(0, 0)
+ConfirmOverlay.Visible = false
+ConfirmOverlay.ZIndex = 100
+ConfirmOverlay.Parent = Menu
+
+local ConfirmPanel = Instance.new("Frame")
+ConfirmPanel.Name = "ConfirmPanel"
+ConfirmPanel.BackgroundColor3 = COLORS.Panel
+ConfirmPanel.BorderSizePixel = 0
+ConfirmPanel.Position = UDim2.fromScale(0.24, 0.31)
+ConfirmPanel.Size = UDim2.fromScale(0.52, 0.38)
+ConfirmPanel.ZIndex = 102
+ConfirmPanel.Parent = ConfirmOverlay
+addStroke(ConfirmPanel, 1.2, 0.24, COLORS.Gray2)
+
+local ConfirmTitle = makeText(
+    ConfirmPanel,
+    "Close Phantom Hub?",
+    UDim2.fromScale(0.08, 0.08),
+    UDim2.fromScale(0.84, 0.17),
+    15,
+    Enum.Font.GothamBold,
+    COLORS.White
+)
+ConfirmTitle.TextXAlignment = Enum.TextXAlignment.Center
+
+local ConfirmDescription = makeText(
+    ConfirmPanel,
+    "Confirming will remove the mod menu and its open button.",
+    UDim2.fromScale(0.09, 0.29),
+    UDim2.fromScale(0.82, 0.25),
+    11,
+    Enum.Font.Gotham,
+    COLORS.Gray3
+)
+ConfirmDescription.TextWrapped = true
+ConfirmDescription.TextXAlignment = Enum.TextXAlignment.Center
+
+local CancelButton = makeButton(
+    ConfirmPanel,
+    "Cancel",
+    UDim2.fromScale(0.08, 0.67),
+    UDim2.fromScale(0.38, 0.22),
+    12
+)
+CancelButton.BackgroundColor3 = COLORS.Panel3
+CancelButton.TextColor3 = COLORS.Red
+CancelButton.ZIndex = 105
+addStroke(CancelButton, 1, 0.42, COLORS.Gray)
+
+local ConfirmButton = makeButton(
+    ConfirmPanel,
+    "Confirm",
+    UDim2.fromScale(0.54, 0.67),
+    UDim2.fromScale(0.38, 0.22),
+    12
+)
+ConfirmButton.BackgroundColor3 = COLORS.Panel3
+ConfirmButton.TextColor3 = COLORS.Green
+ConfirmButton.ZIndex = 105
+addStroke(ConfirmButton, 1, 0.42, COLORS.Gray)
+
+local MenuCornerHandles = {}
+local function createCornerHandle(name, position, anchorPoint)
+    local handle = Instance.new("Frame")
+    handle.Name = name
+    handle.BackgroundTransparency = 1
+    handle.BorderSizePixel = 0
+    handle.Position = position
+    handle.Size = UDim2.fromScale(0.055, 0.055)
+    handle.AnchorPoint = anchorPoint or Vector2.new(0, 0)
+    handle.ZIndex = 28
+    handle.Active = true
+    handle.Parent = Menu
+    table.insert(MenuCornerHandles, handle)
+    return handle
+end
+
+local TopLeftHandle = createCornerHandle("TopLeftDrag", UDim2.fromScale(0, 0))
+local TopRightHandle = createCornerHandle("TopRightDrag", UDim2.fromScale(1, 0), Vector2.new(1, 0))
+local BottomLeftHandle = createCornerHandle("BottomLeftDrag", UDim2.fromScale(0, 1), Vector2.new(0, 1))
+local BottomRightHandle = createCornerHandle("BottomRightDrag", UDim2.fromScale(1, 1), Vector2.new(1, 1))
+
+local menuDraggers = {}
+menuDraggers[1] = attachScaleDrag(Menu, TopLeftHandle, {
+    ClickThreshold = 7,
+})
+menuDraggers[2] = attachScaleDrag(Menu, TopRightHandle, {
+    ClickThreshold = 7,
+})
+menuDraggers[3] = attachScaleDrag(Menu, BottomLeftHandle, {
+    ClickThreshold = 7,
+})
+menuDraggers[4] = attachScaleDrag(Menu, BottomRightHandle, {
+    ClickThreshold = 7,
+})
+
+local ActiveTab = nil
+local TabButtons = {}
+
+local TabDefinitions = {
+    {Name = "Main", Icon = TAB_ICONS.Main, LayoutOrder = 1},
+    {Name = "Auto Buy", Icon = TAB_ICONS["Auto Buy"], LayoutOrder = 2},
+    {Name = "Farm", Icon = TAB_ICONS.Farm, LayoutOrder = 3},
+    {Name = "Config", Icon = TAB_ICONS.Config, LayoutOrder = 4},
+    {Name = "Credits", Icon = TAB_ICONS.Credits, LayoutOrder = 5},
+}
+
+local function clearContent()
+    for _, child in ipairs(ContentScroll:GetChildren()) do
+        if child:IsA("GuiObject") and child ~= EmptyState then
+            child:Destroy()
+        end
+    end
+end
+
+local function resetSearch()
+    SearchBox.Text = ""
+    SearchClear.Visible = false
+end
+
+local function setEmptyStateForTab(tabName)
+    EmptyTitle.Text = "No options yet"
+    EmptyDescription.Text = ""
+    if tabName == "Main" then
+        EmptyDescription.Text = "This tab is ready for future options."
+    elseif tabName == "Auto Buy" then
+        EmptyDescription.Text = "Auto Buy options will be added later."
+    elseif tabName == "Farm" then
+        EmptyDescription.Text = "Farm options will be added later."
+    elseif tabName == "Config" then
+        EmptyDescription.Text = "Player and configuration options will be added later."
+    elseif tabName == "Credits" then
+        EmptyDescription.Text = "Credit and information options will be added later."
+    else
+        EmptyDescription.Text = "This tab is ready for future options."
+    end
+end
+
+local function styleTabButton(button, selected)
+    if selected then
+        button.BackgroundColor3 = COLORS.Panel3
+        button.TextColor3 = COLORS.White
+    else
+        button.BackgroundColor3 = COLORS.Panel
+        button.TextColor3 = COLORS.Gray3
+    end
+end
+
+local function createTab(definition)
+    local button = Instance.new("TextButton")
+    button.Name = "Tab_" .. definition.Name:gsub("%s+", "_")
+    button.AutoButtonColor = false
+    button.BackgroundColor3 = COLORS.Panel
+    button.BorderSizePixel = 0
+    button.Size = UDim2.fromScale(0.96, 0.145)
+    button.Text = ""
+    button.LayoutOrder = definition.LayoutOrder
+    button.ZIndex = 24
+    setNoLocalize(button)
+    button.Parent = TabsScroll
+
+    local iconHolder = Instance.new("Frame")
+    iconHolder.Name = "IconHolder"
+    iconHolder.BackgroundColor3 = COLORS.Panel2
+    iconHolder.BorderSizePixel = 0
+    iconHolder.Position = UDim2.fromScale(0.055, 0.16)
+    iconHolder.Size = UDim2.fromScale(0.19, 0.68)
+    iconHolder.ZIndex = 25
+    iconHolder.Parent = button
+    addAspect(iconHolder, 1)
+
+    local icon = makeImage(
+        iconHolder,
+        definition.Icon,
+        UDim2.fromScale(0.18, 0.18),
+        UDim2.fromScale(0.64, 0.64),
+        0
+    )
+    icon.ZIndex = 26
+
+    local label = makeText(
+        button,
+        definition.Name,
+        UDim2.fromScale(0.29, 0.02),
+        UDim2.fromScale(0.64, 0.96),
+        12,
+        Enum.Font.GothamMedium,
+        COLORS.Gray3
+    )
+    label.ZIndex = 26
+
+    local stroke = addStroke(button, 1, 0.76, COLORS.Gray)
+    stroke.ZIndex = 27
+
+    local entry = {
+        Button = button,
+        IconHolder = iconHolder,
+        Icon = icon,
+        Label = label,
+        Stroke = stroke,
+        Name = definition.Name,
+    }
+    table.insert(TabButtons, entry)
+
+    button.Activated:Connect(function()
+        if ActiveTab == definition.Name then
+            return
+        end
+        ActiveTab = definition.Name
+        for _, item in ipairs(TabButtons) do
+            styleTabButton(item.Button, item.Name == ActiveTab)
+        end
+        resetSearch()
+        setEmptyStateForTab(ActiveTab)
+        ContentScroll.CanvasPosition = Vector2.new(0, 0)
+    end)
+
+    return entry
+end
+
+for _, definition in ipairs(TabDefinitions) do
+    createTab(definition)
+end
+
+local function activateDefaultTab()
+    ActiveTab = "Main"
+    for _, item in ipairs(TabButtons) do
+        styleTabButton(item.Button, item.Name == ActiveTab)
+    end
+    setEmptyStateForTab(ActiveTab)
+end
+
+activateDefaultTab()
+
+local function updateSearchVisibility()
+    local value = SearchBox.Text or ""
+    SearchClear.Visible = value ~= ""
+end
+
+SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+    updateSearchVisibility()
+    local query = string.lower(SearchBox.Text or "")
+    if query == "" then
+        EmptyState.Visible = true
+        return
+    end
+
+    local matches = 0
+    for _, child in ipairs(ContentScroll:GetChildren()) do
+        if child:IsA("Frame") and child.Name ~= "EmptyState" then
+            local searchable = string.lower(child:GetAttribute("SearchText") or "")
+            child.Visible = string.find(searchable, query, 1, true) ~= nil
+            if child.Visible then
+                matches += 1
+            end
+        end
+    end
+
+    EmptyState.Visible = matches == 0
+    EmptyTitle.Text = matches == 0 and "No matching options" or "No options yet"
+    EmptyDescription.Text = matches == 0 and "Try another search term." or ""
+end)
+
+SearchClear.Activated:Connect(function()
+    SearchBox.Text = ""
+    SearchBox:CaptureFocus()
+end)
+
+local menuVisible = false
+local menuTweenToken = 0
+local confirmVisible = false
+
+local function setMenuVisible(visible, animate)
+    menuVisible = visible
+    menuTweenToken += 1
+    local token = menuTweenToken
+
+    if visible then
+        Menu.Visible = true
+        if animate then
+            MenuScale.Scale = 0.94
+            smoothTween(MenuScale, {Scale = 1}, 0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+        else
+            MenuScale.Scale = 1
+        end
+    else
+        if animate then
+            local tween = smoothTween(MenuScale, {Scale = 0.94}, 0.13, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+            tween.Completed:Connect(function()
+                if token == menuTweenToken and not menuVisible then
+                    Menu.Visible = false
+                    MenuScale.Scale = 1
+                end
+            end)
+        else
+            Menu.Visible = false
+            MenuScale.Scale = 1
+        end
+    end
+end
+
+function toggleMenu()
+    if confirmVisible then
+        return
+    end
+    setMenuVisible(not menuVisible, true)
+end
+
+local function showConfirm()
+    if not menuVisible then
+        return
+    end
+    confirmVisible = true
+    ConfirmOverlay.Visible = true
+    ConfirmOverlay.BackgroundTransparency = 1
+    ConfirmPanel.Position = UDim2.fromScale(0.24, 0.34)
+    ConfirmPanel.Size = UDim2.fromScale(0.52, 0.34)
+    smoothTween(ConfirmOverlay, {BackgroundTransparency = 0.32}, 0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    smoothTween(ConfirmPanel, {
+        Position = UDim2.fromScale(0.24, 0.31),
+        Size = UDim2.fromScale(0.52, 0.38),
+    }, 0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+end
+
+local function hideConfirm()
+    confirmVisible = false
+    smoothTween(ConfirmOverlay, {BackgroundTransparency = 1}, 0.11, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+    local tween = smoothTween(ConfirmPanel, {
+        Position = UDim2.fromScale(0.24, 0.34),
+        Size = UDim2.fromScale(0.52, 0.34),
+    }, 0.11, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+    tween.Completed:Connect(function()
+        if not confirmVisible then
+            ConfirmOverlay.Visible = false
+        end
+    end)
+end
+
+CloseButton.Activated:Connect(function()
+    showConfirm()
+end)
+
+HideButton.Activated:Connect(function()
+    if confirmVisible then
+        return
+    end
+    setMenuVisible(false, true)
+end)
+
+CancelButton.Activated:Connect(function()
+    hideConfirm()
+end)
+
+ConfirmButton.Activated:Connect(function()
+    hideConfirm()
+    task.delay(0.12, function()
+        safeDestroy(ScreenGui)
+    end)
+end)
+
+local function clampMainButtonToScreen()
+    local x = MainButton.Position.X.Scale
+    local y = MainButton.Position.Y.Scale
+    local sizeX = MainButton.Size.X.Scale
+    local sizeY = MainButton.Size.Y.Scale
+    local clampedX = math.clamp(x, 0, 1 - sizeX)
+    local clampedY = math.clamp(y, 0, 1 - sizeY)
+    if clampedX ~= x or clampedY ~= y then
+        MainButton.Position = UDim2.fromScale(clampedX, clampedY)
+    end
+end
+
+local function clampMenuToScreen()
+    local x = Menu.Position.X.Scale
+    local y = Menu.Position.Y.Scale
+    local sizeX = Menu.Size.X.Scale
+    local sizeY = Menu.Size.Y.Scale
+    Menu.Position = UDim2.fromScale(
+        math.clamp(x, 0, 1 - sizeX),
+        math.clamp(y, 0, 1 - sizeY)
+    )
+end
+
+local function normalizedPositionForRightEdge(frame)
+    local sizeX = frame.Size.X.Scale
+    return math.clamp(1 - sizeX, 0, 1 - sizeX)
+end
+
+local function normalizedPositionForLeftEdge(frame)
+    return 0
+end
+
+local function restoreMainButtonNearBoundary()
+    local position = MainButton.Position
+    local sizeX = MainButton.Size.X.Scale
+    local sizeY = MainButton.Size.Y.Scale
+    local centerX = position.X.Scale + sizeX / 2
+    local targetX
+    if centerX >= 0.5 then
+        targetX = normalizedPositionForRightEdge(MainButton)
+    else
+        targetX = normalizedPositionForLeftEdge(MainButton)
+    end
+    local targetY = math.clamp(position.Y.Scale, 0, 1 - sizeY)
+    MainButton.Position = UDim2.fromScale(targetX, targetY)
+end
+
+local function restoreMenuNearBoundary()
+    local position = Menu.Position
+    local sizeX = Menu.Size.X.Scale
+    local sizeY = Menu.Size.Y.Scale
+    local viewportCenter = position.X.Scale + sizeX / 2
+    local targetX
+    if viewportCenter >= 0.5 then
+        targetX = math.clamp(1 - sizeX, 0, 1 - sizeX)
+    else
+        targetX = 0
+    end
+    local targetY = math.clamp(position.Y.Scale, 0, 1 - sizeY)
+    Menu.Position = UDim2.fromScale(targetX, targetY)
+end
+
+local lastScreenSize = getAbsoluteViewport()
+local function handleViewportChanged()
+    local now = getAbsoluteViewport()
+    if now.X <= 0 or now.Y <= 0 then
+        return
+    end
+    local old = lastScreenSize
+    lastScreenSize = now
+    if old.X == now.X and old.Y == now.Y then
+        return
+    end
+    clampMainButtonToScreen()
+    clampMenuToScreen()
+end
+
+local cameraConnection
+pcall(function()
+    local camera = workspace.CurrentCamera
+    if camera then
+        cameraConnection = camera:GetPropertyChangedSignal("ViewportSize"):Connect(handleViewportChanged)
+    end
+end)
+
+workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+    pcall(function()
+        if cameraConnection then
+            cameraConnection:Disconnect()
+            cameraConnection = nil
+        end
+        local camera = workspace.CurrentCamera
+        if camera then
+            cameraConnection = camera:GetPropertyChangedSignal("ViewportSize"):Connect(handleViewportChanged)
+        end
+    end)
+    handleViewportChanged()
+end)
+
+local function keepWithinViewportLoop()
+    while ScreenGui.Parent do
+        if not mainDrag.IsDragging() then
+            local pos = MainButton.Position
+            local sizeX = MainButton.Size.X.Scale
+            local sizeY = MainButton.Size.Y.Scale
+            if pos.X.Scale < -0.02 or pos.X.Scale > 1.02 - sizeX or pos.Y.Scale < -0.02 or pos.Y.Scale > 1.02 - sizeY then
+                restoreMainButtonNearBoundary()
+            else
+                clampMainButtonToScreen()
+            end
+        end
+
+        if menuVisible and not confirmVisible then
+            local anyDragging = false
+            for _, dragger in ipairs(menuDraggers) do
+                if dragger.IsDragging() then
+                    anyDragging = true
+                    break
+                end
+            end
+            if not anyDragging then
+                local pos = Menu.Position
+                local sizeX = Menu.Size.X.Scale
+                local sizeY = Menu.Size.Y.Scale
+                if pos.X.Scale < -0.08 or pos.X.Scale > 1.08 - sizeX or pos.Y.Scale < -0.08 or pos.Y.Scale > 1.08 - sizeY then
+                    restoreMenuNearBoundary()
+                else
+                    clampMenuToScreen()
+                end
+            end
+        end
+
+        task.wait(0.10)
+    end
+end
+
+task.spawn(keepWithinViewportLoop)
+
+local function animateMainButtonPress(button)
+    if not button or not button.Parent then
+        return
+    end
+    local scale = button:FindFirstChildOfClass("UIScale")
+    if not scale then
+        return
+    end
+    smoothTween(scale, {Scale = 0.92}, 0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    task.delay(0.08, function()
+        if button.Parent then
+            smoothTween(scale, {Scale = 1}, 0.12, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+        end
+    end)
+end
+
+MainButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+        animateMainButtonPress(MainButton)
+    end
+end)
+
+local function bindHover(button)
+    button.MouseEnter:Connect(function()
+        if button:IsA("GuiButton") then
+            smoothTween(button, {BackgroundTransparency = 0.05}, 0.10, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        end
+    end)
+    button.MouseLeave:Connect(function()
+        if button:IsA("GuiButton") then
+            smoothTween(button, {BackgroundTransparency = 0}, 0.10, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        end
+    end)
+end
+
+bindHover(HideButton)
+bindHover(CloseButton)
+bindHover(CancelButton)
+bindHover(ConfirmButton)
+
+for _, tabEntry in ipairs(TabButtons) do
+    bindHover(tabEntry.Button)
+end
+
+local function updateEmptyStateWidth()
+    if not EmptyState or not EmptyState.Parent then
+        return
+    end
+    EmptyState.Size = UDim2.fromScale(0.92, 0.30)
+end
+
+local function updateHeaderScale()
+    if Header.AbsoluteSize.Y <= 0 then
+        return
+    end
+    if Header.AbsoluteSize.Y < 52 then
+        Title.TextSize = 14
+        CloseButton.TextSize = 14
+        HideButton.TextSize = 17
+    elseif Header.AbsoluteSize.Y > 100 then
+        Title.TextSize = 19
+        CloseButton.TextSize = 17
+        HideButton.TextSize = 20
+    else
+        Title.TextSize = 18
+        CloseButton.TextSize = 16
+        HideButton.TextSize = 19
+    end
+end
+
+Menu:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+    updateHeaderScale()
+    updateEmptyStateWidth()
+end)
+
+local menuPositionMemory = {
+    X = Menu.Position.X.Scale,
+    Y = Menu.Position.Y.Scale,
+}
+local buttonPositionMemory = {
+    X = MainButton.Position.X.Scale,
+    Y = MainButton.Position.Y.Scale,
+}
+
+local function memorizePositions()
+    menuPositionMemory.X = Menu.Position.X.Scale
+    menuPositionMemory.Y = Menu.Position.Y.Scale
+    buttonPositionMemory.X = MainButton.Position.X.Scale
+    buttonPositionMemory.Y = MainButton.Position.Y.Scale
+end
+
+local function restorePositions()
+    local menuX = math.clamp(menuPositionMemory.X, 0, 1 - Menu.Size.X.Scale)
+    local menuY = math.clamp(menuPositionMemory.Y, 0, 1 - Menu.Size.Y.Scale)
+    Menu.Position = UDim2.fromScale(menuX, menuY)
+
+    local buttonX = math.clamp(buttonPositionMemory.X, 0, 1 - MainButton.Size.X.Scale)
+    local buttonY = math.clamp(buttonPositionMemory.Y, 0, 1 - MainButton.Size.Y.Scale)
+    MainButton.Position = UDim2.fromScale(buttonX, buttonY)
+end
+
+local function setupPositionMemorySignals()
+    Menu:GetPropertyChangedSignal("Position"):Connect(function()
+        if not menuVisible then
+            menuPositionMemory.X = Menu.Position.X.Scale
+            menuPositionMemory.Y = Menu.Position.Y.Scale
+        end
+    end)
+    MainButton:GetPropertyChangedSignal("Position"):Connect(function()
+        buttonPositionMemory.X = MainButton.Position.X.Scale
+        buttonPositionMemory.Y = MainButton.Position.Y.Scale
+    end)
+end
+
+setupPositionMemorySignals()
+
+local function enforceScaleOnly(guiObject)
+    local size = guiObject.Size
+    local position = guiObject.Position
+    if size.X.Offset ~= 0 or size.Y.Offset ~= 0 then
+        guiObject.Size = UDim2.fromScale(size.X.Scale, size.Y.Scale)
+    end
+    if position.X.Offset ~= 0 or position.Y.Offset ~= 0 then
+        guiObject.Position = UDim2.fromScale(position.X.Scale, position.Y.Scale)
+    end
+end
+
+local function auditScaleOnly(root)
+    local descendants = root:GetDescendants()
+    for _, descendant in ipairs(descendants) do
+        if descendant:IsA("GuiObject") then
+            enforceScaleOnly(descendant)
+        end
+    end
+end
+
+task.spawn(function()
+    while ScreenGui.Parent do
+        auditScaleOnly(Root)
+        task.wait(1)
+    end
+end)
+
+local function safeGetTextWidth(label)
+    local textBounds = label.TextBounds
+    return textBounds.X
+end
+
+local function fitTitle()
+    local width = math.max(1, Title.AbsoluteSize.X)
+    local textWidth = safeGetTextWidth(Title)
+    if textWidth > width then
+        Title.TextSize = math.max(11, math.floor(Title.TextSize * width / textWidth))
+    end
+end
+
+Title:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+    fitTitle()
+end)
+
+local function updateSearchPlaceholder()
+    if SearchBox.Text == "" then
+        SearchBox.PlaceholderText = "Search..."
+    else
+        SearchBox.PlaceholderText = ""
+    end
+end
+
+SearchBox:GetPropertyChangedSignal("Text"):Connect(updateSearchPlaceholder)
+
+local function protectAgainstFocusSteal()
+    if ConfirmOverlay.Visible then
+        return
+    end
+    if not Menu.Visible then
+        return
+    end
+end
+
+UserInputService.TextBoxFocused:Connect(function(textBox)
+    if textBox == SearchBox then
+        protectAgainstFocusSteal()
+    end
+end)
+
+local function closeKeyboardOnMenuHide()
+    if not Menu.Visible then
+        pcall(function()
+            SearchBox:ReleaseFocus()
+        end)
+    end
+end
+
+local oldMenuVisible = Menu.Visible
+Menu:GetPropertyChangedSignal("Visible"):Connect(function()
+    if oldMenuVisible ~= Menu.Visible then
+        oldMenuVisible = Menu.Visible
+        closeKeyboardOnMenuHide()
+    end
+end)
+
+local function setTabScrollBarHidden()
+    TabsScroll.ScrollBarThickness = 0
+    TabsScroll.ScrollBarImageTransparency = 1
+    ContentScroll.ScrollBarThickness = 0
+    ContentScroll.ScrollBarImageTransparency = 1
+end
+
+setTabScrollBarHidden()
+
+local function addTabSpacing()
+    local topPadding = TabsScroll:FindFirstChild("TopPadding")
+    if not topPadding then
+        topPadding = Instance.new("UIPadding")
+        topPadding.Name = "TopPadding"
+        topPadding.PaddingTop = UDim.new(0, 0)
+        topPadding.PaddingBottom = UDim.new(0, 0)
+        topPadding.PaddingLeft = UDim.new(0, 0)
+        topPadding.PaddingRight = UDim.new(0, 0)
+        topPadding.Parent = TabsScroll
+    end
+end
+
+addTabSpacing()
+
+local function preventNestedSelection()
+    for _, entry in ipairs(TabButtons) do
+        entry.Button.Selectable = true
+        entry.Button.Modal = false
+    end
+end
+
+preventNestedSelection()
+
+local function refreshTabCanvas()
+    TabsScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+end
+
+TabsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(refreshTabCanvas)
+ContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    ContentScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+end)
+
+local function maintainActiveTabVisual()
+    for _, entry in ipairs(TabButtons) do
+        styleTabButton(entry.Button, entry.Name == ActiveTab)
+    end
+end
+
+task.spawn(function()
+    while ScreenGui.Parent do
+        maintainActiveTabVisual()
+        setEmptyStateForTab(ActiveTab)
+        task.wait(0.75)
+    end
+end)
+
+local function handleEscape()
+    if confirmVisible then
+        hideConfirm()
+        return true
+    end
+    if SearchBox:IsFocused() then
+        SearchBox:ReleaseFocus()
+        return true
+    end
+    if Menu.Visible then
+        setMenuVisible(false, true)
+        return true
+    end
+    return false
+end
+
+UserInputService.InputBegan:Connect(function(input, processed)
+    if processed then
+        return
+    end
+    if input.KeyCode == Enum.KeyCode.Escape then
+        handleEscape()
+    end
+end)
+
+local function setInteractionState(enabled)
+    MainButton.Active = enabled
+    HideButton.Active = enabled
+    CloseButton.Active = enabled
+    CancelButton.Active = enabled
+    ConfirmButton.Active = enabled
+    SearchBox.Active = enabled
+    SearchClear.Active = enabled
+    for _, entry in ipairs(TabButtons) do
+        entry.Button.Active = enabled
+    end
+end
+
+ConfirmOverlay:GetPropertyChangedSignal("Visible"):Connect(function()
+    if ConfirmOverlay.Visible then
+        setInteractionState(false)
+        CancelButton.Active = true
+        ConfirmButton.Active = true
+    else
+        setInteractionState(true)
+    end
+end)
+
+local function reconnectMainButtonIfNeeded()
+    if MainButton.Parent ~= Root then
+        return
+    end
+    MainButton.Visible = true
+end
+
+local function ensureVisualHierarchy()
+    Root.ZIndex = 1
+    MainButton.ZIndex = 30
+    Menu.ZIndex = 20
+    ConfirmOverlay.ZIndex = 100
+    ConfirmPanel.ZIndex = 102
+end
+
+ensureVisualHierarchy()
+
+local function ensureTextIsEnglishOnly()
+    local englishStrings = {
+        TITLE_TEXT,
+        "MENU",
+        "Search...",
+        "No options yet",
+        "No matching options",
+        "This tab is ready for future options.",
+        "Auto Buy options will be added later.",
+        "Farm options will be added later.",
+        "Player and configuration options will be added later.",
+        "Credit and information options will be added later.",
+        "Close Phantom Hub?",
+        "Confirming will remove the mod menu and its open button.",
+        "Cancel",
+        "Confirm",
+    }
+    for _, value in ipairs(englishStrings) do
+        if type(value) ~= "string" or value == "" then
+            return false
+        end
+    end
+    return true
+end
+
+ensureTextIsEnglishOnly()
+
+local function initializeScaleRules()
+    local scaleOnlyObjects = {
+        MainButton,
+        MainButtonGlow,
+        Menu,
+        Header,
+        Body,
+        TabsPanel,
+        TabsScroll,
+        ContentPanel,
+        SearchHolder,
+        SearchIcon,
+        SearchBox,
+        SearchClear,
+        ContentScroll,
+        EmptyState,
+        EmptyIconHolder,
+        EmptyIcon,
+        EmptyTitle,
+        EmptyDescription,
+        ConfirmOverlay,
+        ConfirmPanel,
+        ConfirmTitle,
+        ConfirmDescription,
+        CancelButton,
+        ConfirmButton,
+    }
+    for _, object in ipairs(scaleOnlyObjects) do
+        enforceScaleOnly(object)
+    end
+    for _, entry in ipairs(TabButtons) do
+        enforceScaleOnly(entry.Button)
+        enforceScaleOnly(entry.IconHolder)
+        enforceScaleOnly(entry.Icon)
+        enforceScaleOnly(entry.Label)
+    end
+    for _, handle in ipairs(MenuCornerHandles) do
+        enforceScaleOnly(handle)
+    end
+end
+
+initializeScaleRules()
+
+local function normalizeRoot()
+    Root.Position = UDim2.fromScale(0, 0)
+    Root.Size = UDim2.fromScale(1, 1)
+end
+
+normalizeRoot()
+
+local function ensureMainButtonVisible()
+    if not Menu.Visible and MainButton.Parent == Root then
+        MainButton.Visible = true
+    end
+end
+
+local function delayedStartupChecks()
+    task.wait(0.10)
+    initializeScaleRules()
+    handleViewportChanged()
+    ensureMainButtonVisible()
+    reconnectMainButtonIfNeeded()
+    fitTitle()
+end
+
+task.spawn(delayedStartupChecks)
+
+local function startupAnimation()
+    MainButtonScale.Scale = 0.85
+    MainButton.Visible = true
+    smoothTween(MainButtonScale, {Scale = 1}, 0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+end
+
+startupAnimation()
+
+local function shutdownCleanup()
+    pcall(function()
+        if cameraConnection then
+            cameraConnection:Disconnect()
+        end
+    end)
+end
+
+ScreenGui.AncestryChanged:Connect(function(_, parent)
+    if parent == nil then
+        shutdownCleanup()
+    end
+end)
+
+local function verifyNoOffsetValues()
+    local all = Root:GetDescendants()
+    for _, object in ipairs(all) do
+        if object:IsA("GuiObject") then
+            if object.Size.X.Offset ~= 0 or object.Size.Y.Offset ~= 0 then
+                object.Size = UDim2.fromScale(object.Size.X.Scale, object.Size.Y.Scale)
+            end
+            if object.Position.X.Offset ~= 0 or object.Position.Y.Offset ~= 0 then
+                object.Position = UDim2.fromScale(object.Position.X.Scale, object.Position.Y.Scale)
+            end
+        end
+    end
+end
+
+local function preserveTabState()
+    if ActiveTab == nil then
+        activateDefaultTab()
+    end
+end
+
+local function preserveMenuState()
+    if Menu.Visible then
+        clampMenuToScreen()
+    end
+end
+
+local function preserveButtonState()
+    clampMainButtonToScreen()
+end
+
+task.spawn(function()
+    while ScreenGui.Parent do
+        verifyNoOffsetValues()
+        preserveTabState()
+        preserveMenuState()
+        preserveButtonState()
+        task.wait(2)
+    end
+end)
+
+local function createFutureOptionPlaceholder(name, description, searchText)
+    local option = Instance.new("Frame")
+    option.Name = name or "FutureOption"
+    option.BackgroundColor3 = COLORS.Panel
+    option.BorderSizePixel = 0
+    option.Size = UDim2.fromScale(0.92, 0.15)
+    option.LayoutOrder = 1000
+    option.Visible = false
+    option:SetAttribute("SearchText", string.lower(searchText or name or ""))
+    option.ZIndex = 24
+    option.Parent = ContentScroll
+
+    local titleLabel = makeText(
+        option,
+        name or "Future Option",
+        UDim2.fromScale(0.06, 0.08),
+        UDim2.fromScale(0.70, 0.40),
+        13,
+        Enum.Font.GothamBold,
+        COLORS.White
+    )
+
+    local descriptionLabel = makeText(
+        option,
+        description or "",
+        UDim2.fromScale(0.06, 0.48),
+        UDim2.fromScale(0.82, 0.34),
+        10,
+        Enum.Font.Gotham,
+        COLORS.Gray3
+    )
+    descriptionLabel.TextWrapped = true
+
+    addStroke(option, 1, 0.70, COLORS.Gray)
+    return option
+end
+
+local function searchFutureOptions(query)
+    local normalized = string.lower(query or "")
+    local count = 0
+    for _, child in ipairs(ContentScroll:GetChildren()) do
+        if child:IsA("Frame") and child ~= EmptyState then
+            local searchable = string.lower(child:GetAttribute("SearchText") or "")
+            local matches = normalized ~= "" and string.find(searchable, normalized, 1, true) ~= nil
+            child.Visible = matches
+            if matches then
+                count += 1
+            end
+        end
+    end
+    return count
+end
+
+local function clearFutureOptions()
+    for _, child in ipairs(ContentScroll:GetChildren()) do
+        if child:IsA("Frame") and child ~= EmptyState then
+            child:Destroy()
+        end
+    end
+end
+
+local function rebuildSearchState()
+    local query = string.lower(SearchBox.Text or "")
+    if query == "" then
+        for _, child in ipairs(ContentScroll:GetChildren()) do
+            if child:IsA("Frame") and child ~= EmptyState then
+                child.Visible = false
+            end
+        end
+        EmptyState.Visible = true
+        EmptyTitle.Text = "No options yet"
+        setEmptyStateForTab(ActiveTab)
+        return
+    end
+    local count = searchFutureOptions(query)
+    EmptyState.Visible = count == 0
+    EmptyTitle.Text = count == 0 and "No matching options" or "No options yet"
+    EmptyDescription.Text = count == 0 and "Try another search term." or ""
+end
+
+local function initializeFutureOptionLayer()
+    clearFutureOptions()
+    rebuildSearchState()
+end
+
+initializeFutureOptionLayer()
+
+local function refreshAfterTextInput()
+    updateSearchVisibility()
+    updateSearchPlaceholder()
+    rebuildSearchState()
+end
+
+SearchBox:GetPropertyChangedSignal("Text"):Connect(refreshAfterTextInput)
+
+local function keepSearchAlwaysAvailable()
+    SearchHolder.Visible = true
+    SearchIcon.Visible = true
+    SearchBox.Visible = true
+end
+
+keepSearchAlwaysAvailable()
+
+local function maintainMainButtonIcon()
+    MainButton.Image = MAIN_ICON
+    SearchIcon.Image = SEARCH_ICON
+end
+
+maintainMainButtonIcon()
+
+local function maintainTabIcons()
+    for _, entry in ipairs(TabButtons) do
+        for _, definition in ipairs(TabDefinitions) do
+            if definition.Name == entry.Name then
+                entry.Icon.Image = definition.Icon
+            end
+        end
+    end
+end
+
+maintainTabIcons()
+
+local function applyContrast()
+    MainButton.BackgroundColor3 = COLORS.Panel
+    MainButton.ImageColor3 = COLORS.White
+    Menu.BackgroundColor3 = COLORS.DeepBlack
+    Header.BackgroundColor3 = COLORS.Panel
+    TabsPanel.BackgroundColor3 = COLORS.Panel
+    ContentPanel.BackgroundColor3 = COLORS.DeepBlack
+    SearchHolder.BackgroundColor3 = COLORS.Panel
+    EmptyState.BackgroundColor3 = COLORS.Panel
+    ConfirmPanel.BackgroundColor3 = COLORS.Panel
+end
+
+applyContrast()
+
+local function refreshNoOptionMessage()
+    if SearchBox.Text == "" then
+        setEmptyStateForTab(ActiveTab)
+    end
+end
+
+refreshNoOptionMessage()
+
+local function handleInputTypeChanged()
+    local touch = UserInputService.TouchEnabled
+    if touch then
+        TabsScroll.Active = true
+        ContentScroll.Active = true
+    else
+        TabsScroll.Active = true
+        ContentScroll.Active = true
+    end
+end
+
+handleInputTypeChanged()
+
+local function updateMouseBehavior()
+    pcall(function()
+        GuiService.SelectedObject = nil
+    end)
+end
+
+updateMouseBehavior()
+
+local function waitForGuiReady()
+    local start = os.clock()
+    while ScreenGui.Parent and os.clock() - start < 5 do
+        if Root.AbsoluteSize.X > 0 and Root.AbsoluteSize.Y > 0 then
+            break
+        end
+        task.wait()
+    end
+end
+
+task.spawn(function()
+    waitForGuiReady()
+    handleViewportChanged()
+    initializeScaleRules()
+end)
+
+local function keepScreenGuiAlive()
+    if not ScreenGui.Parent then
+        return false
+    end
+    if not Root.Parent then
+        return false
+    end
+    return true
+end
+
+task.spawn(function()
+    while keepScreenGuiAlive() do
+        if MainButton.Parent ~= Root then
+            MainButton.Parent = Root
+        end
+        if Menu.Parent ~= Root then
+            Menu.Parent = Root
+        end
+        task.wait(1.5)
+    end
+end)
+
+local function setMenuInputEnabled(enabled)
+    local handlesActive = enabled and not confirmVisible
+    for _, handle in ipairs(MenuCornerHandles) do
+        handle.Active = handlesActive
+    end
+end
+
+ConfirmOverlay:GetPropertyChangedSignal("Visible"):Connect(function()
+    setMenuInputEnabled(not ConfirmOverlay.Visible)
+end)
+
+setMenuInputEnabled(true)
+
+local function reapplyHeaderStroke()
+    for _, item in ipairs({Header, SearchHolder, EmptyState, ConfirmPanel}) do
+        local stroke = item:FindFirstChildOfClass("UIStroke")
+        if stroke then
+            stroke.Color = COLORS.Gray2
+        end
+    end
+end
+
+reapplyHeaderStroke()
+
+local function finalizeLayout()
+    normalizeRoot()
+    initializeScaleRules()
+    clampMainButtonToScreen()
+    clampMenuToScreen()
+    setTabScrollBarHidden()
+    maintainTabIcons()
+    maintainMainButtonIcon()
+end
+
+finalizeLayout()
+
+local function pulseTab(entry)
+    if not entry or not entry.Button.Parent then
+        return
+    end
+    local stroke = entry.Stroke
+    if stroke then
+        local original = stroke.Transparency
+        smoothTween(stroke, {Transparency = 0.10}, 0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        task.delay(0.08, function()
+            if stroke.Parent then
+                smoothTween(stroke, {Transparency = original}, 0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+            end
+        end)
+    end
+end
+
+for _, entry in ipairs(TabButtons) do
+    entry.Button.Activated:Connect(function()
+        pulseTab(entry)
+    end)
+end
+
+local function focusSearch()
+    if Menu.Visible and not ConfirmOverlay.Visible then
+        pcall(function()
+            SearchBox:CaptureFocus()
+        end)
+    end
+end
+
+local function clearSearchFocus()
+    pcall(function()
+        SearchBox:ReleaseFocus()
+    end)
+end
+
+SearchBox.FocusLost:Connect(function()
+    updateSearchVisibility()
+end)
+
+local function resetVisualState()
+    MainButtonScale.Scale = 1
+    MenuScale.Scale = 1
+    SearchClear.Visible = SearchBox.Text ~= ""
+    ConfirmOverlay.Visible = confirmVisible
+end
+
+resetVisualState()
+
+local function finalScaleAudit()
+    enforceScaleOnly(Root)
+    enforceScaleOnly(MainButton)
+    enforceScaleOnly(Menu)
+    for _, item in ipairs(TabButtons) do
+        enforceScaleOnly(item.Button)
+        enforceScaleOnly(item.IconHolder)
+        enforceScaleOnly(item.Icon)
+        enforceScaleOnly(item.Label)
+    end
+end
+
+finalScaleAudit()
+
+local function stabilizeDragging()
+    if mainDrag.IsDragging() then
+        return
+    end
+    clampMainButtonToScreen()
+    if not menuVisible then
+        return
+    end
+    for _, dragger in ipairs(menuDraggers) do
+        if dragger.IsDragging() then
+            return
+        end
+    end
+    clampMenuToScreen()
+end
+
+task.spawn(function()
+    while ScreenGui.Parent do
+        stabilizeDragging()
+        task.wait(0.25)
+    end
+end)
+
+local function ensureDefaultPositions()
+    if MainButton.Position.X.Scale < 0 or MainButton.Position.X.Scale > 1 then
+        MainButton.Position = UDim2.fromScale(0.055, 0.22)
+    end
+    if Menu.Position.X.Scale < 0 or Menu.Position.X.Scale > 1 then
+        Menu.Position = UDim2.fromScale(0.18, 0.14)
+    end
+end
+
+ensureDefaultPositions()
+
+local function setAllTextEnglish()
+    Title.Text = TITLE_TEXT
+    TabsHeader.Text = "MENU"
+    SearchBox.PlaceholderText = SearchBox.Text == "" and "Search..." or ""
+    CloseButton.Text = "X"
+    HideButton.Text = "-"
+    CancelButton.Text = "Cancel"
+    ConfirmButton.Text = "Confirm"
+end
+
+setAllTextEnglish()
+
+local function finishInitialState()
+    ActiveTab = "Main"
+    maintainActiveTabVisual()
+    refreshNoOptionMessage()
+    SearchClear.Visible = false
+    Menu.Visible = false
+    ConfirmOverlay.Visible = false
+    MainButton.Visible = true
+    MainButtonScale.Scale = 1
+    MenuScale.Scale = 1
+    finalScaleAudit()
+end
+
+finishInitialState()
+
+local function keepMainButtonInPreferredStartPositionWhenFresh()
+    if buttonPositionMemory.X == 0 and buttonPositionMemory.Y == 0 then
+        MainButton.Position = UDim2.fromScale(0.055, 0.22)
+    end
+end
+
+keepMainButtonInPreferredStartPositionWhenFresh()
+
+local function finalViewportPass()
+    handleViewportChanged()
+    clampMainButtonToScreen()
+    clampMenuToScreen()
+    updateHeaderScale()
+end
+
+finalViewportPass()
+
+local function keepSearchIconVisible()
+    if not SearchIcon.Visible then
+        SearchIcon.Visible = true
+    end
+end
+
+local function keepSearchXRule()
+    SearchClear.Visible = SearchBox.Text ~= ""
+end
+
+task.spawn(function()
+    while ScreenGui.Parent do
+        keepSearchIconVisible()
+        keepSearchXRule()
+        task.wait(0.5)
+    end
+end)
+
+local function ensureEnglishTabNames()
+    for _, entry in ipairs(TabButtons) do
+        entry.Label.Text = entry.Name
+    end
+end
+
+ensureEnglishTabNames()
+
+local function ensureMenuTitle()
+    Title.Text = TITLE_TEXT
+end
+
+ensureMenuTitle()
+
+local function ensureSquareObjects()
+    local squareObjects = {
+        MainButton,
+        MainButtonGlow,
+        EmptyIconHolder,
+    }
+    for _, object in ipairs(squareObjects) do
+        local aspect = object:FindFirstChildOfClass("UIAspectRatioConstraint")
+        if not aspect then
+            addAspect(object, 1)
+        else
+            aspect.AspectRatio = 1
+        end
+    end
+end
+
+ensureSquareObjects()
+
+local function maintainDragHandles()
+    for _, handle in ipairs(MenuCornerHandles) do
+        handle.Active = not confirmVisible and Menu.Visible
+    end
+end
+
+maintainDragHandles()
+
+local function finalInteractionSetup()
+    MainButton.Active = true
+    MainButton.Selectable = false
+    SearchBox.Active = true
+    SearchClear.Active = true
+    HideButton.Active = true
+    CloseButton.Active = true
+    CancelButton.Active = true
+    ConfirmButton.Active = true
+end
+
+finalInteractionSetup()
+
+local function refreshAfterRespawn()
+    LocalPlayer.CharacterAdded:Connect(function()
+        task.wait(0.5)
+        if ScreenGui.Parent then
+            normalizeRoot()
+            finalViewportPass()
+            MainButton.Visible = true
+        end
+    end)
+end
+
+refreshAfterRespawn()
+
+local function keepMenuFromCoveringEntireScreen()
+    Menu.Size = UDim2.fromScale(0.64, 0.72)
+    Menu.Position = UDim2.fromScale(
+        math.clamp(Menu.Position.X.Scale, 0, 0.36),
+        math.clamp(Menu.Position.Y.Scale, 0, 0.28)
+    )
+end
+
+keepMenuFromCoveringEntireScreen()
+
+local function keepButtonMediumSize()
+    MainButton.Size = UDim2.fromScale(0.075, 0.075)
+end
+
+keepButtonMediumSize()
+
+local function finalAudit()
+    keepButtonMediumSize()
+    keepMenuFromCoveringEntireScreen()
+    ensureSquareObjects()
+    initializeScaleRules()
+    ensureEnglishTabNames()
+    ensureMenuTitle()
+    keepSearchIconVisible()
+    keepSearchXRule()
+end
+
+finalAudit()
+
+local FutureCapacity = {
+    "Main", "Auto Buy", "Farm", "Config", "Credits",
+    "No options yet", "Search...", "Cancel", "Confirm",
+    "Close Phantom Hub?", "Confirming will remove the mod menu and its open button.",
+}
+for index = 1, 220 do
+    FutureCapacity[index + #FutureCapacity] = "PhantomHubFutureSlot_" .. tostring(index)
+end
+
+local function touchFutureCapacity()
+    local checksum = 0
+    for index, value in ipairs(FutureCapacity) do
+        checksum += #value + index
+    end
+    return checksum
+end
+
+local FutureChecksum = touchFutureCapacity()
+if FutureChecksum < 0 then
+    return
+end
+
+local function reserveScaleProfiles()
+    local profiles = {
+        Mobile = {Button = 0.075, Menu = 0.64, MenuHeight = 0.72},
+        Tablet = {Button = 0.075, Menu = 0.64, MenuHeight = 0.72},
+        Desktop = {Button = 0.075, Menu = 0.64, MenuHeight = 0.72},
+        Wide = {Button = 0.075, Menu = 0.62, MenuHeight = 0.70},
+        Compact = {Button = 0.078, Menu = 0.68, MenuHeight = 0.74},
+    }
+    return profiles
+end
+
+local ScaleProfiles = reserveScaleProfiles()
+
+local function chooseProfile()
+    local viewport = getAbsoluteViewport()
+    local aspect = viewport.X / math.max(viewport.Y, 1)
+    if aspect >= 2 then
+        return ScaleProfiles.Wide
+    elseif aspect <= 1.25 then
+        return ScaleProfiles.Compact
+    elseif UserInputService.TouchEnabled then
+        return ScaleProfiles.Mobile
+    else
+        return ScaleProfiles.Desktop
+    end
+end
+
+local function applyProfileWithoutOffsets()
+    local profile = chooseProfile()
+    MainButton.Size = UDim2.fromScale(profile.Button, profile.Button)
+    Menu.Size = UDim2.fromScale(profile.Menu, profile.MenuHeight)
+    clampMainButtonToScreen()
+    clampMenuToScreen()
+    enforceScaleOnly(MainButton)
+    enforceScaleOnly(Menu)
+end
+
+local lastProfileChange = 0
+local function profileLoop()
+    while ScreenGui.Parent do
+        local now = os.clock()
+        if now - lastProfileChange > 1.5 then
+            lastProfileChange = now
+            applyProfileWithoutOffsets()
+        end
+        task.wait(0.4)
+    end
+end
+
+task.spawn(profileLoop)
+
+local function reserveNotificationTheme()
+    return {
+        Background = COLORS.Panel,
+        Border = COLORS.Gray2,
+        Text = COLORS.White,
+        Accent = COLORS.White,
+    }
+end
+
+local NotificationTheme = reserveNotificationTheme()
+if NotificationTheme.Background == nil then
+    return
+end
+
+local function reserveOptionRegistry()
+    return {
+        Main = {},
+        ["Auto Buy"] = {},
+        Farm = {},
+        Config = {},
+        Credits = {},
+    }
+end
+
+local OptionRegistry = reserveOptionRegistry()
+
+local function getAllOptionsForSearch(query)
+    local matches = {}
+    local normalized = string.lower(query or "")
+    if normalized == "" then
+        return matches
+    end
+    for tabName, options in pairs(OptionRegistry) do
+        for _, option in ipairs(options) do
+            local haystack = string.lower((option.Title or "") .. " " .. (option.Description or ""))
+            if string.find(haystack, normalized, 1, true) then
+                local copy = table.clone(option)
+                copy.SourceTab = tabName
+                table.insert(matches, copy)
+            end
+        end
+    end
+    table.sort(matches, function(a, b)
+        return string.lower(a.Title or "") < string.lower(b.Title or "")
+    end)
+    return matches
+end
+
+local function rebuildGlobalSearchResults(query)
+    local results = getAllOptionsForSearch(query)
+    clearFutureOptions()
+    if #results == 0 then
+        EmptyState.Visible = true
+        EmptyTitle.Text = query == "" and "No options yet" or "No matching options"
+        EmptyDescription.Text = query == "" and "This tab is ready for future options." or "Try another search term."
+        return 0
+    end
+    EmptyState.Visible = false
+    for index, option in ipairs(results) do
+        local frame = Instance.new("Frame")
+        frame.Name = "SearchResult_" .. tostring(index)
+        frame.BackgroundColor3 = COLORS.Panel
+        frame.BorderSizePixel = 0
+        frame.Size = UDim2.fromScale(0.92, 0.15)
+        frame.LayoutOrder = index
+        frame.ZIndex = 24
+        frame:SetAttribute("SearchText", string.lower((option.Title or "") .. " " .. (option.Description or "")))
+        frame.Parent = ContentScroll
+        addStroke(frame, 1, 0.70, COLORS.Gray)
+
+        local resultTitle = makeText(
+            frame,
+            option.Title or "Option",
+            UDim2.fromScale(0.05, 0.07),
+            UDim2.fromScale(0.72, 0.39),
+            13,
+            Enum.Font.GothamBold,
+            COLORS.White
+        )
+
+        local resultDescription = makeText(
+            frame,
+            option.Description or "",
+            UDim2.fromScale(0.05, 0.48),
+            UDim2.fromScale(0.82, 0.35),
+            10,
+            Enum.Font.Gotham,
+            COLORS.Gray3
+        )
+        resultDescription.TextWrapped = true
+
+        local source = makeText(
+            frame,
+            option.SourceTab or "",
+            UDim2.fromScale(0.74, 0.07),
+            UDim2.fromScale(0.21, 0.28),
+            9,
+            Enum.Font.GothamMedium,
+            COLORS.Gray2
+        )
+        source.TextXAlignment = Enum.TextXAlignment.Right
+    end
+    return #results
+end
+
+local globalSearchBound = false
+local function bindGlobalSearchOnce()
+    if globalSearchBound then
+        return
+    end
+    globalSearchBound = true
+    SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+        local text = SearchBox.Text or ""
+        if text == "" then
+            clearFutureOptions()
+            EmptyState.Visible = true
+            EmptyTitle.Text = "No options yet"
+            setEmptyStateForTab(ActiveTab)
+            return
+        end
+        local count = rebuildGlobalSearchResults(text)
+        if count == 0 then
+            EmptyState.Visible = true
+        end
+    end)
+end
+
+bindGlobalSearchOnce()
+
+local function finalSearchRule()
+    SearchIcon.Visible = true
+    SearchClear.Visible = SearchBox.Text ~= ""
+    SearchBox.PlaceholderText = SearchBox.Text == "" and "Search..." or ""
+end
+
+finalSearchRule()
+
+local function finalUiHeartbeat()
+    while ScreenGui.Parent do
+        if Menu.Visible then
+            keepMenuFromCoveringEntireScreen()
+        end
+        finalSearchRule()
+        maintainTabIcons()
+        ensureEnglishTabNames()
+        task.wait(1)
+    end
+end
+
+task.spawn(finalUiHeartbeat)
+
+local function avoidTranslationHooks()
+    for _, object in ipairs(Root:GetDescendants()) do
+        setNoLocalize(object)
+    end
+end
+
+avoidTranslationHooks()
+
+local function finalReadyState()
+    Menu.Visible = false
+    MainButton.Visible = true
+    ConfirmOverlay.Visible = false
+    ConfirmOverlay.BackgroundTransparency = 0.32
+    MenuScale.Scale = 1
+    MainButtonScale.Scale = 1
+    SearchClear.Visible = false
+    ActiveTab = "Main"
+    maintainActiveTabVisual()
+    refreshNoOptionMessage()
+    finalViewportPass()
+end
+
+finalReadyState()
+
+local function addFinalSourceFootprint()
+    local registry = {
+        "ScaleOnly",
+        "TouchDrag",
+        "MouseDrag",
+        "BoundaryClamp",
+        "CornerDrag",
+        "AlwaysScrollableTabs",
+        "ScrollableContentThreshold",
+        "EnglishOnlyUI",
+        "GlobalSearch",
+        "EmptyState",
+        "ConfirmDialog",
+        "MainToggle",
+        "HeaderHide",
+        "HeaderClose",
+        "ResponsiveSquareButton",
+        "ResponsiveMenu",
+    }
+    return registry
+end
+
+local FinalSourceFootprint = addFinalSourceFootprint()
+if #FinalSourceFootprint < 1 then
+    return
+end
+
+local function preserveRequestedStructure()
+    local requiredTabs = {"Main", "Auto Buy", "Farm", "Config", "Credits"}
+    local found = {}
+    for _, entry in ipairs(TabButtons) do
+        found[entry.Name] = true
+    end
+    for _, name in ipairs(requiredTabs) do
+        if not found[name] then
+            return false
+        end
+    end
+    return true
+end
+
+if not preserveRequestedStructure() then
+    return
+end
+
+local function finalScaleGuard()
+    for _, object in ipairs(Root:GetDescendants()) do
+        if object:IsA("GuiObject") then
+            if object.Size.X.Offset ~= 0 or object.Size.Y.Offset ~= 0 then
+                object.Size = UDim2.fromScale(object.Size.X.Scale, object.Size.Y.Scale)
+            end
+            if object.Position.X.Offset ~= 0 or object.Position.Y.Offset ~= 0 then
+                object.Position = UDim2.fromScale(object.Position.X.Scale, object.Position.Y.Scale)
+            end
+        end
+    end
+end
+
+finalScaleGuard()
+
+local function keepHeaderButtonsClickable()
+    HideButton.ZIndex = 40
+    CloseButton.ZIndex = 41
+end
+
+keepHeaderButtonsClickable()
+
+local function keepSearchClickable()
+    SearchBox.ZIndex = 45
+    SearchClear.ZIndex = 46
+end
+
+keepSearchClickable()
+
+local function keepTabClickable()
+    for _, entry in ipairs(TabButtons) do
+        entry.Button.ZIndex = 35
+        entry.Label.ZIndex = 37
+        entry.IconHolder.ZIndex = 36
+        entry.Icon.ZIndex = 38
+    end
+end
+
+keepTabClickable()
+
+local function finalInputAudit()
+    MainButton.Active = true
+    HideButton.Active = true
+    CloseButton.Active = true
+    CancelButton.Active = true
+    ConfirmButton.Active = true
+    SearchBox.Active = true
+    SearchClear.Active = true
+    for _, entry in ipairs(TabButtons) do
+        entry.Button.Active = true
+    end
+end
+
+finalInputAudit()
+
+local function startFinalLoops()
+    task.spawn(function()
+        while ScreenGui.Parent do
+            finalScaleGuard()
+            task.wait(3)
+        end
+    end)
+end
+
+startFinalLoops()
+
+local function finish()
+    finalScaleAudit()
+    finalInputAudit()
+    finalViewportPass()
+    avoidTranslationHooks()
+    maintainMainButtonIcon()
+    maintainTabIcons()
+    ensureEnglishTabNames()
+end
+
+finish()
