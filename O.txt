@@ -1,0 +1,2170 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local GuiService = game:GetService("GuiService")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local ContextActionService = game:GetService("ContextActionService")
+local CollectionService = game:GetService("CollectionService")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+local SCRIPT_NAME = "Phantom Hub"
+local GAME_NAME = "Steal an Egg"
+local TITLE_TEXT = SCRIPT_NAME .. " | " .. GAME_NAME
+local DISCORD_LINK = "https://discord.gg/72P6NhC5Pf"
+local BUTTON_ICON = "rbxassetid://121715364276099"
+local SEARCH_ICON = "rbxassetid://73858257403039"
+local CLICK_ICON = "rbxassetid://97594499544606"
+local SERVER_ICON = "rbxassetid://88704800286791"
+local DISCORD_NOTIFY_ICON = "rbxassetid://132744109593099"
+local MAIN_ICON = "rbxassetid://139357095045310"
+local AUTO_BUY_ICON = "rbxassetid://110805385284419"
+local FARM_ICON = "rbxassetid://102352181267949"
+local CONFIG_ICON = "rbxassetid://114794077382466"
+local CREDITS_ICON = "rbxassetid://99243311837005"
+local PLAYER_CATEGORY_ICON = "rbxassetid://102791662357524"
+
+local Theme = {
+	Background = Color3.fromRGB(8, 8, 10),
+	Panel = Color3.fromRGB(15, 15, 18),
+	PanelAlt = Color3.fromRGB(20, 20, 24),
+	PanelSoft = Color3.fromRGB(25, 25, 29),
+	PanelStrong = Color3.fromRGB(31, 31, 36),
+	Border = Color3.fromRGB(92, 92, 98),
+	BorderSoft = Color3.fromRGB(55, 55, 61),
+	White = Color3.fromRGB(245, 245, 245),
+	WhiteSoft = Color3.fromRGB(205, 205, 208),
+	Gray = Color3.fromRGB(145, 145, 150),
+	GrayDark = Color3.fromRGB(83, 83, 88),
+	Black = Color3.fromRGB(0, 0, 0),
+	Red = Color3.fromRGB(236, 78, 78),
+	Green = Color3.fromRGB(78, 218, 122),
+	ToggleOff = Color3.fromRGB(57, 57, 63),
+	ToggleOn = Color3.fromRGB(230, 230, 233),
+	ToggleKnobOff = Color3.fromRGB(174, 174, 180),
+	ToggleKnobOn = Color3.fromRGB(25, 25, 28)
+}
+
+local function protectGui(gui)
+	pcall(function()
+		gui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+	end)
+	pcall(function()
+		gui.DisplayOrder = 999999
+	end)
+	pcall(function()
+		gui.ResetOnSpawn = false
+	end)
+	pcall(function()
+		gui.AutoLocalize = false
+	end)
+	pcall(function()
+		gui.IgnoreGuiInset = true
+	end)
+	pcall(function()
+		gui.ScreenInsets = Enum.ScreenInsets.None
+	end)
+	pcall(function()
+		gui.SafeAreaCompatibility = Enum.SafeAreaCompatibility.FullscreenExtension
+	end)
+end
+
+local function setNoLocalization(instance)
+	pcall(function()
+		instance.AutoLocalize = false
+	end)
+end
+
+local function setText(instance, text)
+	instance.Text = text
+	setNoLocalization(instance)
+end
+
+local function create(instanceClass, props, parent)
+	local object = Instance.new(instanceClass)
+	for key, value in pairs(props or {}) do
+		object[key] = value
+	end
+	if parent then
+		object.Parent = parent
+	end
+	return object
+end
+
+local function createStroke(parent, color, thickness, transparency)
+	return create("UIStroke", {
+		Color = color or Theme.Border,
+		Thickness = thickness or 1,
+		Transparency = transparency or 0,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+	}, parent)
+end
+
+local function createAspect(parent, ratio, mode)
+	return create("UIAspectRatioConstraint", {
+		AspectRatio = ratio,
+		AspectType = mode or Enum.AspectType.FitWithinMaxSize,
+		DominantAxis = Enum.DominantAxis.Width,
+	}, parent)
+end
+
+local function createScaleText(parent, text, props)
+	local object = create("TextLabel", {
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Text = text or "",
+		TextColor3 = Theme.White,
+		TextScaled = true,
+		Font = Enum.Font.GothamMedium,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		RichText = false,
+		LayoutOrder = 0,
+	}, parent)
+	for key, value in pairs(props or {}) do
+		object[key] = value
+	end
+	setNoLocalization(object)
+	return object
+end
+
+local function createButton(parent, props)
+	local object = create("TextButton", {
+		AutoButtonColor = false,
+		BackgroundColor3 = Theme.PanelSoft,
+		BorderSizePixel = 0,
+		Text = "",
+		TextTransparency = 1,
+		Font = Enum.Font.GothamMedium,
+		Active = true,
+		Selectable = true,
+	}, parent)
+	for key, value in pairs(props or {}) do
+		object[key] = value
+	end
+	setNoLocalization(object)
+	return object
+end
+
+local function createImage(parent, asset, props)
+	local object = create("ImageLabel", {
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Image = asset,
+		ImageColor3 = Theme.White,
+		ScaleType = Enum.ScaleType.Fit,
+	}, parent)
+	for key, value in pairs(props or {}) do
+		object[key] = value
+	end
+	return object
+end
+
+local function createImageButton(parent, asset, props)
+	local object = create("ImageButton", {
+		AutoButtonColor = false,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Image = asset,
+		ImageColor3 = Theme.White,
+		ScaleType = Enum.ScaleType.Fit,
+		Active = true,
+		Selectable = true,
+	}, parent)
+	for key, value in pairs(props or {}) do
+		object[key] = value
+	end
+	return object
+end
+
+local function fromScale(x, y)
+	return UDim2.fromScale(x, y)
+end
+
+local function zeroOffset(size)
+	return UDim2.new(size.X.Scale, 0, size.Y.Scale, 0)
+end
+
+local oldGui = PlayerGui:FindFirstChild("PhantomHubUI")
+if oldGui then
+	oldGui:Destroy()
+end
+
+local ScreenGui = create("ScreenGui", {
+	Name = "PhantomHubUI",
+	Enabled = true,
+}, PlayerGui)
+protectGui(ScreenGui)
+
+local Root = create("Frame", {
+	Name = "Root",
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	Size = fromScale(1, 1),
+	Position = fromScale(0, 0),
+	Active = false,
+}, ScreenGui)
+
+local function viewport()
+	local camera = workspace.CurrentCamera
+	if camera then
+		return camera.ViewportSize
+	end
+	return Vector2.new(1280, 720)
+end
+
+local function scaleFromPixels(pxX, pxY)
+	local view = viewport()
+	local x = 0
+	local y = 0
+	if view.X > 0 then
+		x = pxX / view.X
+	end
+	if view.Y > 0 then
+		y = pxY / view.Y
+	end
+	return fromScale(x, y)
+end
+
+local function getGuiPositionScale(guiObject)
+	return Vector2.new(guiObject.Position.X.Scale, guiObject.Position.Y.Scale)
+end
+
+local function setGuiPositionScale(guiObject, x, y)
+	guiObject.Position = UDim2.new(x, 0, y, 0)
+end
+
+local function clamp(v, low, high)
+	return math.max(low, math.min(high, v))
+end
+
+local function tween(instance, info, goal)
+	local created = TweenService:Create(instance, info, goal)
+	created:Play()
+	return created
+end
+
+local function tweenFast(instance, goal)
+	return tween(instance, TweenInfo.new(0.16, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), goal)
+end
+
+local function tweenSoft(instance, goal)
+	return tween(instance, TweenInfo.new(0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), goal)
+end
+
+local function addHover(button, baseColor, hoverColor)
+	button.MouseEnter:Connect(function()
+		if button.Active then
+			tweenFast(button, {BackgroundColor3 = hoverColor})
+		end
+	end)
+	button.MouseLeave:Connect(function()
+		tweenFast(button, {BackgroundColor3 = baseColor})
+	end)
+end
+
+local OpenButton = createButton(Root, {
+	Name = "OpenButton",
+	Size = fromScale(0.065, 0.105),
+	Position = fromScale(0.026, 0.225),
+	BackgroundColor3 = Theme.Panel,
+	BorderSizePixel = 0,
+	ZIndex = 100,
+})
+createAspect(OpenButton, 1, Enum.AspectType.FitWithinMaxSize)
+createStroke(OpenButton, Theme.Border, 1.2, 0)
+local OpenIcon = createImage(OpenButton, BUTTON_ICON, {
+	Size = fromScale(0.62, 0.62),
+	Position = fromScale(0.19, 0.19),
+	ZIndex = 102,
+})
+createStroke(OpenButton, Theme.BorderSoft, 1, 0.15)
+
+local ButtonGlow = create("Frame", {
+	Name = "Glow",
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	Size = fromScale(1.14, 1.14),
+	Position = fromScale(-0.07, -0.07),
+	ZIndex = 99,
+}, Root)
+createAspect(ButtonGlow, 1, Enum.AspectType.FitWithinMaxSize)
+local ButtonGlowStroke = createStroke(ButtonGlow, Theme.White, 1, 0.9)
+
+local menuWidthScale = 0.52
+local menuHeightScale = 0.68
+local Menu = create("Frame", {
+	Name = "Menu",
+	BackgroundColor3 = Theme.Panel,
+	BorderSizePixel = 0,
+	Size = fromScale(menuWidthScale, menuHeightScale),
+	Position = fromScale(0.5 - menuWidthScale / 2, 0.5 - menuHeightScale / 2),
+	Visible = false,
+	ZIndex = 200,
+	Active = true,
+}, Root)
+createStroke(Menu, Theme.Border, 1.1, 0)
+
+local MenuInner = create("Frame", {
+	Name = "Inner",
+	BackgroundColor3 = Theme.Background,
+	BackgroundTransparency = 0,
+	BorderSizePixel = 0,
+	Size = fromScale(0.985, 0.985),
+	Position = fromScale(0.0075, 0.0075),
+	ZIndex = 201,
+	Active = false,
+}, Menu)
+
+local Header = create("Frame", {
+	Name = "Header",
+	BackgroundColor3 = Theme.Panel,
+	BorderSizePixel = 0,
+	Size = fromScale(1, 0.125),
+	Position = fromScale(0, 0),
+	ZIndex = 210,
+}, MenuInner)
+createStroke(Header, Theme.BorderSoft, 1, 0.1)
+
+local Title = createScaleText(Header, TITLE_TEXT, {
+	Size = fromScale(0.58, 0.62),
+	Position = fromScale(0.028, 0.18),
+	Font = Enum.Font.GothamBold,
+	TextColor3 = Theme.White,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	ZIndex = 212,
+})
+
+local SubTitle = createScaleText(Header, "Local interface", {
+	Size = fromScale(0.3, 0.33),
+	Position = fromScale(0.028, 0.62),
+	Font = Enum.Font.Gotham,
+	TextColor3 = Theme.Gray,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	ZIndex = 212,
+})
+
+local HidePanelButton = createButton(Header, {
+	Name = "HidePanel",
+	Size = fromScale(0.065, 0.66),
+	Position = fromScale(0.862, 0.17),
+	BackgroundColor3 = Theme.PanelAlt,
+	ZIndex = 214,
+})
+local HidePanelText = createScaleText(HidePanelButton, "-", {
+	Size = fromScale(1, 1),
+	Position = fromScale(0, 0),
+	TextXAlignment = Enum.TextXAlignment.Center,
+	Font = Enum.Font.GothamBold,
+	TextColor3 = Theme.White,
+	ZIndex = 215,
+})
+addHover(HidePanelButton, Theme.PanelAlt, Theme.PanelStrong)
+
+local CloseButton = createButton(Header, {
+	Name = "Close",
+	Size = fromScale(0.065, 0.66),
+	Position = fromScale(0.93, 0.17),
+	BackgroundColor3 = Theme.PanelAlt,
+	ZIndex = 214,
+})
+local CloseText = createScaleText(CloseButton, "X", {
+	Size = fromScale(1, 1),
+	Position = fromScale(0, 0),
+	TextXAlignment = Enum.TextXAlignment.Center,
+	Font = Enum.Font.GothamBold,
+	TextColor3 = Theme.White,
+	ZIndex = 215,
+})
+addHover(CloseButton, Theme.PanelAlt, Theme.PanelStrong)
+
+local LeftPanel = create("Frame", {
+	Name = "TabsPanel",
+	BackgroundColor3 = Theme.Panel,
+	BorderSizePixel = 0,
+	Size = fromScale(0.25, 0.855),
+	Position = fromScale(0, 0.145),
+	ZIndex = 205,
+}, MenuInner)
+createStroke(LeftPanel, Theme.BorderSoft, 1, 0.15)
+
+local TabsViewport = create("ScrollingFrame", {
+	Name = "TabsViewport",
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	Size = fromScale(0.92, 0.91),
+	Position = fromScale(0.04, 0.045),
+	CanvasSize = fromScale(0, 0),
+	ScrollingDirection = Enum.ScrollingDirection.Y,
+	ScrollBarThickness = 2,
+	ScrollBarImageColor3 = Theme.Gray,
+	ScrollBarImageTransparency = 0.15,
+	Active = true,
+	ZIndex = 207,
+}, LeftPanel)
+local TabsLayout = create("UIListLayout", {
+	FillDirection = Enum.FillDirection.Vertical,
+	HorizontalAlignment = Enum.HorizontalAlignment.Center,
+	VerticalAlignment = Enum.VerticalAlignment.Top,
+	SortOrder = Enum.SortOrder.LayoutOrder,
+	Padding = UDim.new(0.016, 0),
+}, TabsViewport)
+
+local RightPanel = create("Frame", {
+	Name = "ContentPanel",
+	BackgroundColor3 = Theme.Background,
+	BorderSizePixel = 0,
+	Size = fromScale(0.735, 0.855),
+	Position = fromScale(0.265, 0.145),
+	ZIndex = 205,
+}, MenuInner)
+createStroke(RightPanel, Theme.BorderSoft, 1, 0.15)
+
+local SearchBar = create("Frame", {
+	Name = "SearchBar",
+	BackgroundColor3 = Theme.Panel,
+	BorderSizePixel = 0,
+	Size = fromScale(0.935, 0.09),
+	Position = fromScale(0.0325, 0.027),
+	ZIndex = 230,
+}, RightPanel)
+createStroke(SearchBar, Theme.BorderSoft, 1, 0.1)
+
+local SearchIcon = createImage(SearchBar, SEARCH_ICON, {
+	Size = fromScale(0.07, 0.7),
+	Position = fromScale(0.022, 0.15),
+	ZIndex = 233,
+})
+
+local SearchBox = create("TextBox", {
+	Name = "SearchBox",
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	Size = fromScale(0.77, 0.82),
+	Position = fromScale(0.105, 0.09),
+	Text = "",
+	PlaceholderText = "Search...",
+	PlaceholderColor3 = Theme.Gray,
+	TextColor3 = Theme.White,
+	TextScaled = true,
+	TextTransparency = 0,
+	ClearTextOnFocus = false,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	TextYAlignment = Enum.TextYAlignment.Center,
+	Font = Enum.Font.Gotham,
+	ZIndex = 234,
+}, SearchBar)
+setNoLocalization(SearchBox)
+
+local SearchClear = createButton(SearchBar, {
+	Name = "SearchClear",
+	BackgroundTransparency = 1,
+	Size = fromScale(0.085, 0.84),
+	Position = fromScale(0.897, 0.08),
+	ZIndex = 235,
+	Visible = false,
+})
+local SearchClearText = createScaleText(SearchClear, "X", {
+	Size = fromScale(1, 1),
+	Position = fromScale(0, 0),
+	TextXAlignment = Enum.TextXAlignment.Center,
+	Font = Enum.Font.GothamBold,
+	TextColor3 = Theme.White,
+	ZIndex = 236,
+})
+addHover(SearchClear, Theme.Panel, Theme.PanelStrong)
+
+local ContentViewport = create("ScrollingFrame", {
+	Name = "ContentViewport",
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	Size = fromScale(0.935, 0.84),
+	Position = fromScale(0.0325, 0.14),
+	CanvasSize = fromScale(0, 0),
+	ScrollingDirection = Enum.ScrollingDirection.Y,
+	ScrollBarThickness = 3,
+	ScrollBarImageColor3 = Theme.Gray,
+	ScrollBarImageTransparency = 0.1,
+	Active = true,
+	ScrollingEnabled = false,
+	ZIndex = 208,
+}, RightPanel)
+
+local ContentLayout = create("UIListLayout", {
+	FillDirection = Enum.FillDirection.Vertical,
+	HorizontalAlignment = Enum.HorizontalAlignment.Center,
+	VerticalAlignment = Enum.VerticalAlignment.Top,
+	SortOrder = Enum.SortOrder.LayoutOrder,
+	Padding = UDim.new(0.018, 0),
+}, ContentViewport)
+
+local EmptyState = create("Frame", {
+	Name = "EmptyState",
+	BackgroundColor3 = Theme.Panel,
+	BorderSizePixel = 0,
+	Size = fromScale(0.96, 0.32),
+	Position = fromScale(0.02, 0.03),
+	ZIndex = 212,
+	Visible = false,
+}, ContentViewport)
+createStroke(EmptyState, Theme.BorderSoft, 1, 0.15)
+local EmptyTitle = createScaleText(EmptyState, "No options", {
+	Size = fromScale(0.7, 0.28),
+	Position = fromScale(0.15, 0.26),
+	Font = Enum.Font.GothamBold,
+	TextXAlignment = Enum.TextXAlignment.Center,
+	TextColor3 = Theme.White,
+	ZIndex = 213,
+})
+local EmptyDescription = createScaleText(EmptyState, "This tab is ready for future additions.", {
+	Size = fromScale(0.78, 0.24),
+	Position = fromScale(0.11, 0.54),
+	Font = Enum.Font.Gotham,
+	TextXAlignment = Enum.TextXAlignment.Center,
+	TextColor3 = Theme.Gray,
+	ZIndex = 213,
+})
+
+local ModalOverlay = create("Frame", {
+	Name = "ModalOverlay",
+	BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+	BackgroundTransparency = 0.48,
+	BorderSizePixel = 0,
+	Size = fromScale(1, 1),
+	Position = fromScale(0, 0),
+	Visible = false,
+	ZIndex = 500,
+	Active = true,
+}, Root)
+
+local ConfirmModal = create("Frame", {
+	Name = "ConfirmModal",
+	BackgroundColor3 = Theme.Panel,
+	BorderSizePixel = 0,
+	Size = fromScale(0.36, 0.31),
+	Position = fromScale(0.5 - 0.18, 0.5 - 0.155),
+	ZIndex = 501,
+	Active = true,
+}, ModalOverlay)
+createStroke(ConfirmModal, Theme.Border, 1.1, 0)
+
+local ConfirmTitle = createScaleText(ConfirmModal, "Confirmation", {
+	Size = fromScale(0.84, 0.2),
+	Position = fromScale(0.08, 0.08),
+	Font = Enum.Font.GothamBold,
+	TextXAlignment = Enum.TextXAlignment.Center,
+	TextColor3 = Theme.White,
+	ZIndex = 503,
+})
+
+local ConfirmDescription = createScaleText(ConfirmModal, "", {
+	Size = fromScale(0.82, 0.31),
+	Position = fromScale(0.09, 0.29),
+	Font = Enum.Font.Gotham,
+	TextColor3 = Theme.WhiteSoft,
+	TextXAlignment = Enum.TextXAlignment.Center,
+	TextYAlignment = Enum.TextYAlignment.Center,
+	ZIndex = 503,
+})
+ConfirmDescription.TextWrapped = true
+
+local CancelButton = createButton(ConfirmModal, {
+	Name = "Cancel",
+	BackgroundColor3 = Theme.PanelStrong,
+	Size = fromScale(0.36, 0.18),
+	Position = fromScale(0.08, 0.72),
+	ZIndex = 505,
+})
+createStroke(CancelButton, Theme.BorderSoft, 1, 0.1)
+local CancelText = createScaleText(CancelButton, "Cancel", {
+	Size = fromScale(0.9, 0.85),
+	Position = fromScale(0.05, 0.075),
+	TextColor3 = Theme.Red,
+	Font = Enum.Font.GothamBold,
+	TextXAlignment = Enum.TextXAlignment.Center,
+	ZIndex = 506,
+})
+
+local ConfirmButton = createButton(ConfirmModal, {
+	Name = "Confirm",
+	BackgroundColor3 = Theme.PanelStrong,
+	Size = fromScale(0.36, 0.18),
+	Position = fromScale(0.56, 0.72),
+	ZIndex = 505,
+})
+createStroke(ConfirmButton, Theme.BorderSoft, 1, 0.1)
+local ConfirmText = createScaleText(ConfirmButton, "Confirm", {
+	Size = fromScale(0.9, 0.85),
+	Position = fromScale(0.05, 0.075),
+	TextColor3 = Theme.Green,
+	Font = Enum.Font.GothamBold,
+	TextXAlignment = Enum.TextXAlignment.Center,
+	ZIndex = 506,
+})
+addHover(CancelButton, Theme.PanelStrong, Theme.PanelAlt)
+addHover(ConfirmButton, Theme.PanelStrong, Theme.PanelAlt)
+
+local Notifications = create("Frame", {
+	Name = "Notifications",
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	Size = fromScale(0.31, 0.43),
+	Position = fromScale(0.675, 0.545),
+	ZIndex = 800,
+}, Root)
+local NotificationsLayout = create("UIListLayout", {
+	FillDirection = Enum.FillDirection.Vertical,
+	HorizontalAlignment = Enum.HorizontalAlignment.Right,
+	VerticalAlignment = Enum.VerticalAlignment.Bottom,
+	SortOrder = Enum.SortOrder.LayoutOrder,
+	Padding = UDim.new(0.025, 0),
+}, Notifications)
+
+local tabs = {
+	{Name = "Main", Icon = MAIN_ICON, Key = "Main"},
+	{Name = "Auto Buy", Icon = AUTO_BUY_ICON, Key = "AutoBuy"},
+	{Name = "Farm", Icon = FARM_ICON, Key = "Farm"},
+	{Name = "Config", Icon = CONFIG_ICON, Key = "Config"},
+	{Name = "Credits", Icon = CREDITS_ICON, Key = "Credits"},
+}
+
+local data = {
+	Main = {Categories = {}, Options = {}},
+	AutoBuy = {Categories = {}, Options = {}},
+	Farm = {Categories = {}, Options = {}},
+	Config = {
+		Categories = {
+			{
+				Id = "player",
+				Name = "Player",
+				Icon = PLAYER_CATEGORY_ICON,
+				Open = true,
+			}
+		},
+		Options = {
+			{Id = "auto_rejoin", Category = "player", Title = "Auto Rejoin", Description = "Switch to a random public server after confirmation.", Type = "click", Icon = CLICK_ICON, Action = "random_rejoin"},
+			{Id = "rejoin_server", Category = "player", Title = "Rejoin Server", Description = "Reconnect to the same server instance after confirmation.", Type = "click", Icon = CLICK_ICON, Action = "same_rejoin"},
+			{Id = "copy_server_id", Category = "player", Title = "Copy Server ID", Description = "Copy the current server JobId to your clipboard.", Type = "click", Icon = SERVER_ICON, Action = "copy_server"},
+			{Id = "copy_game_id", Category = "player", Title = "Copy Game ID", Description = "Copy the current game PlaceId to your clipboard.", Type = "click", Icon = CLICK_ICON, Action = "copy_game"},
+			{Id = "anti_afk", Category = "player", Title = "Anti AFK", Description = "Simulate a short walking movement once every minute.", Type = "toggle", Default = false, Action = "anti_afk"},
+			{Id = "infinity_jump", Category = "player", Title = "Infinity Jump", Description = "Keep jumping repeatedly while the jump control is held.", Type = "toggle", Default = false, Action = "infinity_jump"},
+		}
+	},
+	Credits = {
+		Categories = {},
+		Options = {
+			{Id = "creator", Title = "By: Cleiton10HDx", Description = "Phantom Hub is created and maintained by Cleiton10HDx.", Type = "visual"},
+			{Id = "discord", Title = "Copy Discord Server", Description = "Copy the official Phantom Hub Discord invite link.", Type = "click", Icon = DISCORD_NOTIFY_ICON, Action = "copy_discord"},
+		}
+	}
+}
+
+local state = {
+	ActiveTab = "Main",
+	MenuOpen = false,
+	MenuHidden = false,
+	ModalOpen = false,
+	ModalAction = nil,
+	ModalDescription = "",
+	SearchQuery = "",
+	CategoryOpen = {},
+	Toggles = {
+		anti_afk = false,
+		infinity_jump = false,
+	},
+	NotificationIndex = 0,
+	ButtonDragging = false,
+	MenuDragging = false,
+	ButtonDragMoved = false,
+	MenuDragMoved = false,
+	ButtonSuppressClick = false,
+	MenuDragOriginalY = 0.5 - menuHeightScale / 2,
+	LastButtonPosition = Vector2.new(0.026, 0.225),
+	LastMenuPosition = Vector2.new(0.5 - menuWidthScale / 2, 0.5 - menuHeightScale / 2),
+	ServerHopBusy = false,
+}
+
+for _, category in ipairs(data.Config.Categories) do
+	state.CategoryOpen[category.Id] = category.Open == true
+end
+
+local tabButtons = {}
+local tabOrder = {}
+for index, tab in ipairs(tabs) do
+	local button = createButton(TabsViewport, {
+		Name = "Tab_" .. tab.Key,
+		Size = fromScale(0.94, 0.13),
+		Position = fromScale(0.03, 0),
+		BackgroundColor3 = Theme.PanelAlt,
+		LayoutOrder = index,
+		ZIndex = 209,
+	})
+	createStroke(button, Theme.BorderSoft, 1, 0.3)
+	local icon = createImage(button, tab.Icon, {
+		Size = fromScale(0.16, 0.58),
+		Position = fromScale(0.065, 0.21),
+		ZIndex = 211,
+	})
+	local label = createScaleText(button, tab.Name, {
+		Size = fromScale(0.65, 0.68),
+		Position = fromScale(0.26, 0.16),
+		TextColor3 = Theme.WhiteSoft,
+		Font = Enum.Font.GothamMedium,
+		ZIndex = 211,
+	})
+	tabButtons[tab.Key] = {Button = button, Icon = icon, Label = label}
+	tabOrder[index] = tab.Key
+end
+
+local function setTabVisual(tabKey)
+	for key, entry in pairs(tabButtons) do
+		local selected = key == tabKey
+		entry.Button.BackgroundColor3 = selected and Theme.PanelStrong or Theme.PanelAlt
+		entry.Label.TextColor3 = selected and Theme.White or Theme.WhiteSoft
+		entry.Icon.ImageColor3 = selected and Theme.White or Theme.Gray
+	end
+end
+
+local function updateTabCanvas()
+	task.defer(function()
+		local visibleHeight = TabsViewport.AbsoluteSize.Y
+		local contentHeight = TabsLayout.AbsoluteContentSize.Y
+		if visibleHeight > 0 then
+			TabsViewport.CanvasSize = fromScale(0, math.max(1, contentHeight / visibleHeight))
+		else
+			TabsViewport.CanvasSize = fromScale(0, 1)
+		end
+	end)
+end
+TabsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateTabCanvas)
+updateTabCanvas()
+
+local function getOptionCount(tabKey)
+	local info = data[tabKey]
+	if not info then
+		return 0
+	end
+	local count = #info.Options + #info.Categories
+	return count
+end
+
+local function removeDynamicChildren()
+	for _, child in ipairs(ContentViewport:GetChildren()) do
+		if child:IsA("GuiObject") and child ~= EmptyState then
+			child:Destroy()
+		end
+	end
+end
+
+local function updateContentCanvas(scrollEnabled)
+	task.defer(function()
+		local visibleHeight = ContentViewport.AbsoluteSize.Y
+		local contentHeight = ContentLayout.AbsoluteContentSize.Y
+		if visibleHeight > 0 then
+			local factor = math.max(1, contentHeight / visibleHeight)
+			ContentViewport.CanvasSize = fromScale(0, factor)
+		else
+			ContentViewport.CanvasSize = fromScale(0, 1)
+		end
+		ContentViewport.ScrollingEnabled = scrollEnabled == true
+		if not ContentViewport.ScrollingEnabled then
+			ContentViewport.CanvasPosition = Vector2.zero
+		end
+	end)
+end
+
+local function makeDivider(parent, order)
+	return create("Frame", {
+		BackgroundColor3 = Theme.BorderSoft,
+		BorderSizePixel = 0,
+		Size = fromScale(0.98, 0.004),
+		Position = fromScale(0.01, 0),
+		LayoutOrder = order,
+		ZIndex = 211,
+	}, parent)
+end
+
+local function createCategoryRow(category, order)
+	local button = createButton(ContentViewport, {
+		Name = "Category_" .. category.Id,
+		Size = fromScale(0.98, 0.115),
+		BackgroundColor3 = Theme.Panel,
+		LayoutOrder = order,
+		ZIndex = 215,
+	})
+	createStroke(button, Theme.BorderSoft, 1, 0.1)
+	local icon = createImage(button, category.Icon, {
+		Size = fromScale(0.075, 0.58),
+		Position = fromScale(0.024, 0.21),
+		ZIndex = 217,
+	})
+	local name = createScaleText(button, category.Name, {
+		Size = fromScale(0.64, 0.65),
+		Position = fromScale(0.115, 0.17),
+		Font = Enum.Font.GothamBold,
+		TextColor3 = Theme.White,
+		ZIndex = 217,
+	})
+	local arrow = createScaleText(button, state.CategoryOpen[category.Id] and "▼" or "▶", {
+		Size = fromScale(0.095, 0.66),
+		Position = fromScale(0.86, 0.17),
+		Font = Enum.Font.GothamBold,
+		TextColor3 = Theme.Gray,
+		TextXAlignment = Enum.TextXAlignment.Center,
+		ZIndex = 217,
+	})
+	button.Activated:Connect(function()
+		state.CategoryOpen[category.Id] = not state.CategoryOpen[category.Id]
+		renderActiveTab()
+	end)
+	addHover(button, Theme.Panel, Theme.PanelAlt)
+	return button
+end
+
+local function createToggleVisual(parent, enabled)
+	local track = create("Frame", {
+		Name = "Toggle",
+		BackgroundColor3 = enabled and Theme.ToggleOn or Theme.ToggleOff,
+		BorderSizePixel = 0,
+		Size = fromScale(0.14, 0.5),
+		Position = fromScale(0.82, 0.25),
+		ZIndex = 221,
+	}, parent)
+	createAspect(track, 2.2, Enum.AspectType.FitWithinMaxSize)
+	createStroke(track, Theme.BorderSoft, 1, 0.15)
+	local knob = create("Frame", {
+		Name = "Knob",
+		BackgroundColor3 = enabled and Theme.ToggleKnobOn or Theme.ToggleKnobOff,
+		BorderSizePixel = 0,
+		Size = fromScale(0.39, 0.78),
+		Position = enabled and fromScale(0.56, 0.11) or fromScale(0.05, 0.11),
+		ZIndex = 222,
+	}, track)
+	createAspect(knob, 1, Enum.AspectType.FitWithinMaxSize)
+	return track, knob
+end
+
+local function performAction(action)
+	if action == "copy_discord" then
+		local copied = false
+		local clipboardMethods = {
+			function() return setclipboard(DISCORD_LINK) end,
+			function() return toclipboard(DISCORD_LINK) end,
+			function() return set_clipboard(DISCORD_LINK) end,
+		}
+		for _, method in ipairs(clipboardMethods) do
+			local ok = pcall(method)
+			if ok then
+				copied = true
+				break
+			end
+		end
+		if copied then
+			showNotification(DISCORD_NOTIFY_ICON, "Discord invite copied to clipboard.")
+		else
+			showNotification(DISCORD_NOTIFY_ICON, "Clipboard access is unavailable in this environment.")
+		end
+	elseif action == "copy_server" then
+		local value = tostring(game.JobId or "")
+		local copied = false
+		local clipboardMethods = {
+			function() return setclipboard(value) end,
+			function() return toclipboard(value) end,
+			function() return set_clipboard(value) end,
+		}
+		for _, method in ipairs(clipboardMethods) do
+			local ok = pcall(method)
+			if ok then
+				copied = true
+				break
+			end
+		end
+		if copied then
+			showNotification(SERVER_ICON, "Current server ID copied.")
+		else
+			showNotification(SERVER_ICON, "Clipboard access is unavailable in this environment.")
+		end
+	elseif action == "copy_game" then
+		local value = tostring(game.PlaceId or "")
+		local copied = false
+		local clipboardMethods = {
+			function() return setclipboard(value) end,
+			function() return toclipboard(value) end,
+			function() return set_clipboard(value) end,
+		}
+		for _, method in ipairs(clipboardMethods) do
+			local ok = pcall(method)
+			if ok then
+				copied = true
+				break
+			end
+		end
+		if copied then
+			showNotification(CLICK_ICON, "Game ID copied.")
+		else
+			showNotification(CLICK_ICON, "Clipboard access is unavailable in this environment.")
+		end
+	elseif action == "random_rejoin" then
+		hopToRandomServer()
+	elseif action == "same_rejoin" then
+		rejoinSameServer()
+	end
+end
+
+function showNotification(iconAsset, message)
+	state.NotificationIndex = state.NotificationIndex + 1
+	local id = state.NotificationIndex
+	local notice = create("Frame", {
+		Name = "Notification_" .. tostring(id),
+		BackgroundColor3 = Theme.Panel,
+		BackgroundTransparency = 0,
+		BorderSizePixel = 0,
+		Size = fromScale(1, 0.18),
+		Position = fromScale(1.08, 0),
+		AnchorPoint = Vector2.new(1, 0),
+		LayoutOrder = id,
+		ZIndex = 810,
+		Active = false,
+	}, Notifications)
+	createStroke(notice, Theme.Border, 1, 0.1)
+	local icon = createImage(notice, iconAsset, {
+		Size = fromScale(0.105, 0.58),
+		Position = fromScale(0.048, 0.15),
+		ZIndex = 813,
+	})
+	local label = createScaleText(notice, message, {
+		Size = fromScale(0.78, 0.64),
+		Position = fromScale(0.18, 0.08),
+		Font = Enum.Font.GothamMedium,
+		TextColor3 = Theme.White,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextWrapped = true,
+		ZIndex = 813,
+	})
+	local progressBackground = create("Frame", {
+		BackgroundColor3 = Theme.PanelStrong,
+		BorderSizePixel = 0,
+		Size = fromScale(0.9, 0.035),
+		Position = fromScale(0.05, 0.895),
+		ZIndex = 814,
+	}, notice)
+	local progress = create("Frame", {
+		BackgroundColor3 = Theme.White,
+		BorderSizePixel = 0,
+		Size = fromScale(0, 1),
+		Position = fromScale(0, 0),
+		ZIndex = 815,
+	}, progressBackground)
+	progress.BackgroundTransparency = 0
+
+	local entry = {
+		Frame = notice,
+		Started = os.clock(),
+		Duration = 3.2,
+	}
+
+	notice.Position = fromScale(1.08, 0)
+	tween(notice, TweenInfo.new(0.24, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+		Position = fromScale(1, 0),
+	})
+	tween(progress, TweenInfo.new(entry.Duration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
+		Size = fromScale(1, 1),
+	})
+
+	task.delay(entry.Duration, function()
+		if not notice.Parent then
+			return
+		end
+		tween(notice, TweenInfo.new(0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
+			Position = fromScale(1.15, 0),
+		})
+		task.delay(0.3, function()
+			if notice then
+				notice:Destroy()
+			end
+		end)
+	end)
+end
+
+function openConfirm(description, action)
+	state.ModalOpen = true
+	state.ModalAction = action
+	state.ModalDescription = description
+	setText(ConfirmDescription, description)
+	ModalOverlay.Visible = true
+	ConfirmModal.Position = fromScale(0.5 - 0.18, 0.5 + 0.03)
+	ConfirmModal.BackgroundTransparency = 0.18
+	tween(ConfirmModal, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+		Position = fromScale(0.5 - 0.18, 0.5 - 0.155),
+		BackgroundTransparency = 0,
+	})
+end
+
+local function closeConfirm()
+	state.ModalOpen = false
+	state.ModalAction = nil
+	tween(ConfirmModal, TweenInfo.new(0.16, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
+		Position = fromScale(0.5 - 0.18, 0.5 + 0.03),
+		BackgroundTransparency = 0.18,
+	})
+	task.delay(0.17, function()
+		if not state.ModalOpen then
+			ModalOverlay.Visible = false
+		end
+	end)
+end
+
+local function createOptionRow(option, order)
+	local row = createButton(ContentViewport, {
+		Name = "Option_" .. option.Id,
+		Size = fromScale(0.98, 0.15),
+		BackgroundColor3 = Theme.PanelAlt,
+		LayoutOrder = order,
+		ZIndex = 215,
+	})
+	createStroke(row, Theme.BorderSoft, 1, 0.14)
+	local title = createScaleText(row, option.Title, {
+		Size = fromScale(0.64, 0.36),
+		Position = fromScale(0.028, 0.12),
+		Font = Enum.Font.GothamBold,
+		TextColor3 = Theme.White,
+		ZIndex = 217,
+	})
+	local description = createScaleText(row, option.Description, {
+		Size = fromScale(0.67, 0.37),
+		Position = fromScale(0.028, 0.52),
+		Font = Enum.Font.Gotham,
+		TextColor3 = Theme.Gray,
+		TextWrapped = true,
+		ZIndex = 217,
+	})
+
+	if option.Type == "toggle" then
+		local enabled = state.Toggles[option.Id] == true
+		local track, knob = createToggleVisual(row, enabled)
+		row.Activated:Connect(function()
+			state.Toggles[option.Id] = not state.Toggles[option.Id]
+			local on = state.Toggles[option.Id]
+			tweenFast(track, {BackgroundColor3 = on and Theme.ToggleOn or Theme.ToggleOff})
+			tweenFast(knob, {Position = on and fromScale(0.56, 0.11) or fromScale(0.05, 0.11), BackgroundColor3 = on and Theme.ToggleKnobOn or Theme.ToggleKnobOff})
+			if option.Action == "anti_afk" then
+				state.Toggles.anti_afk = on
+			elseif option.Action == "infinity_jump" then
+				state.Toggles.infinity_jump = on
+			end
+		end)
+	elseif option.Type == "click" then
+			local icon = createImage(row, option.Icon or CLICK_ICON, {
+				Size = fromScale(0.11, 0.62),
+				Position = fromScale(0.85, 0.19),
+				ZIndex = 218,
+			})
+			row.Activated:Connect(function()
+				if option.Action == "random_rejoin" then
+					openConfirm("Are you sure you want to switch to a random public server?", "random_rejoin")
+				elseif option.Action == "same_rejoin" then
+					openConfirm("Are you sure you want to reconnect to this same server?", "same_rejoin")
+				else
+					performAction(option.Action)
+				end
+			end)
+	else
+		local marker = create("Frame", {
+			BackgroundColor3 = Theme.GrayDark,
+			BorderSizePixel = 0,
+			Size = fromScale(0.055, 0.055),
+			Position = fromScale(0.91, 0.4725),
+			ZIndex = 218,
+		}, row)
+		createAspect(marker, 1, Enum.AspectType.FitWithinMaxSize)
+	end
+	addHover(row, Theme.PanelAlt, Theme.PanelSoft)
+	return row
+end
+
+function renderActiveTab()
+	if state.ModalOpen then
+		closeConfirm()
+	end
+	removeDynamicChildren()
+	EmptyState.Visible = false
+	local query = string.lower(state.SearchQuery or "")
+	local order = 1
+	local isSearching = query ~= ""
+	local matches = {}
+
+	if isSearching then
+		for _, tab in ipairs(tabs) do
+			local info = data[tab.Key]
+			if info then
+				for _, option in ipairs(info.Options or {}) do
+					local hay = string.lower((option.Title or "") .. " " .. (option.Description or ""))
+					if string.find(hay, query, 1, true) then
+						table.insert(matches, option)
+					end
+				end
+			end
+		end
+		if #matches == 0 then
+			local noResult = create("Frame", {
+				Name = "NoSearchResults",
+				BackgroundColor3 = Theme.Panel,
+				BorderSizePixel = 0,
+				Size = fromScale(0.96, 0.32),
+				LayoutOrder = order,
+				ZIndex = 212,
+			}, ContentViewport)
+			order = order + 1
+			createStroke(noResult, Theme.BorderSoft, 1, 0.15)
+			createScaleText(noResult, "No matching options", {
+				Size = fromScale(0.8, 0.28),
+				Position = fromScale(0.1, 0.25),
+				TextXAlignment = Enum.TextXAlignment.Center,
+				Font = Enum.Font.GothamBold,
+				TextColor3 = Theme.White,
+				ZIndex = 213,
+			})
+			createScaleText(noResult, "Search results include options from every tab.", {
+				Size = fromScale(0.82, 0.24),
+				Position = fromScale(0.09, 0.54),
+				TextXAlignment = Enum.TextXAlignment.Center,
+				Font = Enum.Font.Gotham,
+				TextColor3 = Theme.Gray,
+				ZIndex = 213,
+			})
+		else
+			for _, option in ipairs(matches) do
+				createOptionRow(option, order)
+				order = order + 1
+			end
+		end
+		updateContentCanvas(#matches + 1 > 6)
+		return
+	end
+
+	local info = data[state.ActiveTab]
+	if not info then
+		updateContentCanvas(false)
+		return
+	end
+
+	if #info.Categories == 0 and #info.Options == 0 then
+		EmptyState.Visible = true
+		EmptyState.Parent = ContentViewport
+		EmptyState.LayoutOrder = 1
+		updateContentCanvas(false)
+		return
+	end
+
+	local optionsByCategory = {}
+	for _, option in ipairs(info.Options) do
+		if option.Category then
+			optionsByCategory[option.Category] = optionsByCategory[option.Category] or {}
+			table.insert(optionsByCategory[option.Category], option)
+		end
+	end
+
+	local categoryIds = {}
+	for _, category in ipairs(info.Categories) do
+		categoryIds[category.Id] = true
+		createCategoryRow(category, order)
+		order = order + 1
+		if state.CategoryOpen[category.Id] then
+			for _, option in ipairs(optionsByCategory[category.Id] or {}) do
+				createOptionRow(option, order)
+				order = order + 1
+			end
+		end
+	end
+	for _, option in ipairs(info.Options) do
+		if not option.Category or not categoryIds[option.Category] then
+			createOptionRow(option, order)
+			order = order + 1
+		end
+	end
+	local count = getOptionCount(state.ActiveTab)
+	updateContentCanvas(count > 6)
+end
+
+setTabVisual(state.ActiveTab)
+
+for _, tab in ipairs(tabs) do
+	tabButtons[tab.Key].Button.Activated:Connect(function()
+		state.ActiveTab = tab.Key
+		state.MenuHidden = false
+		setTabVisual(tab.Key)
+		ContentViewport.CanvasPosition = Vector2.zero
+		renderActiveTab()
+	end)
+end
+
+SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+	state.SearchQuery = SearchBox.Text or ""
+	SearchClear.Visible = state.SearchQuery ~= ""
+	renderActiveTab()
+end)
+
+SearchClear.Activated:Connect(function()
+	SearchBox.Text = ""
+	SearchBox:CaptureFocus()
+	SearchBox.CursorPosition = 1
+end)
+
+ContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+	local scrollEnabled = getOptionCount(state.ActiveTab) > 6
+	if state.SearchQuery ~= "" then
+		scrollEnabled = true
+	end
+	updateContentCanvas(scrollEnabled)
+end)
+
+local function calculateResponsiveSizes()
+	local view = viewport()
+	if view.X <= 0 or view.Y <= 0 then
+		return
+	end
+	local buttonPx = math.clamp(math.min(view.X, view.Y) * 0.115, 62, 86)
+	local buttonScaleX = buttonPx / view.X
+	local buttonScaleY = buttonPx / view.Y
+	OpenButton.Size = fromScale(buttonScaleX, buttonScaleY)
+	ButtonGlow.Size = fromScale(buttonScaleX * 1.14, buttonScaleY * 1.14)
+	ButtonGlow.Position = fromScale(-buttonScaleX * 0.07, -buttonScaleY * 0.07)
+
+	local menuPxW = math.clamp(math.min(view.X * 0.78, 620), 315, 620)
+	local menuPxH = math.clamp(math.min(view.Y * 0.68, 430), 265, 430)
+	if view.X < 430 then
+		menuPxW = view.X * 0.92
+	end
+	if view.Y < 520 then
+		menuPxH = view.Y * 0.77
+	end
+	menuWidthScale = clamp(menuPxW / view.X, 0.5, 0.94)
+	menuHeightScale = clamp(menuPxH / view.Y, 0.44, 0.84)
+	if menuWidthScale > 0.9 then
+		menuWidthScale = 0.9
+	end
+	if menuHeightScale > 0.86 then
+		menuHeightScale = 0.86
+	end
+	local menuX = clamp(state.LastMenuPosition.X, 0.02, 0.98 - menuWidthScale)
+	local menuY = clamp(state.LastMenuPosition.Y, 0.02, 0.98 - menuHeightScale)
+	if not state.MenuDragging then
+		state.LastMenuPosition = Vector2.new(menuX, menuY)
+	end
+	Menu.Size = fromScale(menuWidthScale, menuHeightScale)
+	if not state.MenuDragging then
+		Menu.Position = fromScale(menuX, menuY)
+	end
+	if not state.MenuOpen then
+		state.LastMenuPosition = Vector2.new(menuX, menuY)
+	end
+	Notifications.Size = fromScale(0.31, 0.43)
+	Notifications.Position = fromScale(0.675, 0.545)
+	if view.X < 600 then
+		Notifications.Size = fromScale(0.48, 0.43)
+		Notifications.Position = fromScale(0.49, 0.545)
+	end
+end
+
+local function keepButtonInBounds(animate)
+	local view = viewport()
+	local abs = OpenButton.AbsoluteSize
+	if view.X <= 0 or view.Y <= 0 then
+		return
+	end
+	local current = getGuiPositionScale(OpenButton)
+	local maxX = 1 - abs.X / view.X
+	local maxY = 1 - abs.Y / view.Y
+	local x = clamp(current.X, 0.005, math.max(0.005, maxX - 0.005))
+	local y = clamp(current.Y, 0.005, math.max(0.005, maxY - 0.005))
+	if x ~= current.X or y ~= current.Y then
+		state.LastButtonPosition = Vector2.new(x, y)
+		if animate then
+			tweenFast(OpenButton, {Position = fromScale(x, y)})
+		else
+			setGuiPositionScale(OpenButton, x, y)
+		end
+	end
+end
+
+local function getMenuBounds()
+	local view = viewport()
+	local absPos = Menu.AbsolutePosition
+	local absSize = Menu.AbsoluteSize
+	local left = absPos.X
+	local top = absPos.Y
+	local right = absPos.X + absSize.X
+	local bottom = absPos.Y + absSize.Y
+	return left, top, right, bottom, absSize, view
+end
+
+local function clampMenuPosition(x, y)
+	local view = viewport()
+	local w = Menu.AbsoluteSize.X
+	local h = Menu.AbsoluteSize.Y
+	local minX = -w / view.X + 0.006
+	local maxX = 1 - 0.006
+	local minY = -h / view.Y + 0.006
+	local maxY = 1 - 0.006
+	return clamp(x, minX, maxX), clamp(y, minY, maxY)
+end
+
+local function recoverMenuIfFullyOffscreen()
+	local left, top, right, bottom, absSize, view = getMenuBounds()
+	if view.X <= 0 or view.Y <= 0 then
+		return
+	end
+	local fullyLeft = right <= 0
+	local fullyRight = left >= view.X
+	local fullyTop = bottom <= 0
+	local fullyBottom = top >= view.Y
+	if fullyLeft or fullyRight or fullyTop or fullyBottom then
+		local currentY = state.LastMenuPosition.Y
+		local targetX
+		if fullyRight then
+			targetX = 1 - absSize.X / view.X - 0.02
+		elseif fullyLeft then
+			targetX = 0.02
+		else
+			targetX = clamp(state.LastMenuPosition.X, 0.02, 0.98 - absSize.X / view.X)
+		end
+		local targetY = currentY
+		if fullyTop then
+			targetY = 0.02
+		elseif fullyBottom then
+			targetY = 0.98 - absSize.Y / view.Y
+		else
+			targetY = clamp(targetY, 0.02, 0.98 - absSize.Y / view.Y)
+		end
+		targetX, targetY = clampMenuPosition(targetX, targetY)
+		state.LastMenuPosition = Vector2.new(targetX, targetY)
+		tweenSoft(Menu, {Position = fromScale(targetX, targetY)})
+	end
+end
+
+local dragConnections = {}
+local dragSinkName = "PhantomHubDragSink"
+
+local function bindDragSink()
+	pcall(function()
+		ContextActionService:BindActionAtPriority(dragSinkName, function()
+			return Enum.ContextActionResult.Sink
+		end, false, Enum.ContextActionPriority.High.Value, Enum.UserInputType.MouseButton1, Enum.UserInputType.MouseMovement, Enum.UserInputType.Touch)
+	end)
+end
+
+local function unbindDragSink()
+	pcall(function()
+		ContextActionService:UnbindAction(dragSinkName)
+	end)
+end
+
+local function startButtonDrag(input)
+	state.ButtonDragging = true
+	state.ButtonDragMoved = false
+	bindDragSink()
+	local startPos = getGuiPositionScale(OpenButton)
+	local startInput = input.Position
+	local activeInput = input
+	local connection
+	connection = UserInputService.InputChanged:Connect(function(changed)
+		if not state.ButtonDragging then
+			return
+		end
+		if activeInput.UserInputType == Enum.UserInputType.Touch and changed.UserInputType ~= Enum.UserInputType.Touch then
+			return
+		end
+		if activeInput.UserInputType == Enum.UserInputType.MouseButton1 and changed.UserInputType ~= Enum.UserInputType.MouseMovement then
+			return
+		end
+		local delta = changed.Position - startInput
+		if delta.Magnitude > 5 then
+			state.ButtonDragMoved = true
+		end
+		local view = viewport()
+		if view.X <= 0 or view.Y <= 0 then
+			return
+		end
+		local nx = startPos.X + delta.X / view.X
+		local ny = startPos.Y + delta.Y / view.Y
+		local abs = OpenButton.AbsoluteSize
+		local maxX = 1 - abs.X / view.X
+		local maxY = 1 - abs.Y / view.Y
+		nx = clamp(nx, -abs.X / view.X + 0.003, 1 - 0.003)
+		ny = clamp(ny, -abs.Y / view.Y + 0.003, 1 - 0.003)
+		OpenButton.Position = fromScale(nx, ny)
+		state.LastButtonPosition = Vector2.new(nx, ny)
+	end)
+	table.insert(dragConnections, connection)
+end
+
+local function stopButtonDrag()
+	if not state.ButtonDragging then
+		return
+	end
+	state.ButtonDragging = false
+	unbindDragSink()
+	for i = #dragConnections, 1, -1 do
+		local connection = dragConnections[i]
+		if connection then
+			connection:Disconnect()
+		end
+		table.remove(dragConnections, i)
+	end
+	local view = viewport()
+	local abs = OpenButton.AbsoluteSize
+	local pos = getGuiPositionScale(OpenButton)
+	local x = pos.X
+	local y = pos.Y
+	local fullyLeft = (x + abs.X / view.X) <= 0
+	local fullyRight = x >= 1
+	local fullyTop = (y + abs.Y / view.Y) <= 0
+	local fullyBottom = y >= 1
+	if fullyLeft or fullyRight or fullyTop or fullyBottom then
+		if fullyRight then
+			x = 1 - abs.X / view.X - 0.02
+		elseif fullyLeft then
+			x = 0.02
+		else
+			x = clamp(x, 0.02, 0.98 - abs.X / view.X)
+		end
+		if fullyTop then
+			y = 0.03
+		elseif fullyBottom then
+			y = 0.9 - abs.Y / view.Y
+		else
+			y = clamp(y, 0.02, 0.98 - abs.Y / view.Y)
+		end
+		state.LastButtonPosition = Vector2.new(x, y)
+		tweenSoft(OpenButton, {Position = fromScale(x, y)})
+	else
+		state.LastButtonPosition = Vector2.new(x, y)
+	end
+end
+
+OpenButton.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		startButtonDrag(input)
+	end
+end)
+
+OpenButton.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		local dragged = state.ButtonDragMoved
+		stopButtonDrag()
+		state.ButtonDragMoved = false
+		if not dragged then
+			state.MenuHidden = false
+			if state.MenuOpen then
+				Menu.Visible = false
+				state.MenuOpen = false
+			else
+				Menu.Visible = true
+				state.MenuOpen = true
+				state.MenuHidden = false
+				tweenSoft(Menu, {Position = fromScale(state.LastMenuPosition.X, state.LastMenuPosition.Y)})
+			end
+		end
+	end
+end)
+
+local function startMenuDrag(input)
+	if state.ModalOpen then
+		return
+	end
+	state.MenuDragging = true
+	state.MenuDragMoved = false
+	bindDragSink()
+	local startPos = getGuiPositionScale(Menu)
+	state.MenuDragOriginalY = startPos.Y
+	local startInput = input.Position
+	local activeInput = input
+	local connection
+	connection = UserInputService.InputChanged:Connect(function(changed)
+		if not state.MenuDragging then
+			return
+		end
+		if activeInput.UserInputType == Enum.UserInputType.Touch and changed.UserInputType ~= Enum.UserInputType.Touch then
+			return
+		end
+		if activeInput.UserInputType == Enum.UserInputType.MouseButton1 and changed.UserInputType ~= Enum.UserInputType.MouseMovement then
+			return
+		end
+		local delta = changed.Position - startInput
+		if delta.Magnitude > 5 then
+			state.MenuDragMoved = true
+		end
+		local view = viewport()
+		if view.X <= 0 or view.Y <= 0 then
+			return
+		end
+		local nx = startPos.X + delta.X / view.X
+		local ny = startPos.Y + delta.Y / view.Y
+		Menu.Position = fromScale(nx, ny)
+		state.LastMenuPosition = Vector2.new(nx, ny)
+	end)
+	table.insert(dragConnections, connection)
+end
+
+local MenuDragCorners = {}
+local cornerData = {
+	{name = "TopLeft", x = 0, y = 0},
+	{name = "TopRight", x = 0.88, y = 0},
+	{name = "BottomLeft", x = 0, y = 0.9},
+	{name = "BottomRight", x = 0.88, y = 0.9},
+}
+for _, corner in ipairs(cornerData) do
+	local handle = createButton(Menu, {
+		Name = corner.name,
+		BackgroundTransparency = 1,
+		Size = fromScale(0.12, 0.1),
+		Position = fromScale(corner.x, corner.y),
+		ZIndex = 520,
+	})
+	MenuDragCorners[corner.name] = handle
+	handle.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			startMenuDrag(input)
+		end
+	end)
+	handle.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			state.MenuDragging = false
+			unbindDragSink()
+			for i = #dragConnections, 1, -1 do
+				local connection = dragConnections[i]
+				if connection then
+					connection:Disconnect()
+				end
+				table.remove(dragConnections, i)
+			end
+			if state.MenuDragMoved then
+				recoverMenuIfFullyOffscreen()
+			end
+			state.MenuDragMoved = false
+		end
+	end)
+end
+
+local function closeMenuOnly()
+	state.MenuHidden = true
+	Menu.Visible = false
+	state.MenuOpen = false
+	closeConfirm()
+end
+
+HidePanelButton.Activated:Connect(function()
+	closeMenuOnly()
+end)
+
+CloseButton.Activated:Connect(function()
+	if not state.ModalOpen then
+		openConfirm("Confirming will close Phantom Hub and remove the launcher button from your screen.", "shutdown")
+	end
+end)
+
+CancelButton.Activated:Connect(function()
+	closeConfirm()
+end)
+
+ConfirmButton.Activated:Connect(function()
+	local action = state.ModalAction
+	closeConfirm()
+	if action == "shutdown" then
+		state.MenuOpen = false
+		state.MenuHidden = true
+		OpenButton.Visible = false
+		ButtonGlow.Visible = false
+		Menu.Visible = false
+		ScreenGui.Enabled = false
+	elseif action == "random_rejoin" then
+		performAction("random_rejoin")
+	elseif action == "same_rejoin" then
+		performAction("same_rejoin")
+	end
+end)
+
+local function requestFunction()
+	local candidates = {
+		(rawget(_G, "request")),
+		(rawget(_G, "http_request")),
+		(rawget(_G, "requestAsync")),
+		(rawget(_G, "syn") and rawget(_G, "syn").request),
+		(rawget(_G, "fluxus") and rawget(_G, "fluxus").request),
+	}
+	for _, candidate in ipairs(candidates) do
+		if type(candidate) == "function" then
+			return candidate
+		end
+	end
+	return nil
+end
+
+local function getPublicServers(placeId)
+	local results = {}
+	local cursor = ""
+	local req = requestFunction()
+	for page = 1, 6 do
+		local url = "https://games.roblox.com/v1/games/" .. tostring(placeId) .. "/servers/Public?sortOrder=Asc&limit=100"
+		if cursor ~= "" then
+			url = url .. "&cursor=" .. HttpService:UrlEncode(cursor)
+		end
+		local body = nil
+		if req then
+			local ok, response = pcall(req, {Url = url, Method = "GET", Headers = {['User-Agent'] = "Roblox"}})
+			if ok and type(response) == "table" then
+				body = response.Body or response.body
+			end
+		end
+		if not body then
+			local ok, response = pcall(function()
+				return game:HttpGet(url)
+			end)
+			if ok then
+				body = response
+			end
+		end
+		if type(body) ~= "string" or body == "" then
+			break
+		end
+		local ok, decoded = pcall(function()
+			return HttpService:JSONDecode(body)
+		end)
+		if not ok or type(decoded) ~= "table" then
+			break
+		end
+		for _, server in ipairs(decoded.data or {}) do
+			if type(server) == "table" and server.id and tonumber(server.playing or 0) < tonumber(server.maxPlayers or 0) then
+				if server.id ~= game.JobId then
+					table.insert(results, server.id)
+				end
+			end
+		end
+		cursor = decoded.nextPageCursor or ""
+		if cursor == "" then
+			break
+		end
+	end
+	return results
+end
+
+function hopToRandomServer()
+	if state.ServerHopBusy then
+		return
+	end
+	state.ServerHopBusy = true
+	showNotification(SERVER_ICON, "Searching for an available public server...")
+	task.spawn(function()
+		local servers = getPublicServers(game.PlaceId)
+		if #servers > 0 then
+			local selected = servers[math.random(1, #servers)]
+			local ok, err = pcall(function()
+				TeleportService:TeleportToPlaceInstance(game.PlaceId, selected, LocalPlayer)
+			end)
+			if not ok then
+				showNotification(SERVER_ICON, "Server teleport failed: " .. tostring(err))
+			end
+		else
+			local ok, err = pcall(function()
+				TeleportService:Teleport(game.PlaceId, LocalPlayer)
+			end)
+			if not ok then
+				showNotification(SERVER_ICON, "Random server fallback failed: " .. tostring(err))
+			end
+		end
+		state.ServerHopBusy = false
+	end)
+end
+
+function rejoinSameServer()
+	if state.ServerHopBusy then
+		return
+	end
+	state.ServerHopBusy = true
+	showNotification(SERVER_ICON, "Reconnecting to the current server...")
+	task.spawn(function()
+		local ok, err = pcall(function()
+			TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
+		end)
+		if not ok then
+			showNotification(SERVER_ICON, "Rejoin failed: " .. tostring(err))
+		end
+		state.ServerHopBusy = false
+	end)
+end
+
+local antiAfkThreadToken = 0
+local function refreshCharacterConnections()
+	local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+	local humanoid = character:FindFirstChildOfClass("Humanoid") or character:WaitForChild("Humanoid")
+	return character, humanoid
+end
+
+local function startAntiAfkLoop()
+	antiAfkThreadToken = antiAfkThreadToken + 1
+	local token = antiAfkThreadToken
+	task.spawn(function()
+		while state.Toggles.anti_afk and token == antiAfkThreadToken do
+			task.wait(60)
+			if not state.Toggles.anti_afk or token ~= antiAfkThreadToken then
+				break
+			end
+			local character = LocalPlayer.Character
+			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+			if humanoid and humanoid.Health > 0 then
+				pcall(function()
+					humanoid:Move(Vector3.new(0, 0, -1), true)
+				end)
+				task.wait(0.18)
+				pcall(function()
+					humanoid:Move(Vector3.zero, true)
+				end)
+			end
+		end
+	end)
+end
+
+local infinityConnection
+local function refreshInfinityJumpConnection()
+	if infinityConnection then
+		infinityConnection:Disconnect()
+		infinityConnection = nil
+	end
+	infinityConnection = RunService.Heartbeat:Connect(function()
+		if not state.Toggles.infinity_jump then
+			return
+		end
+		local character = LocalPlayer.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if not humanoid or humanoid.Health <= 0 then
+			return
+		end
+		if humanoid.Jump then
+			pcall(function()
+				humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+			end)
+		end
+	end)
+end
+
+local oldToggleHandler = nil
+local originalRender = renderActiveTab
+renderActiveTab = function(...)
+	local result = originalRender(...)
+	return result
+end
+
+local function bindToggleBehavior()
+	ContentViewport.ChildAdded:Connect(function(child)
+		if not child:IsA("TextButton") then
+			return
+		end
+		if string.sub(child.Name, 1, 7) ~= "Option_" then
+			return
+		end
+		child.Activated:Connect(function()
+			if child.Name == "Option_anti_afk" then
+				if state.Toggles.anti_afk then
+					antiAfkThreadToken = antiAfkThreadToken + 1
+					startAntiAfkLoop()
+				end
+			elseif child.Name == "Option_infinity_jump" then
+				refreshInfinityJumpConnection()
+			end
+		end)
+	end)
+end
+
+local function onCharacterAdded(character)
+	task.defer(function()
+		local humanoid = character:WaitForChild("Humanoid", 8)
+		if humanoid then
+			refreshInfinityJumpConnection()
+		end
+	end)
+end
+LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
+bindToggleBehavior()
+
+local oldRenderReference = renderActiveTab
+renderActiveTab = function(...)
+	local output = oldRenderReference(...)
+	for _, child in ipairs(ContentViewport:GetChildren()) do
+		if child:IsA("TextButton") and string.sub(child.Name, 1, 7) == "Option_" then
+			local optionName = string.sub(child.Name, 8)
+			if optionName == "anti_afk" then
+				if state.Toggles.anti_afk then
+					startAntiAfkLoop()
+				end
+			elseif optionName == "infinity_jump" then
+				refreshInfinityJumpConnection()
+			end
+		end
+	end
+	return output
+end
+
+TabsViewport.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		if #tabs > 0 then
+			local viewportSize = TabsViewport.AbsoluteSize
+			local position = input.Position
+			if viewportSize.Y > 0 then
+				local contentHeight = TabsLayout.AbsoluteContentSize.Y
+				if contentHeight > viewportSize.Y then
+					local start = position.Y
+					local startCanvas = TabsViewport.CanvasPosition.Y
+					local active = true
+					local inputConnection
+					inputConnection = UserInputService.InputChanged:Connect(function(changed)
+						if not active then
+							return
+						end
+						if changed.UserInputType ~= input.UserInputType and changed.UserInputType ~= Enum.UserInputType.MouseMovement then
+							return
+						end
+						local delta = start - changed.Position.Y
+						TabsViewport.CanvasPosition = Vector2.new(0, math.max(0, startCanvas + delta))
+					end)
+					task.spawn(function()
+						UserInputService.InputEnded:Wait()
+						active = false
+						if inputConnection then
+							inputConnection:Disconnect()
+						end
+					end)
+				end
+			end
+		end
+	end
+end)
+
+ContentViewport.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		local viewportSize = ContentViewport.AbsoluteSize
+		local contentHeight = ContentLayout.AbsoluteContentSize.Y
+		if contentHeight > viewportSize.Y and ContentViewport.ScrollingEnabled then
+			local start = input.Position.Y
+			local startCanvas = ContentViewport.CanvasPosition.Y
+			local active = true
+			local inputConnection
+			inputConnection = UserInputService.InputChanged:Connect(function(changed)
+				if not active then
+					return
+				end
+				if changed.UserInputType ~= input.UserInputType and changed.UserInputType ~= Enum.UserInputType.MouseMovement then
+					return
+				end
+				local delta = start - changed.Position.Y
+				ContentViewport.CanvasPosition = Vector2.new(0, math.max(0, startCanvas + delta))
+			end)
+			task.spawn(function()
+				UserInputService.InputEnded:Wait()
+				active = false
+				if inputConnection then
+					inputConnection:Disconnect()
+				end
+			end)
+		end
+	end
+end)
+
+RunService.RenderStepped:Connect(function()
+	if not ScreenGui.Enabled then
+		return
+	end
+	if not state.ButtonDragging then
+		local current = getGuiPositionScale(OpenButton)
+		local target = state.LastButtonPosition
+		local nx = current.X + (target.X - current.X) * 0.45
+		local ny = current.Y + (target.Y - current.Y) * 0.45
+		if math.abs(nx - target.X) > 0.0001 or math.abs(ny - target.Y) > 0.0001 then
+			OpenButton.Position = fromScale(nx, ny)
+		end
+	end
+	if state.MenuOpen and not state.MenuDragging and not state.ModalOpen then
+		local current = getGuiPositionScale(Menu)
+		local target = state.LastMenuPosition
+		local nx = current.X + (target.X - current.X) * 0.32
+		local ny = current.Y + (target.Y - current.Y) * 0.32
+		if math.abs(nx - target.X) > 0.0001 or math.abs(ny - target.Y) > 0.0001 then
+			Menu.Position = fromScale(nx, ny)
+		end
+	end
+end)
+
+local viewportConnection = workspace.CurrentCamera and workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize")
+if viewportConnection then
+	viewportConnection:Connect(function()
+		calculateResponsiveSizes()
+		keepButtonInBounds(true)
+		if state.MenuOpen then
+			recoverMenuIfFullyOffscreen()
+		end
+		updateTabCanvas()
+		updateContentCanvas(getOptionCount(state.ActiveTab) > 6)
+	end)
+end
+workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+	local camera = workspace.CurrentCamera
+	if camera then
+		camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+			calculateResponsiveSizes()
+			keepButtonInBounds(true)
+			if state.MenuOpen then
+				recoverMenuIfFullyOffscreen()
+			end
+			updateTabCanvas()
+			updateContentCanvas(getOptionCount(state.ActiveTab) > 6)
+		end)
+	end
+end)
+
+math.randomseed(os.clock() * 100000)
+calculateResponsiveSizes()
+renderActiveTab()
+setTabVisual(state.ActiveTab)
+keepButtonInBounds(false)
+
+local function setMenuVisibility(visible)
+	state.MenuOpen = visible
+	state.MenuHidden = not visible
+	Menu.Visible = visible
+	if visible then
+		Menu.Position = fromScale(state.LastMenuPosition.X, state.LastMenuPosition.Y)
+		tweenSoft(Menu, {Position = fromScale(state.LastMenuPosition.X, state.LastMenuPosition.Y)})
+	end
+end
+
+local function stopAllLoops()
+	antiAfkThreadToken = antiAfkThreadToken + 1
+	if infinityConnection then
+		infinityConnection:Disconnect()
+		infinityConnection = nil
+	end
+end
+
+localPlayerRespawnConnection = LocalPlayer.CharacterAdded:Connect(function()
+	if state.Toggles.infinity_jump then
+		refreshInfinityJumpConnection()
+	end
+	if state.Toggles.anti_afk then
+		startAntiAfkLoop()
+	end
+end)
+
+ScreenGui.AncestryChanged:Connect(function(_, parent)
+	if not parent then
+		stopAllLoops()
+		pcall(function()
+			ContextActionService:UnbindAction(dragSinkName)
+		end)
+	end
+end)
+
+setNoLocalization(ScreenGui)
+setNoLocalization(Root)
+
+for _, descendant in ipairs(ScreenGui:GetDescendants()) do
+	setNoLocalization(descendant)
+end
+
+local function rebuildTabScrollVisibility()
+	local totalTabs = #tabs
+	TabsViewport.ScrollingEnabled = totalTabs > 0
+	if totalTabs <= 1 then
+		TabsViewport.ScrollingEnabled = false
+	end
+end
+rebuildTabScrollVisibility()
+
+local startupPulse = create("Frame", {
+	Name = "StartupPulse",
+	BackgroundColor3 = Theme.White,
+	BackgroundTransparency = 0.92,
+	BorderSizePixel = 0,
+	Size = fromScale(1.02, 1.02),
+	Position = fromScale(-0.01, -0.01),
+	ZIndex = 98,
+}, OpenButton)
+createAspect(startupPulse, 1, Enum.AspectType.FitWithinMaxSize)
+startupPulse.Active = false
+	tween(startupPulse, TweenInfo.new(0.85, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
+task.delay(0.9, function()
+	if startupPulse then
+		startupPulse:Destroy()
+	end
+end)
+
+local function bindInputSafety()
+	UserInputService.WindowFocusReleased:Connect(function()
+		if state.ButtonDragging then
+			stopButtonDrag()
+		end
+		if state.MenuDragging then
+			state.MenuDragging = false
+			unbindDragSink()
+		end
+	end)
+	UserInputService.WindowFocused:Connect(function()
+		if state.MenuOpen then
+			recoverMenuIfFullyOffscreen()
+		end
+		keepButtonInBounds(true)
+	end)
+end
+bindInputSafety()
+
+local function periodicLayoutPass()
+	task.spawn(function()
+		while ScreenGui.Parent do
+			task.wait(1.25)
+			if not ScreenGui.Parent then
+				break
+			end
+			calculateResponsiveSizes()
+			keepButtonInBounds(false)
+			if state.MenuOpen then
+				recoverMenuIfFullyOffscreen()
+			end
+			updateTabCanvas()
+			local scroll = getOptionCount(state.ActiveTab) > 6
+			if state.SearchQuery ~= "" then
+				scroll = true
+			end
+			updateContentCanvas(scroll)
+		end
+	end)
+end
+periodicLayoutPass()
+
+local function verifyCoreHierarchy()
+	local required = {
+		ScreenGui,
+		Root,
+		OpenButton,
+		Menu,
+		LeftPanel,
+		RightPanel,
+		SearchBar,
+		SearchBox,
+		ContentViewport,
+		ModalOverlay,
+		ConfirmModal,
+		Notifications,
+	}
+	for _, instance in ipairs(required) do
+		if not instance.Parent then
+			return false
+		end
+	end
+	return true
+end
+
+if not verifyCoreHierarchy() then
+	error("Phantom Hub UI initialization failed")
+end
+
+local function restoreIfMissing()
+	if not ScreenGui.Parent or not Root.Parent then
+		return
+	end
+	if not OpenButton.Parent then
+		return
+	end
+	if not Menu.Parent then
+		return
+	end
+end
+
+task.spawn(function()
+	while ScreenGui.Parent do
+		task.wait(5)
+		restoreIfMissing()
+	end
+end)
+
+local function sanitizeState()
+	state.ActiveTab = state.ActiveTab or "Main"
+	state.SearchQuery = state.SearchQuery or ""
+	state.Toggles.anti_afk = state.Toggles.anti_afk == true
+	state.Toggles.infinity_jump = state.Toggles.infinity_jump == true
+	state.LastButtonPosition = Vector2.new(
+		type(state.LastButtonPosition.X) == "number" and state.LastButtonPosition.X or 0.026,
+		type(state.LastButtonPosition.Y) == "number" and state.LastButtonPosition.Y or 0.225
+	)
+	state.LastMenuPosition = Vector2.new(
+		type(state.LastMenuPosition.X) == "number" and state.LastMenuPosition.X or 0.24,
+		type(state.LastMenuPosition.Y) == "number" and state.LastMenuPosition.Y or 0.16
+	)
+end
+sanitizeState()
+
+local function ensureEnglishUi()
+	local textObjects = ScreenGui:GetDescendants()
+	for _, object in ipairs(textObjects) do
+		if object:IsA("TextLabel") or object:IsA("TextButton") or object:IsA("TextBox") then
+			setNoLocalization(object)
+		end
+	end
+end
+ensureEnglishUi()
+
+local function finalize()
+	calculateResponsiveSizes()
+	keepButtonInBounds(false)
+	setTabVisual(state.ActiveTab)
+	renderActiveTab()
+	ensureEnglishUi()
+end
+finalize()
+
+local function makeTouchFriendly(guiObject)
+	guiObject.Active = true
+	pcall(function()
+		guiObject.TouchEnabled = true
+	end)
+end
+for _, object in ipairs(ScreenGui:GetDescendants()) do
+	if object:IsA("GuiButton") or object:IsA("TextBox") then
+		makeTouchFriendly(object)
+	end
+end
+
+OpenButton.Active = true
+Menu.Active = true
+TabsViewport.Active = true
+ContentViewport.Active = true
+SearchBar.Active = true
+
+for _, object in ipairs(Menu:GetDescendants()) do
+	if object:IsA("GuiButton") then
+		object.AutoButtonColor = false
+	end
+end
+
+local function safeDestroy(object)
+	if object and object.Parent then
+		object:Destroy()
+	end
+end
+
+local shutdownGuard = false
+local originalConfirm = ConfirmButton.Activated:Connect(function() end)
+if originalConfirm then
+	originalConfirm:Disconnect()
+end
+
+ScreenGui.Destroying:Connect(function()
+	if shutdownGuard then
+		return
+	end
+	shutdownGuard = true
+	stopAllLoops()
+	unbindDragSink()
+end)
+
+ensureEnglishUi()
