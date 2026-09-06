@@ -1,0 +1,820 @@
+local coreGui = game:GetService("CoreGui")
+local players = game:GetService("Players")
+local uis = game:GetService("UserInputService")
+local runService = game:GetService("RunService")
+local tweenService = game:GetService("TweenService")
+local tpService = game:GetService("TeleportService")
+local httpService = game:GetService("HttpService")
+
+local lp = players.LocalPlayer
+local mouse = lp:GetMouse()
+
+local phantomHub = Instance.new("ScreenGui")
+phantomHub.Name = "PhantomHub"
+phantomHub.ResetOnSpawn = false
+phantomHub.IgnoreGuiInset = true
+phantomHub.ZIndexBehavior = Enum.ZIndexBehavior.Global
+local existing = coreGui:FindFirstChild("PhantomHub")
+if existing then existing:Destroy() end
+pcall(function() phantomHub.Parent = coreGui end)
+if not phantomHub.Parent then phantomHub.Parent = lp:WaitForChild("PlayerGui") end
+
+local function create(className, props)
+    local inst = Instance.new(className)
+    for k, v in pairs(props) do
+        if k ~= "Parent" then
+            inst[k] = v
+        end
+    end
+    if inst:IsA("TextLabel") or inst:IsA("TextButton") or inst:IsA("TextBox") then
+        inst.AutoLocalize = false
+    end
+    if props.Parent then inst.Parent = props.Parent end
+    return inst
+end
+
+local openBtn = create("ImageButton", {
+    Size = UDim2.new(0.08, 0, 0.08, 0),
+    Position = UDim2.new(0.05, 0, 0.1, 0),
+    BackgroundColor3 = Color3.fromRGB(15, 15, 15),
+    BorderSizePixel = 0,
+    AutoButtonColor = false,
+    Parent = phantomHub
+})
+create("UIAspectRatioConstraint", {Parent = openBtn, AspectRatio = 1})
+create("UIStroke", {Parent = openBtn, Color = Color3.fromRGB(80, 80, 80), Thickness = 2})
+create("ImageLabel", {
+    Size = UDim2.new(0.7, 0, 0.7, 0),
+    Position = UDim2.new(0.15, 0, 0.15, 0),
+    BackgroundTransparency = 1,
+    Image = "rbxassetid://121715364276099",
+    Parent = openBtn
+})
+
+local isDraggingBtn = false
+local btnDragStartPos = nil
+local btnInputStart = nil
+
+openBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isDraggingBtn = true
+        btnDragStartPos = openBtn.Position
+        btnInputStart = input.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                isDraggingBtn = false
+                local px = openBtn.Position.X.Scale
+                local py = openBtn.Position.Y.Scale
+                if px < 0 or px > (1 - openBtn.Size.X.Scale) then
+                    local newX = math.clamp(px, 0, 1 - openBtn.Size.X.Scale)
+                    tweenService:Create(openBtn, TweenInfo.new(0.3), {Position = UDim2.new(newX, 0, py, 0)}):Play()
+                end
+                if py < 0 or py > (1 - openBtn.Size.Y.Scale) then
+                    local newY = math.clamp(py, 0, 1 - openBtn.Size.Y.Scale)
+                    tweenService:Create(openBtn, TweenInfo.new(0.3), {Position = UDim2.new(openBtn.Position.X.Scale, 0, newY, 0)}):Play()
+                end
+            end
+        end)
+    end
+end)
+
+uis.InputChanged:Connect(function(input)
+    if isDraggingBtn and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local deltaX = input.Position.X - btnInputStart.X
+        local deltaY = input.Position.Y - btnInputStart.Y
+        local viewSize = workspace.CurrentCamera.ViewportSize
+        local scaleDeltaX = deltaX / viewSize.X
+        local scaleDeltaY = deltaY / viewSize.Y
+        openBtn.Position = UDim2.new(
+            btnDragStartPos.X.Scale + scaleDeltaX, 0,
+            btnDragStartPos.Y.Scale + scaleDeltaY, 0
+        )
+    end
+end)
+
+local menu = create("Frame", {
+    Size = UDim2.new(0.6, 0, 0.6, 0),
+    Position = UDim2.new(0.2, 0, 0.2, 0),
+    BackgroundColor3 = Color3.fromRGB(15, 15, 15),
+    BorderSizePixel = 0,
+    Visible = false,
+    Parent = phantomHub
+})
+create("UIStroke", {Parent = menu, Color = Color3.fromRGB(50, 50, 50), Thickness = 2})
+
+local topBar = create("Frame", {
+    Size = UDim2.new(1, 0, 0.1, 0),
+    Position = UDim2.new(0, 0, 0, 0),
+    BackgroundColor3 = Color3.fromRGB(20, 20, 20),
+    BorderSizePixel = 0,
+    Parent = menu
+})
+
+create("TextLabel", {
+    Size = UDim2.new(0.7, 0, 1, 0),
+    Position = UDim2.new(0.02, 0, 0, 0),
+    BackgroundTransparency = 1,
+    Text = "Phantom Hub | Steal an Egg",
+    TextColor3 = Color3.fromRGB(255, 255, 255),
+    TextScaled = true,
+    Font = Enum.Font.GothamBold,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    Parent = topBar
+})
+
+local topBtns = create("Frame", {
+    Size = UDim2.new(0.2, 0, 1, 0),
+    Position = UDim2.new(0.78, 0, 0, 0),
+    BackgroundTransparency = 1,
+    Parent = topBar
+})
+
+local closeBtn = create("TextButton", {
+    Size = UDim2.new(0.4, 0, 0.8, 0),
+    Position = UDim2.new(0.5, 0, 0.1, 0),
+    BackgroundColor3 = Color3.fromRGB(30, 30, 30),
+    BorderSizePixel = 0,
+    Text = "X",
+    TextColor3 = Color3.fromRGB(255, 255, 255),
+    TextScaled = true,
+    Font = Enum.Font.GothamBold,
+    Parent = topBtns
+})
+
+local hideBtn = create("TextButton", {
+    Size = UDim2.new(0.4, 0, 0.8, 0),
+    Position = UDim2.new(0.05, 0, 0.1, 0),
+    BackgroundColor3 = Color3.fromRGB(30, 30, 30),
+    BorderSizePixel = 0,
+    Text = "-",
+    TextColor3 = Color3.fromRGB(255, 255, 255),
+    TextScaled = true,
+    Font = Enum.Font.GothamBold,
+    Parent = topBtns
+})
+
+local confirmPanel = create("Frame", {
+    Size = UDim2.new(0.4, 0, 0.3, 0),
+    Position = UDim2.new(0.3, 0, 0.35, 0),
+    BackgroundColor3 = Color3.fromRGB(25, 25, 25),
+    BorderSizePixel = 0,
+    Visible = false,
+    ZIndex = 10,
+    Active = true,
+    Parent = menu
+})
+create("UIStroke", {Parent = confirmPanel, Color = Color3.fromRGB(60, 60, 60), Thickness = 2})
+
+local confirmDesc = create("TextLabel", {
+    Size = UDim2.new(0.9, 0, 0.5, 0),
+    Position = UDim2.new(0.05, 0, 0.05, 0),
+    BackgroundTransparency = 1,
+    Text = "Are you sure you want to close the menu completely?",
+    TextColor3 = Color3.fromRGB(255, 255, 255),
+    TextScaled = true,
+    Font = Enum.Font.Gotham,
+    TextWrapped = true,
+    ZIndex = 11,
+    Parent = confirmPanel
+})
+
+local cCancelBtn = create("TextButton", {
+    Size = UDim2.new(0.4, 0, 0.3, 0),
+    Position = UDim2.new(0.05, 0, 0.6, 0),
+    BackgroundColor3 = Color3.fromRGB(40, 40, 40),
+    BorderSizePixel = 0,
+    Text = "Cancel",
+    TextColor3 = Color3.fromRGB(255, 50, 50),
+    TextScaled = true,
+    Font = Enum.Font.GothamBold,
+    ZIndex = 11,
+    Parent = confirmPanel
+})
+
+local cConfirmBtn = create("TextButton", {
+    Size = UDim2.new(0.4, 0, 0.3, 0),
+    Position = UDim2.new(0.55, 0, 0.6, 0),
+    BackgroundColor3 = Color3.fromRGB(40, 40, 40),
+    BorderSizePixel = 0,
+    Text = "Confirm",
+    TextColor3 = Color3.fromRGB(50, 255, 50),
+    TextScaled = true,
+    Font = Enum.Font.GothamBold,
+    ZIndex = 11,
+    Parent = confirmPanel
+})
+
+local generalConfirmPanel = create("Frame", {
+    Size = UDim2.new(0.4, 0, 0.3, 0),
+    Position = UDim2.new(0.3, 0, 0.35, 0),
+    BackgroundColor3 = Color3.fromRGB(25, 25, 25),
+    BorderSizePixel = 0,
+    Visible = false,
+    ZIndex = 10,
+    Active = true,
+    Parent = menu
+})
+create("UIStroke", {Parent = generalConfirmPanel, Color = Color3.fromRGB(60, 60, 60), Thickness = 2})
+
+local gcDesc = create("TextLabel", {
+    Size = UDim2.new(0.9, 0, 0.5, 0),
+    Position = UDim2.new(0.05, 0, 0.05, 0),
+    BackgroundTransparency = 1,
+    Text = "",
+    TextColor3 = Color3.fromRGB(255, 255, 255),
+    TextScaled = true,
+    Font = Enum.Font.Gotham,
+    TextWrapped = true,
+    ZIndex = 11,
+    Parent = generalConfirmPanel
+})
+
+local gcCancelBtn = create("TextButton", {
+    Size = UDim2.new(0.4, 0, 0.3, 0),
+    Position = UDim2.new(0.05, 0, 0.6, 0),
+    BackgroundColor3 = Color3.fromRGB(40, 40, 40),
+    BorderSizePixel = 0,
+    Text = "Cancel",
+    TextColor3 = Color3.fromRGB(255, 50, 50),
+    TextScaled = true,
+    Font = Enum.Font.GothamBold,
+    ZIndex = 11,
+    Parent = generalConfirmPanel
+})
+
+local gcConfirmBtn = create("TextButton", {
+    Size = UDim2.new(0.4, 0, 0.3, 0),
+    Position = UDim2.new(0.55, 0, 0.6, 0),
+    BackgroundColor3 = Color3.fromRGB(40, 40, 40),
+    BorderSizePixel = 0,
+    Text = "Confirm",
+    TextColor3 = Color3.fromRGB(50, 255, 50),
+    TextScaled = true,
+    Font = Enum.Font.GothamBold,
+    ZIndex = 11,
+    Parent = generalConfirmPanel
+})
+
+local currentConfirmCallback = nil
+gcCancelBtn.MouseButton1Click:Connect(function() generalConfirmPanel.Visible = false end)
+gcConfirmBtn.MouseButton1Click:Connect(function()
+    generalConfirmPanel.Visible = false
+    if currentConfirmCallback then currentConfirmCallback() end
+end)
+
+local function promptAction(msg, cb)
+    gcDesc.Text = msg
+    currentConfirmCallback = cb
+    generalConfirmPanel.Visible = true
+end
+
+cCancelBtn.MouseButton1Click:Connect(function() confirmPanel.Visible = false end)
+cConfirmBtn.MouseButton1Click:Connect(function()
+    menu.Visible = false
+    openBtn.Visible = false
+    confirmPanel.Visible = false
+end)
+
+closeBtn.MouseButton1Click:Connect(function() confirmPanel.Visible = true end)
+hideBtn.MouseButton1Click:Connect(function() menu.Visible = false end)
+local lastClickTime = 0
+openBtn.MouseButton1Click:Connect(function()
+    if tick() - lastClickTime < 0.2 then return end
+    lastClickTime = tick()
+    if not isDraggingBtn then
+        menu.Visible = not menu.Visible
+    end
+end)
+
+local searchBar = create("Frame", {
+    Size = UDim2.new(0.96, 0, 0.08, 0),
+    Position = UDim2.new(0.02, 0, 0.12, 0),
+    BackgroundColor3 = Color3.fromRGB(25, 25, 25),
+    BorderSizePixel = 0,
+    Parent = menu
+})
+create("UIStroke", {Parent = searchBar, Color = Color3.fromRGB(60, 60, 60), Thickness = 1})
+
+create("ImageLabel", {
+    Size = UDim2.new(0.05, 0, 0.6, 0),
+    Position = UDim2.new(0.02, 0, 0.2, 0),
+    BackgroundTransparency = 1,
+    Image = "rbxassetid://73858257403039",
+    Parent = searchBar
+})
+
+local searchInput = create("TextBox", {
+    Size = UDim2.new(0.83, 0, 0.8, 0),
+    Position = UDim2.new(0.09, 0, 0.1, 0),
+    BackgroundTransparency = 1,
+    Text = "",
+    PlaceholderText = "Search...",
+    TextColor3 = Color3.fromRGB(255, 255, 255),
+    PlaceholderColor3 = Color3.fromRGB(150, 150, 150),
+    TextScaled = true,
+    Font = Enum.Font.Gotham,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    Parent = searchBar
+})
+
+local clearSearchBtn = create("TextButton", {
+    Size = UDim2.new(0.05, 0, 0.6, 0),
+    Position = UDim2.new(0.93, 0, 0.2, 0),
+    BackgroundTransparency = 1,
+    Text = "X",
+    TextColor3 = Color3.fromRGB(200, 200, 200),
+    TextScaled = true,
+    Font = Enum.Font.GothamBold,
+    Visible = false,
+    Parent = searchBar
+})
+clearSearchBtn.MouseButton1Click:Connect(function() searchInput.Text = "" end)
+
+local bodyArea = create("Frame", {
+    Size = UDim2.new(1, 0, 0.78, 0),
+    Position = UDim2.new(0, 0, 0.22, 0),
+    BackgroundTransparency = 1,
+    Parent = menu
+})
+
+local tabArea = create("ScrollingFrame", {
+    Size = UDim2.new(0.25, 0, 1, 0),
+    Position = UDim2.new(0, 0, 0, 0),
+    BackgroundColor3 = Color3.fromRGB(20, 20, 20),
+    BorderSizePixel = 0,
+    ScrollBarThickness = 0,
+    ScrollingEnabled = true,
+    Parent = bodyArea
+})
+
+local contentArea = create("ScrollingFrame", {
+    Size = UDim2.new(0.75, 0, 1, 0),
+    Position = UDim2.new(0.25, 0, 0, 0),
+    BackgroundColor3 = Color3.fromRGB(15, 15, 15),
+    BorderSizePixel = 0,
+    ScrollBarThickness = 0,
+    ScrollingEnabled = false,
+    Parent = bodyArea
+})
+
+local allOptions = {}
+local activeTabName = "Main"
+local totalContentItems = 0
+
+local function updateContentScrolling()
+    if totalContentItems >= 7 then
+        contentArea.ScrollingEnabled = true
+        contentArea.CanvasSize = UDim2.new(0, 0, totalContentItems * 0.15, 0)
+    else
+        contentArea.ScrollingEnabled = false
+        contentArea.CanvasSize = UDim2.new(0, 0, 0, 0)
+    end
+end
+
+searchInput:GetPropertyChangedSignal("Text"):Connect(function()
+    local q = searchInput.Text:lower()
+    if q == "" then
+        clearSearchBtn.Visible = false
+        for _, opt in ipairs(allOptions) do
+            opt.UI.Visible = (opt.Tab == activeTabName and opt.Category.IsOpen)
+        end
+        totalContentItems = 0
+        for _, opt in ipairs(allOptions) do
+            if opt.IsCategory and opt.Tab == activeTabName then
+                opt.UI.Visible = true
+                opt.UI.Position = UDim2.new(0, 0, totalContentItems * 0.15, 0)
+                totalContentItems = totalContentItems + 1
+                if opt.IsOpen then
+                    for _, subOpt in ipairs(opt.Children) do
+                        subOpt.UI.Visible = true
+                        subOpt.UI.Position = UDim2.new(0, 0, totalContentItems * 0.15, 0)
+                        totalContentItems = totalContentItems + 1
+                    end
+                end
+            elseif opt.IsCategory then
+                opt.UI.Visible = false
+            end
+        end
+        updateContentScrolling()
+    else
+        clearSearchBtn.Visible = true
+        totalContentItems = 0
+        for _, opt in ipairs(allOptions) do
+            if opt.IsCategory then
+                opt.UI.Visible = false
+            else
+                if opt.Title:lower():find(q) then
+                    opt.UI.Visible = true
+                    opt.UI.Position = UDim2.new(0, 0, totalContentItems * 0.15, 0)
+                    totalContentItems = totalContentItems + 1
+                else
+                    opt.UI.Visible = false
+                end
+            end
+        end
+        updateContentScrolling()
+    end
+end)
+
+local function refreshLayout()
+    if searchInput.Text ~= "" then return end
+    totalContentItems = 0
+    for _, opt in ipairs(allOptions) do
+        if opt.IsCategory then
+            if opt.Tab == activeTabName then
+                opt.UI.Visible = true
+                opt.UI.Position = UDim2.new(0, 0, totalContentItems * 0.15, 0)
+                totalContentItems = totalContentItems + 1
+                if opt.IsOpen then
+                    for _, subOpt in ipairs(opt.Children) do
+                        subOpt.UI.Visible = true
+                        subOpt.UI.Position = UDim2.new(0, 0, totalContentItems * 0.15, 0)
+                        totalContentItems = totalContentItems + 1
+                    end
+                else
+                    for _, subOpt in ipairs(opt.Children) do
+                        subOpt.UI.Visible = false
+                    end
+                end
+            else
+                opt.UI.Visible = false
+                for _, subOpt in ipairs(opt.Children) do
+                    subOpt.UI.Visible = false
+                end
+            end
+        end
+    end
+    updateContentScrolling()
+end
+
+local tabCount = 0
+local function createTab(name, iconId)
+    local tBtn = create("TextButton", {
+        Size = UDim2.new(1, 0, 0, 0),
+        Position = UDim2.new(0, 0, tabCount * 0.12, 0),
+        BackgroundColor3 = Color3.fromRGB(25, 25, 25),
+        BorderSizePixel = 0,
+        Text = "",
+        Parent = tabArea
+    })
+    tBtn.Size = UDim2.new(1, 0, 0.12, 0) 
+    
+    create("ImageLabel", {
+        Size = UDim2.new(0.2, 0, 0.6, 0),
+        Position = UDim2.new(0.05, 0, 0.2, 0),
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://" .. iconId,
+        Parent = tBtn
+    })
+    create("UIAspectRatioConstraint", {Parent = tBtn:FindFirstChildOfClass("ImageLabel"), AspectRatio = 1})
+    
+    create("TextLabel", {
+        Size = UDim2.new(0.65, 0, 0.6, 0),
+        Position = UDim2.new(0.3, 0, 0.2, 0),
+        BackgroundTransparency = 1,
+        Text = name,
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        TextScaled = true,
+        Font = Enum.Font.GothamBold,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = tBtn
+    })
+    
+    tBtn.MouseButton1Click:Connect(function()
+        activeTabName = name
+        searchInput.Text = ""
+        refreshLayout()
+    end)
+    
+    tabCount = tabCount + 1
+    tabArea.CanvasSize = UDim2.new(0, 0, tabCount * 0.12, 0)
+end
+
+createTab("Main", "139357095045310")
+createTab("Auto Buy", "110805385284419")
+createTab("Farm", "102352181267949")
+createTab("Config", "114794077382466")
+createTab("Credits", "99243311837005")
+
+local function createCategory(tab, title, iconId)
+    local cat = create("TextButton", {
+        Size = UDim2.new(0.96, 0, 0.15, 0),
+        BackgroundColor3 = Color3.fromRGB(30, 30, 30),
+        BorderSizePixel = 0,
+        Text = "",
+        Parent = contentArea
+    })
+    
+    create("ImageLabel", {
+        Size = UDim2.new(0.08, 0, 0.6, 0),
+        Position = UDim2.new(0.02, 0, 0.2, 0),
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://" .. iconId,
+        Parent = cat
+    })
+    create("UIAspectRatioConstraint", {Parent = cat:FindFirstChildOfClass("ImageLabel"), AspectRatio = 1})
+    
+    create("TextLabel", {
+        Size = UDim2.new(0.7, 0, 0.6, 0),
+        Position = UDim2.new(0.12, 0, 0.2, 0),
+        BackgroundTransparency = 1,
+        Text = title,
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        TextScaled = true,
+        Font = Enum.Font.GothamBold,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = cat
+    })
+    
+    local arrow = create("TextLabel", {
+        Size = UDim2.new(0.05, 0, 0.6, 0),
+        Position = UDim2.new(0.9, 0, 0.2, 0),
+        BackgroundTransparency = 1,
+        Text = ">",
+        TextColor3 = Color3.fromRGB(200, 200, 200),
+        TextScaled = true,
+        Font = Enum.Font.GothamBold,
+        Parent = cat
+    })
+    
+    local catData = {IsCategory = true, Tab = tab, Title = title, UI = cat, IsOpen = false, Children = {}}
+    table.insert(allOptions, catData)
+    
+    cat.MouseButton1Click:Connect(function()
+        catData.IsOpen = not catData.IsOpen
+        arrow.Rotation = catData.IsOpen and 90 or 0
+        refreshLayout()
+    end)
+    
+    return catData
+end
+
+local function createOption(catData, type, title, desc, iconId, callback)
+    local opt = create("TextButton", {
+        Size = UDim2.new(0.96, 0, 0.15, 0),
+        BackgroundColor3 = Color3.fromRGB(22, 22, 22),
+        BorderSizePixel = 0,
+        Text = "",
+        Parent = contentArea
+    })
+    
+    create("TextLabel", {
+        Size = UDim2.new(0.7, 0, 0.4, 0),
+        Position = UDim2.new(0.02, 0, 0.1, 0),
+        BackgroundTransparency = 1,
+        Text = title,
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        TextScaled = true,
+        Font = Enum.Font.GothamBold,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = opt
+    })
+    
+    create("TextLabel", {
+        Size = UDim2.new(0.7, 0, 0.3, 0),
+        Position = UDim2.new(0.02, 0, 0.6, 0),
+        BackgroundTransparency = 1,
+        Text = desc,
+        TextColor3 = Color3.fromRGB(180, 180, 180),
+        TextScaled = true,
+        Font = Enum.Font.Gotham,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = opt
+    })
+    
+    if type == "Click" and iconId then
+        local img = create("ImageLabel", {
+            Size = UDim2.new(0.08, 0, 0.6, 0),
+            Position = UDim2.new(0.88, 0, 0.2, 0),
+            BackgroundTransparency = 1,
+            Image = "rbxassetid://" .. iconId,
+            Parent = opt
+        })
+        create("UIAspectRatioConstraint", {Parent = img, AspectRatio = 1})
+        opt.MouseButton1Click:Connect(callback)
+    elseif type == "Toggle" then
+        local toggleBg = create("Frame", {
+            Size = UDim2.new(0.12, 0, 0.5, 0),
+            Position = UDim2.new(0.85, 0, 0.25, 0),
+            BackgroundColor3 = Color3.fromRGB(50, 50, 50),
+            BorderSizePixel = 0,
+            Parent = opt
+        })
+        local toggleKnob = create("Frame", {
+            Size = UDim2.new(0.5, 0, 1, 0),
+            Position = UDim2.new(0, 0, 0, 0),
+            BackgroundColor3 = Color3.fromRGB(200, 200, 200),
+            BorderSizePixel = 0,
+            Parent = toggleBg
+        })
+        local toggled = false
+        opt.MouseButton1Click:Connect(function()
+            toggled = not toggled
+            local goal = toggled and UDim2.new(0.5, 0, 0, 0) or UDim2.new(0, 0, 0, 0)
+            local bgGoal = toggled and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(50, 50, 50)
+            tweenService:Create(toggleKnob, TweenInfo.new(0.2), {Position = goal}):Play()
+            tweenService:Create(toggleBg, TweenInfo.new(0.2), {BackgroundColor3 = bgGoal}):Play()
+            callback(toggled)
+        end)
+    end
+    
+    local optData = {IsCategory = false, Tab = catData.Tab, Category = catData, Title = title, UI = opt}
+    table.insert(allOptions, optData)
+    table.insert(catData.Children, optData)
+end
+
+local notifications = {}
+local notifContainer = create("Frame", {
+    Size = UDim2.new(0.25, 0, 0.8, 0),
+    Position = UDim2.new(0.72, 0, 0.1, 0),
+    BackgroundTransparency = 1,
+    ZIndex = 50,
+    Parent = phantomHub
+})
+
+local function notify(msg, iconId)
+    local f = create("Frame", {
+        Size = UDim2.new(1, 0, 0.1, 0),
+        Position = UDim2.new(1.2, 0, 0.9, 0),
+        BackgroundColor3 = Color3.fromRGB(20, 20, 20),
+        BorderSizePixel = 0,
+        Parent = notifContainer
+    })
+    create("UIStroke", {Parent = f, Color = Color3.fromRGB(60, 60, 60), Thickness = 2})
+    
+    local i = create("ImageLabel", {
+        Size = UDim2.new(0.2, 0, 0.7, 0),
+        Position = UDim2.new(0.05, 0, 0.15, 0),
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://" .. iconId,
+        Parent = f
+    })
+    create("UIAspectRatioConstraint", {Parent = i, AspectRatio = 1})
+    
+    create("TextLabel", {
+        Size = UDim2.new(0.7, 0, 0.7, 0),
+        Position = UDim2.new(0.28, 0, 0.15, 0),
+        BackgroundTransparency = 1,
+        Text = msg,
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        TextScaled = true,
+        Font = Enum.Font.Gotham,
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = f
+    })
+    
+    local progBg = create("Frame", {
+        Size = UDim2.new(1, 0, 0.1, 0),
+        Position = UDim2.new(0, 0, 0.9, 0),
+        BackgroundColor3 = Color3.fromRGB(10, 10, 10),
+        BorderSizePixel = 0,
+        Parent = f
+    })
+    local prog = create("Frame", {
+        Size = UDim2.new(0, 0, 1, 0),
+        Position = UDim2.new(0, 0, 0, 0),
+        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+        BorderSizePixel = 0,
+        Parent = progBg
+    })
+    
+    table.insert(notifications, 1, f)
+    for idx, notif in ipairs(notifications) do
+        local targetY = 1 - (idx * 0.12)
+        tweenService:Create(notif, TweenInfo.new(0.3), {Position = UDim2.new(0, 0, targetY, 0)}):Play()
+    end
+    
+    local tw = tweenService:Create(prog, TweenInfo.new(3, Enum.EasingStyle.Linear), {Size = UDim2.new(1, 0, 1, 0)})
+    tw:Play()
+    tw.Completed:Connect(function()
+        local outTw = tweenService:Create(f, TweenInfo.new(0.3), {Position = UDim2.new(1.2, 0, f.Position.Y.Scale, 0)})
+        outTw:Play()
+        outTw.Completed:Connect(function()
+            for k, v in ipairs(notifications) do
+                if v == f then table.remove(notifications, k) break end
+            end
+            f:Destroy()
+        end)
+    end)
+end
+
+local creditsCat = createCategory("Credits", "Info", "102791662357524")
+createOption(creditsCat, "Label", "By: Cleiton10HDx", "Creator of Phantom Hub", nil, nil)
+createOption(creditsCat, "Click", "Copy Discord", "Copy discord invite link to clipboard", "97594499544606", function()
+    if setclipboard then setclipboard("https://discord.gg/72P6NhC5Pf") end
+    notify("Copied Discord Server ID to clipboard!", "132744109593099")
+end)
+
+local configCat = createCategory("Config", "Player", "102791662357524")
+createOption(configCat, "Click", "Auto Rejoin", "Hop to a random server", "97594499544606", function()
+    promptAction("Would you like to hop to a random server?", function()
+        pcall(function()
+            local res = httpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"))
+            if res and res.data then
+                local srv = res.data[math.random(1, #res.data)]
+                tpService:TeleportToPlaceInstance(game.PlaceId, srv.id, lp)
+            end
+        end)
+    end)
+end)
+createOption(configCat, "Click", "Rejoin Same Server", "Rejoin current server", "97594499544606", function()
+    promptAction("Would you like to rejoin the same server?", function()
+        tpService:TeleportToPlaceInstance(game.PlaceId, game.JobId, lp)
+    end)
+end)
+createOption(configCat, "Click", "Copy Server Code", "Copy current JobId", "88704800286791", function()
+    if setclipboard then setclipboard(game.JobId) end
+    notify("Copied Server Code to clipboard!", "88704800286791")
+end)
+createOption(configCat, "Click", "Copy Game ID", "Copy PlaceId", "88704800286791", function()
+    if setclipboard then setclipboard(tostring(game.PlaceId)) end
+    notify("Copied Game ID to clipboard!", "88704800286791")
+end)
+
+local antiAfkLoop
+createOption(configCat, "Toggle", "Anti Afk", "Prevent getting kicked", nil, function(state)
+    if state then
+        antiAfkLoop = runService.RenderStepped:Connect(function()
+            local char = lp.Character
+            if char and char:FindFirstChild("Humanoid") then
+                local vim = game:GetService("VirtualUser")
+                vim:CaptureController()
+                vim:ClickButton2(Vector2.new())
+            end
+        end)
+    else
+        if antiAfkLoop then antiAfkLoop:Disconnect() end
+    end
+end)
+
+local infJumpCon
+createOption(configCat, "Toggle", "Infinity Jump", "Jump infinitely in air", nil, function(state)
+    if state then
+        infJumpCon = uis.JumpRequest:Connect(function()
+            local char = lp.Character
+            if char and char:FindFirstChildOfClass("Humanoid") then
+                char:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end)
+    else
+        if infJumpCon then infJumpCon:Disconnect() end
+    end
+end)
+
+refreshLayout()
+
+local isDraggingMenu = false
+local menuDragStartPos = nil
+local menuInputStart = nil
+
+menu.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        local absPos = menu.AbsolutePosition
+        local absSize = menu.AbsoluteSize
+        local mPos = input.Position
+        local cornerSizeX = absSize.X * 0.15
+        local cornerSizeY = absSize.Y * 0.15
+        
+        local inLeft = mPos.X < absPos.X + cornerSizeX
+        local inRight = mPos.X > absPos.X + absSize.X - cornerSizeX
+        local inTop = mPos.Y < absPos.Y + cornerSizeY
+        local inBottom = mPos.Y > absPos.Y + absSize.Y - cornerSizeY
+        
+        if (inLeft and inTop) or (inLeft and inBottom) or (inRight and inTop) or (inRight and inBottom) then
+            isDraggingMenu = true
+            menuDragStartPos = menu.Position
+            menuInputStart = input.Position
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    isDraggingMenu = false
+                    local px = menu.Position.X.Scale
+                    local sx = menu.Size.X.Scale
+                    local py = menu.Position.Y.Scale
+                    local sy = menu.Size.Y.Scale
+                    
+                    if px + sx < 0 then
+                        tweenService:Create(menu, TweenInfo.new(0.3), {Position = UDim2.new(0, 0, py, 0)}):Play()
+                    elseif px > 1 then
+                        tweenService:Create(menu, TweenInfo.new(0.3), {Position = UDim2.new(1 - sx, 0, py, 0)}):Play()
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+uis.InputChanged:Connect(function(input)
+    if isDraggingMenu and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local deltaX = input.Position.X - menuInputStart.X
+        local deltaY = input.Position.Y - menuInputStart.Y
+        local viewSize = workspace.CurrentCamera.ViewportSize
+        local scaleDeltaX = deltaX / viewSize.X
+        local scaleDeltaY = deltaY / viewSize.Y
+        menu.Position = UDim2.new(
+            menuDragStartPos.X.Scale + scaleDeltaX, 0,
+            menuDragStartPos.Y.Scale + scaleDeltaY, 0
+        )
+    end
+end)
