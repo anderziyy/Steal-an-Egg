@@ -1044,7 +1044,6 @@ local visualSelectionState = {
 	Rarity = false,
 }
 local VisualEggInfoOverlay
-local VisualEggInfoBlocker
 local VisualEggInfoPanel
 
 local function setVisualSelection(name, value)
@@ -1062,7 +1061,7 @@ end
 local function createVisualSelectionRow(parent, name, text, order)
 	local Row = make("Frame", {
 		Name = name .. "Row",
-		Size = UDim2.new(1, -18, 0, 62),
+		Size = UDim2.new(1, -8, 0, 50),
 		BackgroundColor3 = COLORS.Black2,
 		BorderSizePixel = 0,
 		LayoutOrder = order,
@@ -1119,57 +1118,33 @@ local function closeVisualEggInfoPanel()
 	if VisualEggInfoOverlay then
 		VisualEggInfoOverlay.Visible = false
 	end
-	if VisualEggInfoBlocker then
-		VisualEggInfoBlocker.Visible = false
-	end
 end
 
 local function openVisualEggInfoPanel()
 	if cleanedUp or not ScreenGui.Parent then
 		return
 	end
-
 	if not VisualEggInfoOverlay then
-		-- The visual settings surface is anchored to the same viewport area as the
-		-- main Results ScrollingFrame. It stays inside the menu's options region
-		-- instead of becoming a full-screen panel.
 		VisualEggInfoOverlay = make("Frame", {
 			Name = "VisualEggInfoOverlay",
-			Position = ResultsScroll.Position,
-			Size = ResultsScroll.Size,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			Visible = false,
-			ClipsDescendants = true,
-			Active = true,
-			ZIndex = 1000,
-		}, Content)
-
-		-- A transparent full-screen blocker prevents interaction with the main
-		-- menu and launcher while the settings panel is open. The actual panel
-		-- remains visually confined to the Results/option area.
-		VisualEggInfoBlocker = make("TextButton", {
-			Name = "VisualEggInfoBlocker",
 			Position = UDim2.fromScale(0, 0),
-			Size = UDim2.fromScale(1, 1),
+			Size = UDim2.new(1, 0, 0, 0),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
-			AutoButtonColor = false,
-			Text = "",
 			Visible = false,
-			Active = true,
-			Selectable = false,
-			ZIndex = 999,
-		}, ScreenGui)
+			Active = false,
+			LayoutOrder = -1000,
+			ZIndex = 1000,
+		}, ResultsScroll)
 
 		VisualEggInfoPanel = make("Frame", {
 			Name = "VisualEggInfoPanel",
-			Position = UDim2.fromScale(0.50, 0),
-			Size = UDim2.fromScale(0.50, 1),
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.fromScale(0.985, 0.03),
+			Size = UDim2.fromScale(0.47, 0.50),
 			BackgroundColor3 = COLORS.Black2,
 			BorderSizePixel = 0,
 			Active = true,
-			ClipsDescendants = true,
 			ZIndex = 1001,
 		}, VisualEggInfoOverlay)
 		make("UIStroke", {Thickness = 1.5, Color = COLORS.Gray3, Transparency = 0.08}, VisualEggInfoPanel)
@@ -1209,8 +1184,8 @@ local function openVisualEggInfoPanel()
 
 		local Scroll = make("ScrollingFrame", {
 			Name = "Options",
-			Position = UDim2.fromScale(0.045, 0.17),
-			Size = UDim2.fromScale(0.91, 0.78),
+			Position = UDim2.fromScale(0.05, 0.18),
+			Size = UDim2.fromScale(0.90, 0.76),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			ScrollBarThickness = 3,
@@ -1229,24 +1204,13 @@ local function openVisualEggInfoPanel()
 		createVisualSelectionRow(Scroll, "Mutation", "Mutation", 2)
 		createVisualSelectionRow(Scroll, "Distance", "Distance", 3)
 		createVisualSelectionRow(Scroll, "Rarity", "Rarity", 4)
-
 		installEnglishGuard(VisualEggInfoOverlay)
-		installEnglishGuard(VisualEggInfoBlocker)
 		registerCleanup(function()
-			if VisualEggInfoBlocker and VisualEggInfoBlocker.Parent then
-				VisualEggInfoBlocker:Destroy()
-			end
 			if VisualEggInfoOverlay and VisualEggInfoOverlay.Parent then
 				VisualEggInfoOverlay:Destroy()
 			end
 		end)
 	end
-
-	-- Keep the settings surface aligned with the options viewport in case the
-	-- main Content frame was resized before this panel was opened.
-	VisualEggInfoOverlay.Position = ResultsScroll.Position
-	VisualEggInfoOverlay.Size = ResultsScroll.Size
-	VisualEggInfoBlocker.Visible = true
 	VisualEggInfoOverlay.Visible = true
 end
 
@@ -1730,6 +1694,43 @@ end
 local autoGoToBaseEnabled = false
 local baseMovementRunning = false
 
+-- Checks the same two sources used by the egg-equipping system:
+-- an egg currently equipped/in the backpack, or an unplaced egg recorded in EggInventory.
+local function hasAvailableEggForAction()
+	local character = LocalPlayer.Character
+	if character then
+		for _, child in ipairs(character:GetChildren()) do
+			if child:IsA("Tool") and child:GetAttribute("ItemType") == "AssetEgg" then
+				return true
+			end
+		end
+	end
+
+	local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+	if backpack then
+		for _, child in ipairs(backpack:GetChildren()) do
+			if child:IsA("Tool") and child:GetAttribute("ItemType") == "AssetEgg" then
+				return true
+			end
+		end
+	end
+
+	local shared = game:GetService("ReplicatedStorage")
+	local saveModule = safeRequire(shared.Shared:FindFirstChild("Save"))
+	if saveModule and saveModule.Get then
+		local ok, data = pcall(saveModule.Get)
+		if ok and typeof(data) == "table" and typeof(data.EggInventory) == "table" then
+			for _, record in pairs(data.EggInventory) do
+				if typeof(record) == "table" and record.Placement == nil then
+					return true
+				end
+			end
+		end
+	end
+
+	return false
+end
+
 local function resolveMyBaseCenterPoint()
 	local shared = game:GetService("ReplicatedStorage")
 	local plotState = safeRequire(shared.Client:FindFirstChild("PlotState"))
@@ -1875,14 +1876,20 @@ local function setPlaceEggs(item, enabled)
 
 	task.spawn(function()
 		while running and not cleanedUp do
-			-- When both options are enabled, reaching the base is always the first step.
-			if autoGoToBaseEnabled then
+			-- Base movement is only active when Auto Place Eggs is also enabled
+			-- and at least one unplaced egg exists in the inventory/hand.
+			if autoGoToBaseEnabled and hasAvailableEggForAction() then
 				local atBase = moveToMyBase()
 				if not atBase then
 					-- Do not attempt to place an egg until the player reaches CenterPoint.
 					task.wait(0.15)
 					continue
 				end
+			end
+
+			if not hasAvailableEggForAction() then
+				task.wait(0.50)
+				continue
 			end
 
 			local placed = placeOneEgg()
