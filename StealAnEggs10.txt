@@ -1130,8 +1130,8 @@ local function openVisualEggInfoPanel()
 	if cleanedUp or not ScreenGui.Parent then
 		return
 	end
-	if not VisualEggInfoModal then
-		-- Full-screen modal dimmer, matching the same black overlay used by ConfirmOverlay.
+	if not VisualEggInfoOverlay then
+		-- Full-screen dimmer: blocks the main menu and launcher while this panel is open.
 		VisualEggInfoModal = make("Frame", {
 			Name = "VisualEggInfoModal",
 			Position = UDim2.fromScale(0, 0),
@@ -1143,10 +1143,11 @@ local function openVisualEggInfoPanel()
 			Active = true,
 			ZIndex = 1000,
 		}, ScreenGui)
+
+		-- The settings panel remains in the RIGHT HALF of the existing Results area,
+		-- but its TOP is extended upward to cover the search bar.
 		VisualEggInfoOverlay = make("Frame", {
 			Name = "VisualEggInfoOverlay",
-			-- Keep the same right-side width/position; extend only the TOP upward
-			-- so the panel also covers the search bar behind it.
 			Position = UDim2.fromScale(0.50, 0.035),
 			Size = UDim2.fromScale(0.465, 0.935),
 			BackgroundColor3 = COLORS.Black,
@@ -1161,13 +1162,13 @@ local function openVisualEggInfoPanel()
 
 		VisualEggInfoPanel = make("Frame", {
 			Name = "VisualEggInfoPanel",
-			Position = UDim2.fromScale(0.025, 0.008),
-			Size = UDim2.fromScale(0.95, 0.982),
+			Position = UDim2.fromScale(0.025, 0.020),
+			Size = UDim2.fromScale(0.95, 0.96),
 			BackgroundColor3 = COLORS.Black2,
 			BorderSizePixel = 0,
 			Active = true,
 			ClipsDescendants = true,
-			ZIndex = 101,
+			ZIndex = 1100,
 		}, VisualEggInfoOverlay)
 		make("UIStroke", {Thickness = 1.2, Color = COLORS.Gray2, Transparency = 0.10}, VisualEggInfoPanel)
 
@@ -1225,7 +1226,7 @@ local function openVisualEggInfoPanel()
 			PaddingBottom = UDim.new(0, 10),
 			PaddingLeft = UDim.new(0, 25),
 			PaddingRight = UDim.new(0, 0),
-			PaddingTop = UDim.new(0, 0),
+			PaddingTop = UDim.new(0, 15),
 		}, Scroll)
 		createVisualSelectionRow(Scroll, "Name", "Name", 1)
 		createVisualSelectionRow(Scroll, "Mutation", "Mutation", 2)
@@ -1241,8 +1242,8 @@ local function openVisualEggInfoPanel()
 	visualPanelOpen = true
 	VisualEggInfoModal.Visible = true
 	VisualEggInfoOverlay.Visible = true
-	-- The full-screen modal blocks the menu and launcher; only the Visual panel
-	-- remains interactive until its X button closes it.
+	-- The modal blocks interaction with the menu/launcher; the settings panel
+	-- and its controls remain above the dimmer and therefore stay interactive.
 end
 
 local datasets = {
