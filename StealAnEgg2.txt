@@ -759,9 +759,6 @@ local ResultsScroll = make("ScrollingFrame", {
 	ZIndex = 4,
 }, Content)
 
--- The options/categories area uses a pixel-based canvas that is recalculated
--- from the actual rendered content. This keeps scrolling reliable regardless
--- of how many rows are added, expanded, searched, or rendered later.
 local ResultsLayout = make("UIListLayout", {
 	Padding = UDim.new(0, 7),
 	SortOrder = Enum.SortOrder.LayoutOrder,
@@ -774,40 +771,40 @@ local ResultsPadding = make("UIPadding", {
 	PaddingRight = UDim.new(0, 40),
 }, ResultsScroll)
 
-local resultsScrollWheelConnection
-local resultsScrollTouchStart = nil
-local resultsScrollTouchCanvasY = nil
-local resultsScrollInputConnection
-local resultsCanvasUpdateConnection
-local resultsCanvasResizeConnection
-
-local function updateResultsCanvas()
+-- Keep the scrollable canvas synchronized with the actual generated content.
+-- This removes the old fixed/limited canvas behavior when many categories/options exist.
+local function updateResultsCanvasSize()
 	if not ResultsScroll.Parent then
 		return
 	end
 
 	local contentHeight = ResultsLayout.AbsoluteContentSize.Y
-	local topPadding = ResultsPadding.PaddingTop.Offset
-	local bottomPadding = ResultsPadding.PaddingBottom.Offset
-	local requiredHeight = contentHeight + topPadding + bottomPadding + 2
-
-	-- Always leave at least one pixel beyond the viewport so the engine has a
-	-- real scrollable range when content exceeds the visible area.
+	local extraHeight = ResultsPadding.PaddingTop.Offset + ResultsPadding.PaddingBottom.Offset
+	local requiredHeight = contentHeight + extraHeight
 	local viewportHeight = ResultsScroll.AbsoluteSize.Y
-	local canvasHeight = math.max(requiredHeight, viewportHeight + 1)
 
-	ResultsScroll.CanvasSize = UDim2.new(0, 0, 0, canvasHeight)
+	ResultsScroll.CanvasSize = UDim2.new(
+		0,
+		0,
+		0,
+		math.max(viewportHeight, requiredHeight)
+	)
 end
 
-resultsCanvasUpdateConnection = ResultsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateResultsCanvas)
-resultsCanvasResizeConnection = ResultsScroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateResultsCanvas)
+local resultsLayoutConnection = ResultsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateResultsCanvasSize)
+local resultsScrollSizeConnection = ResultsScroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateResultsCanvasSize)
+
+local resultsScrollWheelConnection
+local resultsScrollTouchStart = nil
+local resultsScrollTouchCanvasY = nil
+local resultsScrollInputConnection
 
 local function isResultsScrollingAllowed()
 	return currentTab ~= "Credits" and ResultsScroll.Visible and ResultsScroll.ScrollingEnabled
 end
 
 local function getResultsMaxScrollY()
-	return math.max(0, ResultsScroll.CanvasSize.Y.Offset - ResultsScroll.AbsoluteSize.Y)
+	return math.max(0, ResultsScroll.AbsoluteCanvasSize.Y - ResultsScroll.AbsoluteSize.Y)
 end
 
 local function setResultsScrollY(y)
@@ -833,7 +830,6 @@ local function updateResultsScrollMode()
 	ResultsScroll.Active = enabled
 	ResultsScroll.ScrollBarThickness = enabled and 3 or 0
 	ResultsScroll.CanvasPosition = Vector2.new(0, 0)
-	updateResultsCanvas()
 end
 
 resultsScrollWheelConnection = ResultsScroll.InputChanged:Connect(function(input)
@@ -1103,6 +1099,13 @@ local datasets = {
 					Enabled = false,
 					Compact = true,
 				},
+				{
+					Title = "Infinity Jump",
+					Description = "Jump again at any time while this option is enabled.",
+					Toggle = true,
+					Enabled = false,
+					Compact = true,
+				},
 			},
 		},
 	},
@@ -1307,11 +1310,30 @@ end
 
 local function setToggleState(item, enabled)
 	toggleStates[item] = enabled
-	if item.Title ~= "Idle Movement" then return end
 
 	if toggleConnections[item] then
 		toggleConnections[item]:Disconnect()
 		toggleConnections[item] = nil
+	end
+
+	if item.Title == "Infinity Jump" then
+		if enabled then
+			toggleConnections[item] = UserInputService.JumpRequest:Connect(function()
+				if cleanedUp then
+					return
+				end
+
+				local humanoid = getHumanoid()
+				if humanoid and humanoid.Health > 0 then
+					humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+				end
+			end)
+		end
+		return
+	end
+
+	if item.Title ~= "Idle Movement" then
+		return
 	end
 
 	if enabled then
@@ -1438,7 +1460,6 @@ renderResults = function()
 		else
 			showEmptyState("This tab has no options yet.")
 		end
-		updateResultsCanvas()
 		setResultsScrollPositionY(0)
 		return
 	end
@@ -1451,7 +1472,6 @@ renderResults = function()
 			createStandardRow(item, layoutIndex)
 		end
 		task.defer(function()
-			updateResultsCanvas()
 			setResultsScrollPositionY(previousScrollY)
 		end)
 		return
@@ -2038,6 +2058,7 @@ end)
 
 applyEnglishOnly(ScreenGui)
 
+updateResultsCanvasSize()
 setTab("Main")
 Menu.Visible = false
 
@@ -2067,11 +2088,11 @@ registerCleanup(function()
 	if resultsScrollInputConnection then
 		resultsScrollInputConnection:Disconnect()
 	end
-	if resultsCanvasUpdateConnection then
-		resultsCanvasUpdateConnection:Disconnect()
+	if resultsLayoutConnection then
+		resultsLayoutConnection:Disconnect()
 	end
-	if resultsCanvasResizeConnection then
-		resultsCanvasResizeConnection:Disconnect()
+	if resultsScrollSizeConnection then
+		resultsScrollSizeConnection:Disconnect()
 	end
 	inputChangedConnection:Disconnect()
 	inputEndedConnection:Disconnect()
