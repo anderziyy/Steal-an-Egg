@@ -1,6 +1,5 @@
 
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
@@ -8,16 +7,6 @@ local TeleportService = game:GetService("TeleportService")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-
--- Game-specific configuration modules used by the Main > Plot controls.
-local EggConfig = nil
-local PlotState = nil
-pcall(function()
-    EggConfig = require(ReplicatedStorage.Shared.Configs.Eggs)
-end)
-pcall(function()
-    PlotState = require(ReplicatedStorage.Shared.Utility.PlotState)
-end)
 
 local IMAGE_MENU_BUTTON = "rbxassetid://121715364276099"
 local IMAGE_SEARCH = "rbxassetid://73858257403039"
@@ -782,190 +771,6 @@ local ResultsPadding = make("UIPadding", {
 	PaddingRight = UDim.new(0, 40),
 }, ResultsScroll)
 
--- Rarity selector panel for Main > Plot > Egg Rarity Filter.
-local RarityPanel = make("Frame", {
-	Name = "RarityPanel",
-	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.fromScale(0.98, 0.03),
-	Size = UDim2.fromScale(0.46, 0.90),
-	BackgroundColor3 = COLORS.Black2,
-	BorderSizePixel = 0,
-	Visible = false,
-	Active = true,
-	ZIndex = 100,
-}, Content)
-make("UIStroke", {
-	Thickness = 1.4,
-	Color = COLORS.Gray3,
-	Transparency = 0.08,
-}, RarityPanel)
-
-local RarityPanelClose = make("TextButton", {
-	Name = "Close",
-	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.fromScale(0.96, 0.025),
-	Size = UDim2.fromScale(0.10, 0.075),
-	BackgroundColor3 = COLORS.Gray,
-	BackgroundTransparency = 0.18,
-	BorderSizePixel = 0,
-	AutoButtonColor = false,
-	Text = "X",
-	TextColor3 = COLORS.White,
-	Font = Enum.Font.GothamBold,
-	TextSize = 13,
-	ZIndex = 110,
-}, RarityPanel)
-make("UIAspectRatioConstraint", {AspectRatio = 1}, RarityPanelClose)
-
-make("TextLabel", {
-	Position = UDim2.fromScale(0.06, 0.035),
-	Size = UDim2.fromScale(0.64, 0.07),
-	BackgroundTransparency = 1,
-	Text = "Egg Rarities",
-	TextColor3 = COLORS.White,
-	Font = Enum.Font.GothamBold,
-	TextSize = 15,
-	TextXAlignment = Enum.TextXAlignment.Left,
-	TextYAlignment = Enum.TextYAlignment.Center,
-	ZIndex = 105,
-}, RarityPanel)
-
-local RarityList = make("ScrollingFrame", {
-	Name = "RarityList",
-	Position = UDim2.fromScale(0.055, 0.13),
-	Size = UDim2.fromScale(0.89, 0.82),
-	BackgroundTransparency = 1,
-	BorderSizePixel = 0,
-	ScrollBarThickness = 3,
-	ScrollBarImageColor3 = COLORS.White,
-	ScrollBarImageTransparency = 0.05,
-	CanvasSize = UDim2.new(0, 0, 0, 0),
-	AutomaticCanvasSize = Enum.AutomaticSize.Y,
-	ScrollingDirection = Enum.ScrollingDirection.Y,
-	ScrollingEnabled = true,
-	Active = true,
-	ZIndex = 105,
-}, RarityPanel)
-
-local RarityListLayout = make("UIListLayout", {
-	Padding = UDim.new(0, 6),
-	SortOrder = Enum.SortOrder.LayoutOrder,
-	HorizontalAlignment = Enum.HorizontalAlignment.Center,
-}, RarityList)
-
-local RarityPanelInputStart = nil
-local RarityPanelCanvasStart = 0
-
-local function clearRarityList()
-	for _, child in ipairs(RarityList:GetChildren()) do
-		if not child:IsA("UIListLayout") and not child:IsA("UIPadding") then
-			child:Destroy()
-		end
-	end
-end
-
-local function renderRarityList()
-	clearRarityList()
-	local rarities = getRaritiesAvailable()
-	for index, rarity in ipairs(rarities) do
-		local row = make("Frame", {
-			Name = rarity,
-			Size = UDim2.fromScale(0.98, 0.11),
-			BackgroundColor3 = COLORS.Black,
-			BorderSizePixel = 0,
-			LayoutOrder = index,
-			ZIndex = 106,
-		}, RarityList)
-		make("UIStroke", {Thickness = 1, Color = COLORS.Gray2, Transparency = 0.30}, row)
-		make("TextLabel", {
-			Position = UDim2.fromScale(0.06, 0),
-			Size = UDim2.fromScale(0.70, 1),
-			BackgroundTransparency = 1,
-			Text = rarity,
-			TextColor3 = COLORS.White,
-			Font = Enum.Font.GothamSemibold,
-			TextSize = 12,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextYAlignment = Enum.TextYAlignment.Center,
-			ZIndex = 107,
-		}, row)
-		local toggle = make("TextButton", {
-			Name = "Toggle",
-			AnchorPoint = Vector2.new(1, 0.5),
-			Position = UDim2.fromScale(0.95, 0.5),
-			Size = UDim2.fromScale(0.14, 0.55),
-			BackgroundColor3 = COLORS.Gray,
-			BorderSizePixel = 0,
-			AutoButtonColor = false,
-			Text = "",
-			ZIndex = 108,
-		}, row)
-		make("UICorner", {CornerRadius = UDim.new(1, 0)}, toggle)
-		local knob = make("Frame", {
-			Name = "Knob",
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(selectedEggRarities[rarity] and 0.77 or 0.23, 0.5),
-			Size = UDim2.fromScale(0.34, 0.78),
-			BackgroundColor3 = COLORS.White,
-			BorderSizePixel = 0,
-			ZIndex = 109,
-		}, toggle)
-		make("UICorner", {CornerRadius = UDim.new(1, 0)}, knob)
-		local function update()
-			local selected = selectedEggRarities[rarity] == true
-			toggle.BackgroundColor3 = selected and COLORS.Gray3 or COLORS.Gray
-			knob.Position = UDim2.fromScale(selected and 0.77 or 0.23, 0.5)
-		end
-		toggle.Activated:Connect(function()
-			if selectedEggRarities[rarity] then
-				selectedEggRarities[rarity] = nil
-			else
-				selectedEggRarities[rarity] = true
-			end
-			update()
-		end)
-		update()
-	end
-	RarityList.CanvasPosition = Vector2.new(0, math.clamp(RarityList.CanvasPosition.Y, 0, math.max(0, RarityList.AbsoluteCanvasSize.Y - RarityList.AbsoluteSize.Y)))
-end
-
-local function openRarityPanel()
-	RarityPanel.Visible = true
-	renderRarityList()
-end
-
-local function closeRarityPanel()
-	RarityPanel.Visible = false
-end
-
-RarityPanelClose.MouseEnter:Connect(function()
-	tween(RarityPanelClose, 0.10, {BackgroundColor3 = COLORS.Gray3, BackgroundTransparency = 0})
-end)
-RarityPanelClose.MouseLeave:Connect(function()
-	tween(RarityPanelClose, 0.10, {BackgroundColor3 = COLORS.Gray, BackgroundTransparency = 0.18})
-end)
-RarityPanelClose.Activated:Connect(closeRarityPanel)
-
-RarityList.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.Touch then
-		RarityPanelInputStart = input.Position
-		RarityPanelCanvasStart = RarityList.CanvasPosition.Y
-	end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.Touch and RarityPanelInputStart then
-		local delta = input.Position.Y - RarityPanelInputStart.Y
-		RarityList.CanvasPosition = Vector2.new(0, math.clamp(RarityPanelCanvasStart - delta, 0, math.max(0, RarityList.AbsoluteCanvasSize.Y - RarityList.AbsoluteSize.Y)))
-	end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.Touch then
-		RarityPanelInputStart = nil
-	end
-end)
-
 local resultsScrollWheelConnection
 local resultsScrollTouchStart = nil
 local resultsScrollTouchCanvasY = nil
@@ -1204,288 +1009,6 @@ end
 
 local openConfirm
 
--- Main > Plot feature state.
-local plotToggleConnections = {}
-local selectedEggRarities = {}
-local rarityOrder = {
-	Common = 1,
-	Uncommon = 2,
-	Rare = 3,
-	Epic = 4,
-	Legendary = 5,
-	Mythic = 6,
-	Transcendent = 7,
-	Eternal = 8,
-}
-
-local function getRaritiesAvailable()
-	local list = {}
-	if EggConfig and type(EggConfig.Rarities) == "table" then
-		for rarity in pairs(EggConfig.Rarities) do
-			table.insert(list, tostring(rarity))
-		end
-	end
-	table.sort(list, function(a, b)
-		return (rarityOrder[a] or 99) < (rarityOrder[b] or 99)
-	end)
-	return list
-end
-
-local function getLocalCharacter()
-	local character = LocalPlayer.Character
-	if not character then
-		return nil, nil, nil
-	end
-	return character, character:FindFirstChild("HumanoidRootPart"), character:FindFirstChildOfClass("Humanoid")
-end
-
-local function getResolvedPlot()
-	if not PlotState then
-		return nil
-	end
-	local ok, plot = pcall(function()
-		return PlotState.ResolvePlot()
-	end)
-	return ok and plot or nil
-end
-
-local function getPlotPlacementPosition(plot)
-	if not plot then
-		return nil
-	end
-	local center = nil
-	if plot.Instance then
-		local cp = plot.Instance:FindFirstChild("CenterPoint", true)
-		if cp and cp:IsA("BasePart") then
-			center = cp.Position
-		end
-	end
-	if not center and typeof(plot.CenterPoint) == "Vector3" then
-		center = plot.CenterPoint
-	end
-	if not center then
-		return nil
-	end
-	return Vector3.new(center.X, center.Y + 0.5, center.Z)
-end
-
-local function isWithinPlot(plot, position)
-	if not plot or not position then
-		return false
-	end
-	local instance = plot.Instance
-	if not instance then
-		return true
-	end
-	local marker = instance:FindFirstChild("CenterPoint", true)
-	if not marker or not marker:IsA("BasePart") then
-		return true
-	end
-	local relative = marker.CFrame:PointToObjectSpace(position)
-	local halfX = math.max(marker.Size.X * 0.5, 4)
-	local halfZ = math.max(marker.Size.Z * 0.5, 4)
-	return math.abs(relative.X) <= halfX and math.abs(relative.Z) <= halfZ
-end
-
-local function getPlotEggCount(plot)
-	if not plot or not plot.Instance then
-		return nil
-	end
-	local count = 0
-	for _, obj in ipairs(plot.Instance:GetDescendants()) do
-		if obj:GetAttribute("IsEgg") == true then
-			count += 1
-		elseif obj:IsA("Tool") and obj:GetAttribute("Rarity") then
-			count += 1
-		end
-	end
-	return count
-end
-
-local function getPlotCapacity(plot)
-	if not plot then
-		return nil
-	end
-	local candidates = {"MaxEggs", "EggCapacity", "MaxEggCount", "Capacity"}
-	for _, key in ipairs(candidates) do
-		local value = plot[key]
-		if type(value) == "number" and value >= 0 then
-			return value
-		end
-	end
-	if plot.Instance then
-		for _, key in ipairs(candidates) do
-			local value = plot.Instance:GetAttribute(key)
-			if type(value) == "number" and value >= 0 then
-				return value
-			end
-		end
-	end
-	return nil
-end
-
-local function plotCanAcceptEgg(plot)
-	local capacity = getPlotCapacity(plot)
-	local count = getPlotEggCount(plot)
-	if capacity ~= nil and count ~= nil and count >= capacity then
-		return false
-	end
-	return true
-end
-
-local function eggPassesRarityFilter(egg)
-	if not egg then
-		return false
-	end
-	if next(selectedEggRarities) == nil then
-		return true
-	end
-	local rarity = egg:GetAttribute("Rarity")
-	return rarity ~= nil and selectedEggRarities[rarity] == true
-end
-
-local function getInventoryEggs()
-	local character = LocalPlayer.Character
-	local inventory = character or LocalPlayer:FindFirstChild("Inventory")
-	if not inventory then
-		return {}
-	end
-	local eggs = {}
-	for _, obj in ipairs(inventory:GetDescendants()) do
-		if obj:IsA("Tool") and obj:GetAttribute("IsEgg") == true then
-			table.insert(eggs, obj)
-		end
-	end
-	table.sort(eggs, function(a, b)
-		return (rarityOrder[a:GetAttribute("Rarity") or ""] or 99) > (rarityOrder[b:GetAttribute("Rarity") or ""] or 99)
-	end)
-	return eggs
-end
-
-local function placeEgg(egg, position)
-	local _, _, humanoid = getLocalCharacter()
-	if not egg or not position or not humanoid then
-		return false
-	end
-	local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-	local placeRemote = remotes and remotes:FindFirstChild("PlaceEgg")
-	if not placeRemote then
-		return false
-	end
-	pcall(function()
-		humanoid:EquipTool(egg)
-	end)
-	task.wait(0.18)
-	local ok = pcall(function()
-		placeRemote:FireServer(egg.Name, position)
-	end)
-	return ok
-end
-
-local function startAutoPlace(item)
-	if plotToggleConnections[item] then
-		plotToggleConnections[item]:Disconnect()
-		plotToggleConnections[item] = nil
-	end
-	local running = true
-	plotToggleConnections[item] = {
-		Disconnect = function()
-			running = false
-		end,
-	}
-	task.spawn(function()
-		while running and not cleanedUp do
-			task.wait(0.5)
-			if not running or cleanedUp then break end
-			local plot = getResolvedPlot()
-			local _, root = getLocalCharacter()
-			local position = getPlotPlacementPosition(plot)
-			if not plot or not root or not position then
-				continue
-			end
-			if not isWithinPlot(plot, root.Position) then
-				continue
-			end
-			if not plotCanAcceptEgg(plot) then
-				continue
-			end
-			local eggs = getInventoryEggs()
-			for _, egg in ipairs(eggs) do
-				if not running or cleanedUp then break end
-				if eggPassesRarityFilter(egg) then
-					plot = getResolvedPlot()
-					if not plot or not plotCanAcceptEgg(plot) then break end
-					local _, currentRoot = getLocalCharacter()
-					local currentPosition = getPlotPlacementPosition(plot)
-					if not currentRoot or not currentPosition or not isWithinPlot(plot, currentRoot.Position) then break end
-					placeEgg(egg, currentPosition)
-					task.wait(1)
-				end
-			end
-		end
-	end)
-end
-
-local function stopPlotToggle(item)
-	local connection = plotToggleConnections[item]
-	if connection then
-		pcall(connection.Disconnect)
-		plotToggleConnections[item] = nil
-	end
-end
-
-local autoHatchRunning = {}
-
-local function eggIsReady(egg)
-	if not egg then return false end
-	local hatchTime = egg:GetAttribute("HatchTime") or 0
-	local startTime = egg:GetAttribute("HatchStartTime")
-	if not startTime then return true end
-	return (os.time() - startTime) >= hatchTime
-end
-
-local function getReadyPlotEggs()
-	local character = LocalPlayer.Character
-	local inventory = character or LocalPlayer:FindFirstChild("Inventory")
-	if not inventory then return {} end
-	local eggs = {}
-	for _, obj in ipairs(inventory:GetDescendants()) do
-		if obj:IsA("Tool") and obj:GetAttribute("IsEgg") == true and eggIsReady(obj) then
-			table.insert(eggs, obj)
-		end
-	end
-	table.sort(eggs, function(a, b)
-		return (rarityOrder[a:GetAttribute("Rarity") or "Common"] or 0) > (rarityOrder[b:GetAttribute("Rarity") or "Common"] or 0)
-	end)
-	return eggs
-end
-
-local function startAutoHatch(item)
-	if autoHatchRunning[item] then return end
-	autoHatchRunning[item] = true
-	task.spawn(function()
-		while autoHatchRunning[item] and not cleanedUp do
-			task.wait(0.8)
-			if not autoHatchRunning[item] or cleanedUp then break end
-			local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-			local hatchRemote = remotes and (remotes:FindFirstChild("HatchEgg") or remotes:FindFirstChild("OpenEgg"))
-			if not hatchRemote then continue end
-			for _, egg in ipairs(getReadyPlotEggs()) do
-				if not autoHatchRunning[item] or cleanedUp then break end
-				pcall(function()
-					hatchRemote:FireServer(egg)
-				end)
-				task.wait(1.2)
-			end
-		end
-		autoHatchRunning[item] = nil
-	end)
-end
-
-local function stopAutoHatch(item)
-	autoHatchRunning[item] = nil
-end
-
 local function requestServerHop()
 	local success, err = pcall(function()
 		TeleportService:Teleport(game.PlaceId, LocalPlayer)
@@ -1499,29 +1022,25 @@ local datasets = {
 	Main = {
 		{
 			Type = "Category",
-			Title = "Plot",
+			Title = "Base",
 			Icon = "rbxassetid://72377406954512",
 			Expanded = false,
 			Items = {
 				{
 					Title = "Auto Place Eggs",
-					Description = "Automatically places eggs on your plot when a valid placement point is available.",
+					Description = "Automatically places available eggs while you are inside your own plot.",
 					Toggle = true,
 					Enabled = false,
 					Compact = true,
+					Controller = "PlaceEggs",
 				},
 				{
-					Title = "Egg Rarity Filter",
-					Description = "Choose which egg rarities can be automatically placed. No selection means all rarities.",
-					Selector = true,
-					Compact = true,
-				},
-				{
-					Title = "Auto Hatch Eggs",
-					Description = "Automatically hatches ready eggs from your plot, starting with the highest rarity.",
+					Title = "Equip Best Pets",
+					Description = "Automatically equips your best available pets every 20 seconds.",
 					Toggle = true,
 					Enabled = false,
 					Compact = true,
+					Controller = "EquipBestPets",
 				},
 			},
 		},
@@ -1786,11 +1305,6 @@ end
 local toggleStates = {}
 local toggleConnections = {}
 
-local function getHumanoid()
-	local character = LocalPlayer.Character
-	return character and character:FindFirstChildOfClass("Humanoid") or nil
-end
-
 local function disconnectToggle(item)
 	local connection = toggleConnections[item]
 	if connection then
@@ -1799,6 +1313,163 @@ local function disconnectToggle(item)
 		end)
 		toggleConnections[item] = nil
 	end
+end
+
+local function safeRequire(moduleScript)
+	if moduleScript == nil then
+		return nil
+	end
+	local ok, result = pcall(require, moduleScript)
+	if ok then
+		return result
+	end
+	return nil
+end
+
+local function findEggTools(eggToolDisplay)
+	local tools = {}
+	local seen = {}
+
+	local function scan(container)
+		if not container then
+			return
+		end
+		for _, child in ipairs(container:GetChildren()) do
+			if child:IsA("Tool") and not seen[child] then
+				local ok, isEgg = pcall(function()
+					return eggToolDisplay and eggToolDisplay.IsEggTool and eggToolDisplay.IsEggTool(child)
+				end)
+				if ok and isEgg then
+					seen[child] = true
+					table.insert(tools, child)
+				end
+			end
+		end
+	end
+
+	scan(LocalPlayer.Character)
+	scan(LocalPlayer:FindFirstChildOfClass("Backpack"))
+	return tools
+end
+
+local function getOwnPlotPlacement()
+	local shared = game:GetService("ReplicatedStorage")
+	local plotState = safeRequire(shared.Client:FindFirstChild("PlotState"))
+	local eggRaycastModule = safeRequire(shared.Shared.Eggs:FindFirstChild("EggPlacementRaycast"))
+	if not plotState or not eggRaycastModule or not eggRaycastModule.Raycast then
+		return nil
+	end
+
+	local plot = plotState.ResolvePlot and plotState.ResolvePlot() or nil
+	if not plot or not plot.PetArea or not plot.CenterPoint then
+		return nil
+	end
+
+	local ok, raycastResult = pcall(function()
+		return eggRaycastModule.Raycast(plot.PetArea, LocalPlayer.UserId)
+	end)
+	if not ok or raycastResult == nil or raycastResult.Instance ~= plot.PetArea then
+		return nil
+	end
+
+	local relativeCFrame = plot.CenterPoint.CFrame:ToObjectSpace(CFrame.new(raycastResult.Position))
+	return relativeCFrame
+end
+
+local function placeOneEgg()
+	local shared = game:GetService("ReplicatedStorage")
+	local eggToolDisplay = safeRequire(shared.Shared.Eggs:FindFirstChild("EggToolDisplay"))
+	local eggState = safeRequire(shared.Client:FindFirstChild("EggState"))
+	if not eggToolDisplay or not eggState or not eggState.PlantEgg then
+		return false
+	end
+
+	local relativeCFrame = getOwnPlotPlacement()
+	if not relativeCFrame then
+		return false
+	end
+
+	local tools = findEggTools(eggToolDisplay)
+	for _, tool in ipairs(tools) do
+		local okUid, uid = pcall(function()
+			return eggToolDisplay.GetToolUid and eggToolDisplay.GetToolUid(tool)
+		end)
+		if okUid and uid ~= nil then
+			local okPlace, placed = pcall(function()
+				return eggState.PlantEgg(uid, relativeCFrame)
+			end)
+			if okPlace and placed == true then
+				local renderer = safeRequire(shared.Shared.Eggs:FindFirstChild("PlacedEggRenderer"))
+				if renderer and renderer.Refresh then
+					pcall(renderer.Refresh)
+				end
+				return true
+			end
+			-- A failed PlantEgg call means the current plot/egg state is not valid anymore.
+			return false
+		end
+	end
+
+	return false
+end
+
+local function setPlaceEggs(item, enabled)
+	disconnectToggle(item)
+	if not enabled then
+		return
+	end
+
+	local running = true
+	toggleConnections[item] = {
+		Disconnect = function()
+			running = false
+		end,
+	}
+
+	task.spawn(function()
+		while running and not cleanedUp do
+			local placed = placeOneEgg()
+			if placed then
+				task.wait(0.35)
+			else
+				task.wait(0.50)
+			end
+		end
+	end)
+end
+
+local function setEquipBestPets(item, enabled)
+	disconnectToggle(item)
+	if not enabled then
+		return
+	end
+
+	local shared = game:GetService("ReplicatedStorage")
+	local remotes = safeRequire(shared.Shared:FindFirstChild("Remotes"))
+	if not remotes or not remotes.Haul or not remotes.Haul.WearBest or not remotes.Haul.WearBest.InvokeServer then
+		return
+	end
+
+	local running = true
+	toggleConnections[item] = {
+		Disconnect = function()
+			running = false
+		end,
+	}
+
+	task.spawn(function()
+		while running and not cleanedUp do
+			pcall(function()
+				remotes.Haul.WearBest:InvokeServer()
+			end)
+			task.wait(20)
+		end
+	end)
+end
+
+local function getHumanoid()
+	local character = LocalPlayer.Character
+	return character and character:FindFirstChildOfClass("Humanoid") or nil
 end
 
 local function setAntiAFK(item, enabled)
@@ -1867,22 +1538,14 @@ end
 local function setToggleState(item, enabled)
 	toggleStates[item] = enabled == true
 
-	if item.Title == "Anti AFK" then
+	if item.Controller == "PlaceEggs" then
+		setPlaceEggs(item, toggleStates[item])
+	elseif item.Controller == "EquipBestPets" then
+		setEquipBestPets(item, toggleStates[item])
+	elseif item.Title == "Anti AFK" then
 		setAntiAFK(item, toggleStates[item])
 	elseif item.Title == "Infinity Jump" then
 		setInfinityJump(item, toggleStates[item])
-	elseif item.Title == "Auto Place Eggs" then
-		if toggleStates[item] then
-			startAutoPlace(item)
-		else
-			stopPlotToggle(item)
-		end
-	elseif item.Title == "Auto Hatch Eggs" then
-		if toggleStates[item] then
-			startAutoHatch(item)
-		else
-			stopAutoHatch(item)
-		end
 	end
 end
 
@@ -1911,23 +1574,6 @@ createStandardRow = function(item, layoutOrder)
 		Font = Enum.Font.Gotham, TextSize = 11, TextWrapped = true,
 		TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 5,
 	}, Row)
-
-	if item.Selector then
-		local SelectorButton = make("TextButton", {
-			Name = "SelectorButton", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.fromScale(0.95, 0.5),
-			Size = UDim2.fromScale(0.13, 0.44), BackgroundColor3 = COLORS.Gray, BorderSizePixel = 0,
-			AutoButtonColor = false, Text = "›", TextColor3 = COLORS.White, Font = Enum.Font.GothamBold, TextSize = 20, ZIndex = 7,
-		}, Row)
-		make("UICorner", {CornerRadius = UDim.new(0.18, 0)}, SelectorButton)
-		SelectorButton.MouseEnter:Connect(function()
-			tween(SelectorButton, 0.10, {BackgroundColor3 = COLORS.Gray3})
-		end)
-		SelectorButton.MouseLeave:Connect(function()
-			tween(SelectorButton, 0.10, {BackgroundColor3 = COLORS.Gray})
-		end)
-		SelectorButton.Activated:Connect(openRarityPanel)
-		return Row
-	end
 
 	if item.Toggle then
 		local ToggleButton = make("TextButton", {
@@ -2628,12 +2274,6 @@ end)
 registerCleanup(function()
 	for _, connection in pairs(toggleConnections) do
 		if connection and connection.Disconnect then connection:Disconnect() end
-	end
-	for _, connection in pairs(plotToggleConnections) do
-		if connection and connection.Disconnect then connection:Disconnect() end
-	end
-	for item in pairs(autoHatchRunning) do
-		autoHatchRunning[item] = nil
 	end
 end)
 
