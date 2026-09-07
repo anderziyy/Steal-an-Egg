@@ -1060,25 +1060,6 @@ local function updateVisualSelectionButton(button, knob, name)
 	tween(knob, 0.14, {Position = targetPosition})
 end
 
-local visualSelectionRows = {}
-local visualSearchBox
-local visualSearchHint
-local visualSearchClear
-local visualOptionsScroll
-local visualSearchText = ""
-
-local function setVisualSelection(name, value)
-	visualSelectionState[name] = value == true
-end
-
-local function updateVisualSelectionButton(button, knob, name)
-	local on = visualSelectionState[name] == true
-	local targetColor = on and COLORS.Gray3 or COLORS.Gray
-	local targetPosition = UDim2.fromScale(on and 0.77 or 0.23, 0.5)
-	tween(button, 0.14, {BackgroundColor3 = targetColor})
-	tween(knob, 0.14, {Position = targetPosition})
-end
-
 local function createVisualSelectionRow(parent, name, text, order)
 	local Row = make("Frame", {
 		Name = name .. "Row",
@@ -1132,82 +1113,7 @@ local function createVisualSelectionRow(parent, name, text, order)
 		setVisualSelection(name, not visualSelectionState[name])
 		updateVisualSelectionButton(ToggleButton, Knob, name)
 	end)
-
-	visualSelectionRows[name] = Row
 	return Row
-end
-
-local function refreshVisualSelectionRows()
-	if not visualOptionsScroll then
-		return
-	end
-
-	for _, child in ipairs(visualOptionsScroll:GetChildren()) do
-		if child:IsA("GuiObject") and child.Name ~= "VisualOptionsLayout" and child.Name ~= "VisualOptionsPadding" then
-			child:Destroy()
-		end
-	end
-
-	visualSelectionRows = {}
-	local query = string.lower(visualSearchText or "")
-	local optionData = {
-		{Name = "Name", Text = "Name", Order = 1},
-		{Name = "Mutation", Text = "Mutation", Order = 2},
-		{Name = "Distance", Text = "Distance", Order = 3},
-		{Name = "Rarity", Text = "Rarity", Order = 4},
-	}
-
-	local visibleCount = 0
-	for _, option in ipairs(optionData) do
-		local title = string.lower(option.Text)
-		if query == "" or string.find(title, query, 1, true) then
-			visibleCount += 1
-			createVisualSelectionRow(visualOptionsScroll, option.Name, option.Text, visibleCount)
-		end
-	end
-
-	if visualOptionsScroll:FindFirstChild("VisualNoResults") then
-		visualOptionsScroll.VisualNoResults:Destroy()
-	end
-
-	if visibleCount == 0 then
-		make("TextLabel", {
-			Name = "VisualNoResults",
-			Size = UDim2.new(1, -18, 0, 44),
-			BackgroundTransparency = 1,
-			Text = "No matching options found.",
-			TextColor3 = COLORS.Muted,
-			Font = Enum.Font.Gotham,
-			TextSize = 12,
-			TextWrapped = true,
-			TextXAlignment = Enum.TextXAlignment.Center,
-			TextYAlignment = Enum.TextYAlignment.Center,
-			ZIndex = 1002,
-		}, visualOptionsScroll)
-	end
-end
-
-local function setAllVisualSelections(value)
-	for name in pairs(visualSelectionState) do
-		visualSelectionState[name] = value == true
-	end
-
-	for name, row in pairs(visualSelectionRows) do
-		local toggle = row and row:FindFirstChild("Toggle")
-		local knob = toggle and toggle:FindFirstChild("Knob")
-		if toggle and knob then
-			updateVisualSelectionButton(toggle, knob, name)
-		end
-	end
-end
-
-local function updateVisualSearchVisual()
-	if not visualSearchBox or not visualSearchHint or not visualSearchClear then
-		return
-	end
-	local hasText = visualSearchBox.Text ~= ""
-	visualSearchHint.Visible = not hasText
-	visualSearchClear.Visible = hasText
 end
 
 local function closeVisualEggInfoPanel()
@@ -1225,6 +1131,8 @@ local function openVisualEggInfoPanel()
 		return
 	end
 	if not VisualEggInfoOverlay then
+		-- Full-screen input blocker. The Visual settings panel remains interactive
+		-- above it, while the menu and launcher underneath become untouchable.
 		VisualEggInfoModal = make("Frame", {
 			Name = "VisualEggInfoModal",
 			Position = UDim2.fromScale(0, 0),
@@ -1237,6 +1145,8 @@ local function openVisualEggInfoPanel()
 			ZIndex = 999,
 		}, ScreenGui)
 
+		-- Keep the existing panel width and bottom edge; extend only upward
+		-- so its top covers the search-bar area.
 		VisualEggInfoOverlay = make("Frame", {
 			Name = "VisualEggInfoOverlay",
 			Position = UDim2.fromScale(0.50, 0.11),
@@ -1249,7 +1159,6 @@ local function openVisualEggInfoPanel()
 			ClipsDescendants = true,
 			ZIndex = 1001,
 		}, ScreenGui)
-
 		VisualEggInfoPanel = make("Frame", {
 			Name = "VisualEggInfoPanel",
 			Position = UDim2.fromScale(0.50, 0.5),
@@ -1265,7 +1174,7 @@ local function openVisualEggInfoPanel()
 
 		make("TextLabel", {
 			Position = UDim2.fromScale(0.055, 0.035),
-			Size = UDim2.fromScale(0.69, 0.10),
+			Size = UDim2.fromScale(0.69, 0.11),
 			BackgroundTransparency = 1,
 			Text = "Egg ESP Settings",
 			TextColor3 = COLORS.White,
@@ -1297,9 +1206,9 @@ local function openVisualEggInfoPanel()
 		Close.Activated:Connect(closeVisualEggInfoPanel)
 
 		local VisualSearchBar = make("Frame", {
-			Name = "VisualSearchBar",
-			Position = UDim2.fromScale(0.055, 0.15),
-			Size = UDim2.fromScale(0.89, 0.10),
+			Name = "SearchBar",
+			Position = UDim2.fromScale(0.045, 0.12),
+			Size = UDim2.fromScale(0.91, 0.065),
 			BackgroundColor3 = COLORS.DarkGray,
 			BorderSizePixel = 0,
 			ZIndex = 1002,
@@ -1321,7 +1230,7 @@ local function openVisualEggInfoPanel()
 			ZIndex = 1003,
 		}, VisualSearchBar)
 
-		visualSearchBox = make("TextBox", {
+		local VisualSearchBox = make("TextBox", {
 			Name = "Input",
 			Position = UDim2.fromScale(0.12, 0),
 			Size = UDim2.fromScale(0.78, 1),
@@ -1333,13 +1242,13 @@ local function openVisualEggInfoPanel()
 			TextColor3 = COLORS.White,
 			TextTransparency = 0,
 			Font = Enum.Font.Gotham,
-			TextSize = 15,
+			TextSize = 13,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextYAlignment = Enum.TextYAlignment.Center,
 			ZIndex = 1003,
 		}, VisualSearchBar)
 
-		visualSearchHint = make("TextLabel", {
+		local VisualSearchHint = make("TextLabel", {
 			Name = "Hint",
 			Position = UDim2.fromScale(0.12, 0),
 			Size = UDim2.fromScale(0.78, 1),
@@ -1347,14 +1256,14 @@ local function openVisualEggInfoPanel()
 			Text = "Search...",
 			TextColor3 = COLORS.Muted,
 			Font = Enum.Font.Gotham,
-			TextSize = 15,
+			TextSize = 13,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextYAlignment = Enum.TextYAlignment.Center,
 			Visible = true,
 			ZIndex = 1004,
 		}, VisualSearchBar)
 
-		visualSearchClear = make("TextButton", {
+		local VisualSearchClear = make("TextButton", {
 			Name = "Clear",
 			AnchorPoint = Vector2.new(1, 0.5),
 			Position = UDim2.fromScale(0.965, 0.5),
@@ -1365,84 +1274,74 @@ local function openVisualEggInfoPanel()
 			Text = "X",
 			TextColor3 = COLORS.SoftWhite,
 			Font = Enum.Font.GothamBold,
-			TextSize = 13,
+			TextSize = 11,
 			Visible = false,
 			ZIndex = 1005,
 		}, VisualSearchBar)
 
-		local VisualSearchDivider = make("Frame", {
-			Name = "VisualSearchDivider",
-			Position = UDim2.fromScale(0.055, 0.265),
-			Size = UDim2.fromScale(0.89, 0.006),
-			BackgroundColor3 = COLORS.Gray2,
-			BackgroundTransparency = 0.55,
-			BorderSizePixel = 0,
-			ZIndex = 1002,
-		}, VisualEggInfoPanel)
-
-		local BulkActions = make("Frame", {
-			Name = "BulkActions",
-			Position = UDim2.fromScale(0.055, 0.285),
-			Size = UDim2.fromScale(0.89, 0.105),
-			BackgroundColor3 = COLORS.Black2,
+		local VisualButtonsContainer = make("Frame", {
+			Name = "ButtonsContainer",
+			Position = UDim2.fromScale(0.045, 0.195),
+			Size = UDim2.fromScale(0.91, 0.055),
+			BackgroundColor3 = COLORS.Black,
 			BorderSizePixel = 0,
 			ZIndex = 1002,
 		}, VisualEggInfoPanel)
 		make("UIStroke", {
-			Thickness = 1.1,
-			Color = COLORS.Gray3,
-			Transparency = 0.10,
-		}, BulkActions)
+			Thickness = 1,
+			Color = COLORS.Gray2,
+			Transparency = 0.18,
+		}, VisualButtonsContainer)
 
-		local ActivateAll = make("TextButton", {
-			Name = "ActivateAll",
-			Position = UDim2.fromScale(0.025, 0.14),
-			Size = UDim2.fromScale(0.455, 0.72),
+		local EnableAllButton = make("TextButton", {
+			Name = "EnableAll",
+			Position = UDim2.fromScale(0.025, 0.5),
+			Size = UDim2.fromScale(0.45, 0.85),
+			AnchorPoint = Vector2.new(0, 0.5),
 			BackgroundColor3 = COLORS.Gray,
+			BackgroundTransparency = 0.18,
 			BorderSizePixel = 0,
 			AutoButtonColor = false,
-			Text = "Activate All",
+			Text = "Enable All",
 			TextColor3 = COLORS.White,
 			Font = Enum.Font.GothamSemibold,
-			TextSize = 11,
+			TextSize = 12,
 			ZIndex = 1003,
-		}, BulkActions)
+		}, VisualButtonsContainer)
+		make("UICorner", {CornerRadius = UDim.new(0, 4)}, EnableAllButton)
 
-		local DeactivateAll = make("TextButton", {
-			Name = "DeactivateAll",
-			Position = UDim2.fromScale(0.52, 0.14),
-			Size = UDim2.fromScale(0.455, 0.72),
+		local DisableAllButton = make("TextButton", {
+			Name = "DisableAll",
+			Position = UDim2.fromScale(0.525, 0.5),
+			Size = UDim2.fromScale(0.45, 0.85),
+			AnchorPoint = Vector2.new(0, 0.5),
 			BackgroundColor3 = COLORS.Gray,
+			BackgroundTransparency = 0.18,
 			BorderSizePixel = 0,
 			AutoButtonColor = false,
-			Text = "Deactivate All",
+			Text = "Disable All",
 			TextColor3 = COLORS.White,
 			Font = Enum.Font.GothamSemibold,
-			TextSize = 11,
+			TextSize = 12,
 			ZIndex = 1003,
-		}, BulkActions)
+		}, VisualButtonsContainer)
+		make("UICorner", {CornerRadius = UDim.new(0, 4)}, DisableAllButton)
 
-		for _, button in ipairs({ActivateAll, DeactivateAll}) do
-			make("UICorner", {CornerRadius = UDim.new(0, 8)}, button)
+		local function styleVisualButton(button)
 			button.MouseEnter:Connect(function()
-				tween(button, 0.10, {BackgroundColor3 = COLORS.Gray3})
+				tween(button, 0.10, {BackgroundColor3 = COLORS.Gray3, BackgroundTransparency = 0})
 			end)
 			button.MouseLeave:Connect(function()
-				tween(button, 0.10, {BackgroundColor3 = COLORS.Gray})
+				tween(button, 0.10, {BackgroundColor3 = COLORS.Gray, BackgroundTransparency = 0.18})
 			end)
 		end
+		styleVisualButton(EnableAllButton)
+		styleVisualButton(DisableAllButton)
 
-		ActivateAll.Activated:Connect(function()
-			setAllVisualSelections(true)
-		end)
-		DeactivateAll.Activated:Connect(function()
-			setAllVisualSelections(false)
-		end)
-
-		visualOptionsScroll = make("ScrollingFrame", {
+		local Scroll = make("ScrollingFrame", {
 			Name = "Options",
-			Position = UDim2.fromScale(0.045, 0.415),
-			Size = UDim2.fromScale(0.91, 0.52),
+			Position = UDim2.fromScale(0.045, 0.27),
+			Size = UDim2.fromScale(0.91, 0.67),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			ScrollBarThickness = 3,
@@ -1455,34 +1354,70 @@ local function openVisualEggInfoPanel()
 			CanvasSize = UDim2.fromScale(0, 0),
 			ZIndex = 1001,
 		}, VisualEggInfoPanel)
-		make("UIListLayout", {
-			Name = "VisualOptionsLayout",
-			Padding = UDim.new(0, 7),
-			SortOrder = Enum.SortOrder.LayoutOrder
-		}, visualOptionsScroll)
+		make("UIListLayout", {Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder}, Scroll)
 		make("UIPadding", {
-			Name = "VisualOptionsPadding",
 			PaddingBottom = UDim.new(0, 10),
 			PaddingLeft = UDim.new(0, 25),
 			PaddingRight = UDim.new(0, 0),
 			PaddingTop = UDim.new(0, 15),
-		}, visualOptionsScroll)
+		}, Scroll)
 
-		visualSearchBox:GetPropertyChangedSignal("Text"):Connect(function()
-			visualSearchText = visualSearchBox.Text
+		local visualRows = {}
+		visualRows.Name = createVisualSelectionRow(Scroll, "Name", "Name", 1)
+		visualRows.Mutation = createVisualSelectionRow(Scroll, "Mutation", "Mutation", 2)
+		visualRows.Distance = createVisualSelectionRow(Scroll, "Distance", "Distance", 3)
+		visualRows.Rarity = createVisualSelectionRow(Scroll, "Rarity", "Rarity", 4)
+
+		local function updateVisualSearchVisual()
+			local hasText = VisualSearchBox.Text ~= ""
+			VisualSearchHint.Visible = not hasText
+			VisualSearchClear.Visible = hasText
+		end
+
+		local function filterVisualRows()
+			local searchText = VisualSearchBox.Text:lower()
+			for name, row in pairs(visualRows) do
+				local rowName = name:lower()
+				if searchText == "" or rowName:find(searchText, 1, true) then
+					row.Visible = true
+				else
+					row.Visible = false
+				end
+			end
+		end
+
+		VisualSearchBox:GetPropertyChangedSignal("Text"):Connect(function()
 			updateVisualSearchVisual()
-			refreshVisualSelectionRows()
-			if visualOptionsScroll then
-				visualOptionsScroll.CanvasPosition = Vector2.new(0, 0)
+			filterVisualRows()
+		end)
+
+		VisualSearchClear.Activated:Connect(function()
+			VisualSearchBox.Text = ""
+			VisualSearchBox:CaptureFocus()
+		end)
+
+		EnableAllButton.Activated:Connect(function()
+			for name in pairs(visualRows) do
+				setVisualSelection(name, true)
+				local button = visualRows[name]:FindFirstChild("Toggle")
+				local knob = button and button:FindFirstChild("Knob")
+				if button and knob then
+					updateVisualSelectionButton(button, knob, name)
+				end
 			end
 		end)
 
-		visualSearchClear.Activated:Connect(function()
-			visualSearchBox.Text = ""
-			visualSearchBox:CaptureFocus()
+		DisableAllButton.Activated:Connect(function()
+			for name in pairs(visualRows) do
+				setVisualSelection(name, false)
+				local button = visualRows[name]:FindFirstChild("Toggle")
+				local knob = button and button:FindFirstChild("Knob")
+				if button and knob then
+					updateVisualSelectionButton(button, knob, name)
+				end
+			end
 		end)
 
-		refreshVisualSelectionRows()
 		installEnglishGuard(VisualEggInfoPanel)
 		registerCleanup(function()
 			if VisualEggInfoModal and VisualEggInfoModal.Parent then
@@ -1493,11 +1428,11 @@ local function openVisualEggInfoPanel()
 			end
 		end)
 	end
-
 	visualPanelOpen = true
 	VisualEggInfoModal.Visible = true
 	VisualEggInfoPanel.Visible = true
-	updateVisualSearchVisual()
+	-- The modal blocks the menu and launcher visually/input-wise while leaving
+	-- the Visual settings panel itself interactive until its X button is used.
 end
 
 local datasets = {
