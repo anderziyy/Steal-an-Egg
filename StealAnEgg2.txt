@@ -495,6 +495,7 @@ local function createLockChoice(name, text, x)
 	}, LockPanel)
 	make("UIStroke", {Thickness = 1.2, Color = COLORS.Gray3, Transparency = 0.05}, Button)
 
+
 	local Label = make("TextLabel", {
 		Position = UDim2.fromScale(0.08, 0),
 		Size = UDim2.fromScale(0.76, 1),
@@ -749,8 +750,8 @@ local ResultsScroll = make("ScrollingFrame", {
 	ScrollBarThickness = 3,
 	ScrollBarImageColor3 = COLORS.White,
 	ScrollBarImageTransparency = 0.05,
-	CanvasSize = UDim2.new(0, 0, 0, 0),
-	AutomaticCanvasSize = Enum.AutomaticSize.None,
+	CanvasSize = UDim2.fromScale(1, 0),
+	AutomaticCanvasSize = Enum.AutomaticSize.Y,
 	ScrollingDirection = Enum.ScrollingDirection.Y,
 	ScrollingEnabled = true,
 	Active = true,
@@ -759,7 +760,7 @@ local ResultsScroll = make("ScrollingFrame", {
 	ZIndex = 4,
 }, Content)
 
-local ResultsLayout = make("UIListLayout", {
+make("UIListLayout", {
 	Padding = UDim.new(0, 7),
 	SortOrder = Enum.SortOrder.LayoutOrder,
 	HorizontalAlignment = Enum.HorizontalAlignment.Center,
@@ -770,29 +771,6 @@ local ResultsPadding = make("UIPadding", {
 	PaddingBottom = UDim.new(0, 8),
 	PaddingRight = UDim.new(0, 40),
 }, ResultsScroll)
-
--- Keep the scrollable canvas synchronized with the actual generated content.
--- This removes the old fixed/limited canvas behavior when many categories/options exist.
-local function updateResultsCanvasSize()
-	if not ResultsScroll.Parent then
-		return
-	end
-
-	local contentHeight = ResultsLayout.AbsoluteContentSize.Y
-	local extraHeight = ResultsPadding.PaddingTop.Offset + ResultsPadding.PaddingBottom.Offset
-	local requiredHeight = contentHeight + extraHeight
-	local viewportHeight = ResultsScroll.AbsoluteSize.Y
-
-	ResultsScroll.CanvasSize = UDim2.new(
-		0,
-		0,
-		0,
-		math.max(viewportHeight, requiredHeight)
-	)
-end
-
-local resultsLayoutConnection = ResultsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateResultsCanvasSize)
-local resultsScrollSizeConnection = ResultsScroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateResultsCanvasSize)
 
 local resultsScrollWheelConnection
 local resultsScrollTouchStart = nil
@@ -900,6 +878,7 @@ local function copyDiscordLink()
 			return true
 		end
 	end
+
 	if typeof(toclipboard) == "function" then
 		local ok = pcall(toclipboard, DISCORD_LINK)
 		if ok then
@@ -1041,6 +1020,8 @@ local function requestServerHop()
 	end
 end
 
+local infinityJumpActive = false
+
 local datasets = {
 	Main = {},
 	["Auto Buy"] = {},
@@ -1101,7 +1082,7 @@ local datasets = {
 				},
 				{
 					Title = "Infinity Jump",
-					Description = "Jump again at any time while this option is enabled.",
+					Description = "Jump infinitely without limits while enabled.",
 					Toggle = true,
 					Enabled = false,
 					Compact = true,
@@ -1310,30 +1291,33 @@ end
 
 local function setToggleState(item, enabled)
 	toggleStates[item] = enabled
+	if item.Title == "Infinity Jump" then
+		infinityJumpActive = enabled
+		if enabled then
+			local connection = {active = true}
+			toggleConnections[item] = connection
+			task.spawn(function()
+				while connection.active and not cleanedUp do
+					local humanoid = getHumanoid()
+					if humanoid and humanoid.Health > 0 then
+						humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+					end
+					task.wait(0.1)
+				end
+			end)
+		else
+			if toggleConnections[item] then
+				toggleConnections[item].active = false
+				toggleConnections[item] = nil
+			end
+		end
+		return
+	end
+	if item.Title ~= "Anti AFK" then return end
 
 	if toggleConnections[item] then
 		toggleConnections[item]:Disconnect()
 		toggleConnections[item] = nil
-	end
-
-	if item.Title == "Infinity Jump" then
-		if enabled then
-			toggleConnections[item] = UserInputService.JumpRequest:Connect(function()
-				if cleanedUp then
-					return
-				end
-
-				local humanoid = getHumanoid()
-				if humanoid and humanoid.Health > 0 then
-					humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-				end
-			end)
-		end
-		return
-	end
-
-	if item.Title ~= "Idle Movement" then
-		return
 	end
 
 	if enabled then
@@ -2058,7 +2042,6 @@ end)
 
 applyEnglishOnly(ScreenGui)
 
-updateResultsCanvasSize()
 setTab("Main")
 Menu.Visible = false
 
@@ -2087,12 +2070,6 @@ registerCleanup(function()
 	end
 	if resultsScrollInputConnection then
 		resultsScrollInputConnection:Disconnect()
-	end
-	if resultsLayoutConnection then
-		resultsLayoutConnection:Disconnect()
-	end
-	if resultsScrollSizeConnection then
-		resultsScrollSizeConnection:Disconnect()
 	end
 	inputChangedConnection:Disconnect()
 	inputEndedConnection:Disconnect()
