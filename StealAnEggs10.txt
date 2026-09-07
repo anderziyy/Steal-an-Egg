@@ -1131,21 +1131,22 @@ local function openVisualEggInfoPanel()
 		return
 	end
 	if not VisualEggInfoOverlay then
-		-- Full-screen dimmer: blocks the main menu and launcher while this panel is open.
+		-- Full-screen input blocker. The Visual settings panel remains interactive
+		-- above it, while the menu and launcher underneath become untouchable.
 		VisualEggInfoModal = make("Frame", {
 			Name = "VisualEggInfoModal",
 			Position = UDim2.fromScale(0, 0),
 			Size = UDim2.fromScale(1, 1),
 			BackgroundColor3 = COLORS.Black,
-			BackgroundTransparency = 0.42,
+			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Visible = false,
 			Active = true,
 			ZIndex = 1000,
 		}, ScreenGui)
 
-		-- The settings panel remains in the RIGHT HALF of the existing Results area,
-		-- but its TOP is extended upward to cover the search bar.
+		-- Keep the existing panel width and bottom edge; extend only upward
+		-- so its top covers the search-bar area.
 		VisualEggInfoOverlay = make("Frame", {
 			Name = "VisualEggInfoOverlay",
 			Position = UDim2.fromScale(0.50, 0.035),
@@ -1156,7 +1157,7 @@ local function openVisualEggInfoPanel()
 			Visible = false,
 			Active = true,
 			ClipsDescendants = true,
-			ZIndex = 1001,
+			ZIndex = 100,
 		}, Content)
 		make("UIStroke", {Thickness = 1.4, Color = COLORS.Gray3, Transparency = 0.05}, VisualEggInfoOverlay)
 
@@ -1168,7 +1169,7 @@ local function openVisualEggInfoPanel()
 			BorderSizePixel = 0,
 			Active = true,
 			ClipsDescendants = true,
-			ZIndex = 1100,
+			ZIndex = 101,
 		}, VisualEggInfoOverlay)
 		make("UIStroke", {Thickness = 1.2, Color = COLORS.Gray2, Transparency = 0.10}, VisualEggInfoPanel)
 
@@ -1242,8 +1243,8 @@ local function openVisualEggInfoPanel()
 	visualPanelOpen = true
 	VisualEggInfoModal.Visible = true
 	VisualEggInfoOverlay.Visible = true
-	-- The modal blocks interaction with the menu/launcher; the settings panel
-	-- and its controls remain above the dimmer and therefore stay interactive.
+	-- The modal blocks the menu and launcher visually/input-wise while leaving
+	-- the Visual settings panel itself interactive until its X button is used.
 end
 
 local datasets = {
@@ -3148,6 +3149,9 @@ local function clampLauncher(position)
 end
 
 local function updateLauncherDrag(input)
+	if visualPanelOpen then
+		return
+	end
 	if lockEnabled and lockButtonSelected then
 		return
 	end
@@ -3169,6 +3173,9 @@ local function updateLauncherDrag(input)
 end
 
 local function beginLauncherDrag(input)
+	if visualPanelOpen then
+		return
+	end
 	if lockEnabled and lockButtonSelected then
 		return
 	end
@@ -3234,6 +3241,9 @@ for name, corner in pairs(corners) do
 		end
 	end)
 	corner.InputBegan:Connect(function(input)
+		if visualPanelOpen then
+			return
+		end
 		if lockEnabled and lockMenuSelected then
 			return
 		end
@@ -3250,6 +3260,9 @@ for name, corner in pairs(corners) do
 end
 
 function updateMenuDrag(input)
+	if visualPanelOpen then
+		return
+	end
 	if lockEnabled and lockMenuSelected then
 		return
 	end
