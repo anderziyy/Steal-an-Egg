@@ -1,0 +1,3233 @@
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local TeleportService = game:GetService("TeleportService")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+local IMAGE_MENU_BUTTON = "rbxassetid://121715364276099"
+local IMAGE_SEARCH = "rbxassetid://73858257403039"
+local IMAGE_MAIN = "rbxassetid://139357095045310"
+local IMAGE_AUTOBUY = "rbxassetid://110805385284419"
+local IMAGE_FARM = "rbxassetid://102352181267949"
+local IMAGE_CONFIG = "rbxassetid://114794077382466"
+local IMAGE_CREDITS = "rbxassetid://99243311837005"
+local IMAGE_CLICK = "rbxassetid://97594499544606"
+local IMAGE_DISCORD_COPIED = "rbxassetid://132744109593099"
+local IMAGE_GAME_ID = "rbxassetid://88704800286791"
+local DISCORD_LINK = "https://discord.gg/72P6NhC5Pf"
+
+local COLORS = {
+	Black = Color3.fromRGB(7, 7, 10),
+	Black2 = Color3.fromRGB(16, 16, 18),
+	DarkGray = Color3.fromRGB(24, 24, 27),
+	Gray = Color3.fromRGB(43, 43, 47),
+	Gray2 = Color3.fromRGB(58, 58, 63),
+	Gray3 = Color3.fromRGB(73, 73, 79),
+	White = Color3.fromRGB(245, 245, 247),
+	SoftWhite = Color3.fromRGB(212, 212, 216),
+	Muted = Color3.fromRGB(155, 155, 162),
+	BlackLine = Color3.fromRGB(4, 4, 5),
+}
+
+local function make(className, properties, parent)
+	local object = Instance.new(className)
+	if className == "TextLabel" or className == "TextButton" or className == "TextBox" then
+		pcall(function()
+			object.AutoLocalize = false
+		end)
+	end
+	for key, value in pairs(properties or {}) do
+		object[key] = value
+	end
+	if className == "TextLabel" or className == "TextButton" or className == "TextBox" then
+		pcall(function() object.AutoLocalize = false end)
+	end
+	object.Parent = parent
+	return object
+end
+
+local function applyEnglishOnly(root)
+	local function visit(obj)
+		pcall(function()
+			if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+				obj.AutoLocalize = false
+			end
+		end)
+		for _, child in ipairs(obj:GetChildren()) do
+			visit(child)
+		end
+	end
+	visit(root)
+end
+
+local function installEnglishGuard(root)
+	applyEnglishOnly(root)
+	return root.DescendantAdded:Connect(function(obj)
+		local _ = pcall(function()
+			if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+				obj.AutoLocalize = false
+			end
+		end)
+	end)
+end
+
+local function tween(object, time, properties, style, direction)
+	local info = TweenInfo.new(time or 0.18, style or Enum.EasingStyle.Quint, direction or Enum.EasingDirection.Out)
+	local animation = TweenService:Create(object, info, properties)
+	animation:Play()
+	return animation
+end
+
+local cleanupCallbacks = {}
+local cleanedUp = false
+local pendingAction = nil
+
+local function registerCleanup(callback)
+	if type(callback) ~= "function" then
+		return
+	end
+	table.insert(cleanupCallbacks, callback)
+end
+
+local function cleanupAll()
+	if cleanedUp then
+		return
+	end
+	cleanedUp = true
+
+	for i = #cleanupCallbacks, 1, -1 do
+		local callback = cleanupCallbacks[i]
+		cleanupCallbacks[i] = nil
+		pcall(callback)
+	end
+end
+
+local ScreenGui = make("ScreenGui", {
+	Name = "PhantomHub_StealAnEgg",
+	ResetOnSpawn = false,
+	IgnoreGuiInset = true,
+	DisplayOrder = 999999,
+	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+}, PlayerGui)
+
+local RootScale = make("UIScale", {Scale = 1}, ScreenGui)
+
+local function getViewport()
+	local camera = workspace.CurrentCamera
+	if not camera then
+		return Vector2.new(1280, 720)
+	end
+	return camera.ViewportSize
+end
+
+local function updateGlobalScale()
+	local viewport = getViewport()
+	local reference = math.min(viewport.X, viewport.Y)
+	local target = reference / 720
+	RootScale.Scale = math.clamp(target, 0.82, 1.22)
+end
+
+updateGlobalScale()
+if workspace.CurrentCamera then
+	local viewportSizeConnection = workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateGlobalScale)
+	registerCleanup(function()
+		viewportSizeConnection:Disconnect()
+	end)
+end
+
+local LauncherFrame = make("Frame", {
+	Name = "Launcher",
+	AnchorPoint = Vector2.new(0, 0),
+	Position = UDim2.fromScale(0.035, 0.34),
+	Size = UDim2.fromScale(0.110, 0.110),
+	BackgroundTransparency = 1,
+}, ScreenGui)
+
+make("UIAspectRatioConstraint", {
+	AspectRatio = 1,
+	DominantAxis = Enum.DominantAxis.Width,
+}, LauncherFrame)
+
+local Launcher = make("ImageButton", {
+	Name = "OpenButton",
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	Size = UDim2.fromScale(1, 1),
+	BackgroundColor3 = COLORS.Black,
+	BorderSizePixel = 0,
+	AutoButtonColor = false,
+	Image = IMAGE_MENU_BUTTON,
+	ImageColor3 = COLORS.White,
+	ScaleType = Enum.ScaleType.Crop,
+	Active = true,
+}, LauncherFrame)
+
+make("UIAspectRatioConstraint", {AspectRatio = 1}, Launcher)
+
+local LauncherStroke = make("UIStroke", {
+	Thickness = 2.4,
+	Color = COLORS.Gray3,
+	Transparency = 0.08,
+	ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+}, Launcher)
+
+local launcherHover = false
+Launcher.MouseEnter:Connect(function()
+	launcherHover = true
+	tween(LauncherStroke, 0.12, {Color = COLORS.White, Transparency = 0})
+	tween(Launcher, 0.12, {BackgroundColor3 = COLORS.DarkGray})
+end)
+Launcher.MouseLeave:Connect(function()
+	launcherHover = false
+	tween(LauncherStroke, 0.12, {Color = COLORS.Gray3, Transparency = 0.08})
+	tween(Launcher, 0.12, {BackgroundColor3 = COLORS.Black})
+end)
+
+local Menu = make("Frame", {
+	Name = "Menu",
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	Size = UDim2.fromScale(0.54, 0.61),
+	BackgroundColor3 = COLORS.Black,
+	BorderSizePixel = 0,
+	Visible = false,
+	ClipsDescendants = true,
+	Active = true,
+}, ScreenGui)
+
+make("UIAspectRatioConstraint", {
+	AspectRatio = 1.50,
+	DominantAxis = Enum.DominantAxis.Width,
+	AspectType = Enum.AspectType.ScaleWithParentSize,
+}, Menu)
+
+local MenuStroke = make("UIStroke", {
+	Thickness = 2.0,
+	Color = COLORS.Gray3,
+	Transparency = 0.12,
+}, Menu)
+
+local Shadow = make("Frame", {
+	Name = "ShadowBorder",
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	Size = UDim2.fromScale(1.016, 1.025),
+	BackgroundColor3 = COLORS.BlackLine,
+	BackgroundTransparency = 0.38,
+	BorderSizePixel = 0,
+	ZIndex = 0,
+}, Menu)
+
+local Header = make("Frame", {
+	Name = "Header",
+	Position = UDim2.fromScale(0, 0),
+	Size = UDim2.fromScale(1, 0.105),
+	BackgroundColor3 = COLORS.Black2,
+	BorderSizePixel = 0,
+	ZIndex = 3,
+}, Menu)
+
+make("UIStroke", {
+	Thickness = 1,
+	Color = COLORS.Gray,
+	Transparency = 0.38,
+}, Header)
+
+local HeaderTitle = make("TextLabel", {
+	Name = "Title",
+	Position = UDim2.fromScale(0.032, 0.10),
+	Size = UDim2.fromScale(0.64, 0.82),
+	BackgroundTransparency = 1,
+	Text = '<font color="#F5F5F7">Phantom Hub | Steal an Eggs</font>\n<font color="#66666B">Mod Menu</font>',
+	RichText = true,
+	TextColor3 = COLORS.White,
+	Font = Enum.Font.GothamBold,
+	TextSize = 18,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	TextYAlignment = Enum.TextYAlignment.Center,
+	ZIndex = 4,
+}, Header)
+
+local LockButton = make("TextButton", {
+	Name = "Lock",
+	AnchorPoint = Vector2.new(1, 0.5),
+	Position = UDim2.fromScale(0.825, 0.5),
+	Size = UDim2.fromScale(0.060, 0.70),
+	BackgroundColor3 = COLORS.Gray,
+	BackgroundTransparency = 0.18,
+	BorderSizePixel = 0,
+	AutoButtonColor = false,
+	Text = "Lock",
+	TextColor3 = COLORS.White,
+	Font = Enum.Font.GothamBold,
+	TextSize = 12,
+	ZIndex = 20,
+}, Header)
+
+local MinimizeButton = make("TextButton", {
+	Name = "Minimize",
+	AnchorPoint = Vector2.new(1, 0.5),
+	Position = UDim2.fromScale(0.895, 0.5),
+	Size = UDim2.fromScale(0.050, 0.70),
+	BackgroundColor3 = COLORS.Gray,
+	BackgroundTransparency = 0.18,
+	BorderSizePixel = 0,
+	AutoButtonColor = false,
+	Text = "−",
+	TextColor3 = COLORS.White,
+	Font = Enum.Font.GothamBold,
+	TextSize = 20,
+	ZIndex = 20,
+}, Header)
+
+local CloseButton = make("TextButton", {
+	Name = "Close",
+	AnchorPoint = Vector2.new(1, 0.5),
+	Position = UDim2.fromScale(0.975, 0.5),
+	Size = UDim2.fromScale(0.060, 0.70),
+	BackgroundColor3 = COLORS.Gray,
+	BackgroundTransparency = 0.18,
+	BorderSizePixel = 0,
+	AutoButtonColor = false,
+	Active = true,
+	Selectable = false,
+	Text = "X",
+	TextColor3 = COLORS.White,
+	Font = Enum.Font.GothamBold,
+	TextSize = 16,
+	ZIndex = 20,
+}, Header)
+
+local LockOverlay = make("Frame", {
+	Name = "LockOverlay",
+	Position = UDim2.fromScale(0, 0),
+	Size = UDim2.fromScale(1, 1),
+	BackgroundColor3 = COLORS.Black,
+	BackgroundTransparency = 0.58,
+	BorderSizePixel = 0,
+	Visible = false,
+	Active = true,
+	ZIndex = 100,
+}, ScreenGui)
+
+local LockLabel = make("TextLabel", {
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	Size = UDim2.fromScale(0.36, 0.12),
+	BackgroundColor3 = COLORS.Black2,
+	BorderSizePixel = 0,
+	Text = "Menu is locked",
+	TextColor3 = COLORS.White,
+	Font = Enum.Font.GothamBold,
+	TextSize = 16,
+	ZIndex = 101,
+}, LockOverlay)
+make("UICorner", {CornerRadius = UDim.new(0, 8)}, LockLabel)
+
+local lockEnabled = false
+local lockButtonSelected = false
+local lockMenuSelected = false
+
+LockButton.MouseEnter:Connect(function()
+	tween(LockButton, 0.1, {BackgroundColor3 = COLORS.Gray2, BackgroundTransparency = 0})
+end)
+LockButton.MouseLeave:Connect(function()
+	tween(LockButton, 0.1, {BackgroundColor3 = COLORS.Gray, BackgroundTransparency = 0.18})
+end)
+
+LockButton.Activated:Connect(function()
+	lockEnabled = not lockEnabled
+	LockOverlay.Visible = lockEnabled
+end)
+
+local Content = make("Frame", {
+	Name = "Content",
+	Position = UDim2.fromScale(0, 0.105),
+	Size = UDim2.fromScale(1, 0.895),
+	BackgroundColor3 = COLORS.Black2,
+	BorderSizePixel = 0,
+	ZIndex = 2,
+}, Menu)
+
+make("UIStroke", {
+	Thickness = 1,
+	Color = COLORS.Gray,
+	Transparency = 0.38,
+}, Content)
+
+local TabList = make("Frame", {
+	Name = "TabList",
+	Position = UDim2.fromScale(0, 0),
+	Size = UDim2.fromScale(0.22, 1),
+	BackgroundColor3 = COLORS.Black2,
+	BorderSizePixel = 0,
+	ZIndex = 3,
+}, Content)
+
+make("UIListLayout", {
+	Padding = UDim.new(0, 0),
+	SortOrder = Enum.SortOrder.LayoutOrder,
+	VerticalAlignment = Enum.VerticalAlignment.Top,
+}, TabList)
+
+local TabListStroke = make("UIStroke", {
+	Thickness = 1,
+	Color = COLORS.Gray,
+	Transparency = 0.38,
+	ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+}, TabList)
+
+local SearchContainer = make("Frame", {
+	Name = "SearchContainer",
+	Position = UDim2.fromScale(0.22, 0),
+	Size = UDim2.fromScale(0.78, 0.065),
+	BackgroundColor3 = COLORS.Black2,
+	BorderSizePixel = 0,
+	ZIndex = 3,
+}, Content)
+
+make("UIStroke", {
+	Thickness = 1,
+	Color = COLORS.Gray,
+	Transparency = 0.38,
+	ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+}, SearchContainer)
+
+local SearchIcon = make("ImageLabel", {
+	Name = "Icon",
+	Position = UDim2.fromScale(0.032, 0.15),
+	Size = UDim2.fromScale(0.12, 0.70),
+	BackgroundTransparency = 1,
+	Image = IMAGE_SEARCH,
+	ImageColor3 = COLORS.SoftWhite,
+	ScaleType = Enum.ScaleType.Fit,
+	ZIndex = 4,
+}, SearchContainer)
+
+local SearchBox = make("TextBox", {
+	Name = "SearchBox",
+	Position = UDim2.fromScale(0.17, 0.15),
+	Size = UDim2.fromScale(0.72, 0.70),
+	BackgroundTransparency = 1,
+	Text = "",
+	PlaceholderText = "Search...",
+	PlaceholderColor3 = COLORS.Muted,
+	TextColor3 = COLORS.White,
+	Font = Enum.Font.Gotham,
+	TextSize = 13,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	TextYAlignment = Enum.TextYAlignment.Center,
+	CursorPosition = -1,
+	SelectionStart = -1,
+	ZIndex = 4,
+})
+SearchBox.Parent = SearchContainer
+
+local SearchHint = make("TextLabel", {
+	Name = "SearchHint",
+	Position = UDim2.fromScale(0.17, 0.15),
+	Size = UDim2.fromScale(0.72, 0.70),
+	BackgroundTransparency = 1,
+	Text = "Search...",
+	TextColor3 = COLORS.Muted,
+	Font = Enum.Font.Gotham,
+	TextSize = 13,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	TextYAlignment = Enum.TextYAlignment.Center,
+	ZIndex = 3,
+}, SearchContainer)
+
+local SearchClear = make("TextButton", {
+	Name = "Clear",
+	AnchorPoint = Vector2.new(1, 0.5),
+	Position = UDim2.fromScale(0.968, 0.5),
+	Size = UDim2.fromScale(0.065, 0.70),
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	Text = "×",
+	TextColor3 = COLORS.White,
+	Font = Enum.Font.GothamBold,
+	TextSize = 18,
+	Visible = false,
+	ZIndex = 4,
+}, SearchContainer)
+
+local searchQuery = ""
+
+local function renderResults()
+	local ResultsContent = ResultsScroll:FindFirstChild("Content")
+	if ResultsContent then
+		for _, child in ipairs(ResultsContent:GetChildren()) do
+			if child:IsA("GuiObject") and child.Name ~= "UIListLayout" and child.Name ~= "UIPadding" then
+				child:Destroy()
+			end
+		end
+	end
+
+	local query = string.lower(searchQuery)
+	local layoutOrder = 0
+
+	for _, category in ipairs(currentCategories) do
+		if category.Type == "Category" then
+			local hasMatchingChildren = false
+			if query == "" then
+				hasMatchingChildren = true
+			else
+				for _, child in ipairs(category.Items or {}) do
+					if string.find(string.lower(child.Title or ""), query, 1, true) or
+						string.find(string.lower(child.Description or ""), query, 1, true) then
+						hasMatchingChildren = true
+						break
+					end
+				end
+			end
+
+			if not hasMatchingChildren and query ~= "" then
+				continue
+			end
+
+			layoutOrder += 1
+			createCategoryRow(category, layoutOrder)
+		end
+	end
+
+	task.wait()
+	local listLayout = ResultsScroll:FindFirstChildOfClass("UIListLayout")
+	if listLayout then
+		local canvasYSize = listLayout.AbsoluteContentSize.Y
+		if canvasYSize > 0 then
+			ResultsScroll.CanvasSize = UDim2.fromScale(1, math.max(1, (canvasYSize + 10) / ResultsScroll.AbsoluteSize.Y))
+		end
+	end
+end
+
+local function createCategoryRow(category, layoutOrder)
+	local expanded = category.Expanded == true
+	local children = category.Items or {}
+
+	local Row = make("Frame", {
+		Name = category.Title .. "Row",
+		Size = UDim2.new(1, -18, 0, 52),
+		BackgroundColor3 = COLORS.Black2,
+		BorderSizePixel = 0,
+		LayoutOrder = layoutOrder,
+		ZIndex = 4,
+	}, ResultsScroll)
+
+	make("UIStroke", {
+		Thickness = 1,
+		Color = COLORS.Gray2,
+		Transparency = 0.30,
+	}, Row)
+
+	local Hit = make("TextButton", {
+		Name = "CategoryButton",
+		Position = UDim2.fromScale(0, 0),
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Text = "",
+		AutoButtonColor = false,
+		ZIndex = 4,
+	}, Row)
+
+	local Icon = make("ImageLabel", {
+		Name = "Icon",
+		Position = UDim2.fromScale(0.035, 0.20),
+		Size = UDim2.fromScale(0.10, 0.60),
+		BackgroundTransparency = 1,
+		Image = category.Icon or "",
+		ImageColor3 = COLORS.SoftWhite,
+		ScaleType = Enum.ScaleType.Fit,
+		ZIndex = 5,
+	}, Row)
+
+	local Title = make("TextLabel", {
+		Position = UDim2.fromScale(0.16, 0),
+		Size = UDim2.fromScale(0.68, 1),
+		BackgroundTransparency = 1,
+		Text = category.Title or "Category",
+		TextColor3 = COLORS.White,
+		Font = Enum.Font.GothamSemibold,
+		TextSize = 14,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		ZIndex = 5,
+	}, Row)
+
+	local Arrow = make("TextLabel", {
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.fromScale(0.96, 0.5),
+		Size = UDim2.fromScale(0.09, 0.50),
+		BackgroundTransparency = 1,
+		Text = expanded and "▼" or "▶",
+		TextColor3 = COLORS.SoftWhite,
+		Font = Enum.Font.GothamBold,
+		TextSize = 15,
+		TextXAlignment = Enum.TextXAlignment.Center,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		ZIndex = 5,
+	}, Row)
+
+	Hit.MouseEnter:Connect(function()
+		tween(Row, 0.10, {BackgroundColor3 = COLORS.DarkGray})
+	end)
+	Hit.MouseLeave:Connect(function()
+		tween(Row, 0.10, {BackgroundColor3 = COLORS.Black2})
+	end)
+
+	Hit.Activated:Connect(function()
+		if visualPanelOpen then
+			return
+		end
+		if searchQuery ~= "" then
+			category.Expanded = true
+		else
+			category.Expanded = not category.Expanded
+		end
+		renderResults()
+	end)
+
+	if expanded or searchQuery ~= "" then
+		for childIndex, child in ipairs(children) do
+			createStandardRow(child, layoutOrder + childIndex)
+		end
+	end
+
+	return Row
+end
+
+local toggleStates = {}
+local toggleConnections = {}
+
+local function disconnectToggle(item)
+	local connection = toggleConnections[item]
+	if connection then
+		pcall(function()
+			connection:Disconnect()
+		end)
+		toggleConnections[item] = nil
+	end
+end
+
+local function safeRequire(moduleScript)
+	if moduleScript == nil then
+		return nil
+	end
+	local ok, result = pcall(require, moduleScript)
+	if ok then
+		return result
+	end
+	return nil
+end
+
+local function findEggTools(eggToolDisplay)
+	local tools = {}
+	local seen = {}
+
+	local function scan(container)
+		if not container then
+			return
+		end
+		for _, child in ipairs(container:GetChildren()) do
+			if child:IsA("Tool") and not seen[child] then
+				local ok, isEgg = pcall(function()
+					return eggToolDisplay and eggToolDisplay.IsEggTool and eggToolDisplay.IsEggTool(child)
+				end)
+				if ok and isEgg then
+					seen[child] = true
+					table.insert(tools, child)
+				end
+			end
+		end
+	end
+
+	scan(LocalPlayer.Character)
+	scan(LocalPlayer:FindFirstChildOfClass("Backpack"))
+	return tools
+end
+
+local autoGoToBaseEnabled = false
+local baseMovementRunning = false
+
+local function resolveMyBaseCenterPoint()
+	local shared = game:GetService("ReplicatedStorage")
+	local plotState = safeRequire(shared.Client:FindFirstChild("PlotState"))
+	if not plotState or not plotState.ResolvePlot then
+		return nil
+	end
+
+	local ok, plot = pcall(plotState.ResolvePlot)
+	if not ok or not plot or not plot.PlotFolder then
+		return nil
+	end
+
+	local centerPoint = plot.PlotFolder:FindFirstChild("CenterPoint")
+	return centerPoint and centerPoint:IsA("BasePart") and centerPoint or nil
+end
+
+local function moveToMyBase()
+	local centerPoint = resolveMyBaseCenterPoint()
+	local character = LocalPlayer.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local hrp = character and character:FindFirstChild("HumanoidRootPart")
+	if not centerPoint or not humanoid or not hrp or humanoid.Health <= 0 then
+		return false
+	end
+
+	local distance = (hrp.Position - centerPoint.Position).Magnitude
+	if distance <= 4 then
+		baseMovementRunning = false
+		return true
+	end
+
+	baseMovementRunning = true
+	humanoid:MoveTo(centerPoint.Position)
+	return false
+end
+
+local function setAutoGoToBase(item, enabled)
+	disconnectToggle(item)
+	autoGoToBaseEnabled = enabled == true
+	baseMovementRunning = false
+
+	if not enabled then
+		return
+	end
+
+	local running = true
+	toggleConnections[item] = {
+		Disconnect = function()
+			running = false
+			baseMovementRunning = false
+		end,
+	}
+
+	task.spawn(function()
+		while running and not cleanedUp do
+			if not autoGoToBaseEnabled then
+				break
+			end
+			if toggleStates[item] ~= true then
+				break
+			end
+			task.wait(0.50)
+		end
+		baseMovementRunning = false
+	end)
+end
+
+local function getOwnPlotPlacement()
+	local shared = game:GetService("ReplicatedStorage")
+	local plotState = safeRequire(shared.Client:FindFirstChild("PlotState"))
+	local eggRaycastModule = safeRequire(shared.Shared.Eggs:FindFirstChild("EggPlacementRaycast"))
+	if not plotState or not eggRaycastModule or not eggRaycastModule.Raycast then
+		return nil
+	end
+
+	local plot = plotState.ResolvePlot and plotState.ResolvePlot() or nil
+	if not plot or not plot.PetArea or not plot.CenterPoint then
+		return nil
+	end
+
+	local ok, raycastResult = pcall(function()
+		return eggRaycastModule.Raycast(plot.PetArea, LocalPlayer.UserId)
+	end)
+	if not ok or raycastResult == nil or raycastResult.Instance ~= plot.PetArea then
+		return nil
+	end
+
+	local relativeCFrame = plot.CenterPoint.CFrame:ToObjectSpace(CFrame.new(raycastResult.Position))
+	return relativeCFrame
+end
+
+local function placeOneEgg()
+	local shared = game:GetService("ReplicatedStorage")
+	local eggToolDisplay = safeRequire(shared.Shared.Eggs:FindFirstChild("EggToolDisplay"))
+	local eggState = safeRequire(shared.Client:FindFirstChild("EggState"))
+	if not eggToolDisplay or not eggState or not eggState.PlantEgg then
+		return false
+	end
+
+	local relativeCFrame = getOwnPlotPlacement()
+	if not relativeCFrame then
+		return false
+	end
+
+	local tools = findEggTools(eggToolDisplay)
+	for _, tool in ipairs(tools) do
+		local okUid, uid = pcall(function()
+			return eggToolDisplay.GetToolUid and eggToolDisplay.GetToolUid(tool)
+		end)
+		if okUid and uid ~= nil then
+			local okPlace, placed = pcall(function()
+				return eggState.PlantEgg(uid, relativeCFrame)
+			end)
+			if okPlace and placed == true then
+				local renderer = safeRequire(shared.Shared.Eggs:FindFirstChild("PlacedEggRenderer"))
+				if renderer and renderer.Refresh then
+					pcall(renderer.Refresh)
+				end
+				return true
+			end
+			return false
+		end
+	end
+
+	return false
+end
+
+local function setPlaceEggs(item, enabled)
+	disconnectToggle(item)
+	if not enabled then
+		return
+	end
+
+	local running = true
+	toggleConnections[item] = {
+		Disconnect = function()
+			running = false
+		end,
+	}
+
+	task.spawn(function()
+		while running and not cleanedUp do
+			local availableUID = getAvailableEggUID()
+			if not availableUID and not getEquippedEggUID() then
+				task.wait(0.50)
+				continue
+			end
+
+			if autoGoToBaseEnabled then
+				local atBase = moveToMyBase()
+				if not atBase then
+					task.wait(0.15)
+					continue
+				end
+			end
+
+			local placed = placeOneEgg()
+			if placed then
+				task.wait(0.35)
+			else
+				task.wait(0.50)
+			end
+		end
+	end)
+end
+
+local function setEquipBestPets(item, enabled)
+	disconnectToggle(item)
+	if not enabled then
+		return
+	end
+
+	local shared = game:GetService("ReplicatedStorage")
+	local remotes = safeRequire(shared.Shared:FindFirstChild("Remotes"))
+	if not remotes or not remotes.Haul or not remotes.Haul.WearBest or not remotes.Haul.WearBest.InvokeServer then
+		return
+	end
+
+	local running = true
+	toggleConnections[item] = {
+		Disconnect = function()
+			running = false
+		end,
+	}
+
+	task.spawn(function()
+		while running and not cleanedUp do
+			pcall(function()
+				remotes.Haul.WearBest:InvokeServer()
+			end)
+			task.wait(5)
+		end
+	end)
+end
+
+local function getHumanoid()
+	local character = LocalPlayer.Character
+	return character and character:FindFirstChildOfClass("Humanoid") or nil
+end
+
+local function setAntiAFK(item, enabled)
+	if toggleConnections[item] then
+		disconnectToggle(item)
+	end
+
+	if not enabled then
+		return
+	end
+
+	local running = true
+	toggleConnections[item] = {
+		Disconnect = function()
+			running = false
+		end,
+	}
+
+	task.spawn(function()
+		while running and not cleanedUp do
+			task.wait(60)
+			if not running or cleanedUp then
+				break
+			end
+
+			local humanoid = getHumanoid()
+			if humanoid and humanoid.Health > 0 then
+				humanoid:Move(Vector3.new(1, 0, 0), true)
+				task.wait(0.18)
+				if running and not cleanedUp and humanoid.Parent and humanoid.Health > 0 then
+					humanoid:Move(Vector3.zero, true)
+				end
+			end
+		end
+	end)
+end
+
+local function setInfinityJump(item, enabled)
+	disconnectToggle(item)
+
+	if not enabled then
+		return
+	end
+
+	local active = true
+	local jumpConnection = UserInputService.JumpRequest:Connect(function()
+		if not active or cleanedUp then
+			return
+		end
+
+		local humanoid = getHumanoid()
+		if humanoid and humanoid.Health > 0 then
+			humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+			humanoid.Jump = true
+		end
+	end)
+
+	toggleConnections[item] = {
+		Disconnect = function()
+			active = false
+			jumpConnection:Disconnect()
+		end,
+	}
+end
+
+local function getEggStateModule()
+	local shared = game:GetService("ReplicatedStorage")
+	return safeRequire(shared.Client:FindFirstChild("EggState"))
+end
+
+local function getSaveModule()
+	local shared = game:GetService("ReplicatedStorage")
+	return safeRequire(shared.Shared:FindFirstChild("Save"))
+end
+
+local function getEquippedEggUID()
+	local character = LocalPlayer.Character
+	if not character then
+		return nil
+	end
+	for _, child in ipairs(character:GetChildren()) do
+		if child:IsA("Tool") and child:GetAttribute("ItemType") == "AssetEgg" then
+			local uid = child:GetAttribute("UID")
+			if typeof(uid) == "string" and uid ~= "" then
+				return uid
+			end
+		end
+	end
+	return nil
+end
+
+local function eggUIDExistsInCharacterOrBackpack(uid)
+	if typeof(uid) ~= "string" or uid == "" then
+		return false
+	end
+
+	local function scan(container)
+		if not container then
+			return false
+		end
+		for _, child in ipairs(container:GetChildren()) do
+			if child:IsA("Tool") and child:GetAttribute("ItemType") == "AssetEgg" and child:GetAttribute("UID") == uid then
+				return true
+			end
+		end
+		return false
+	end
+
+	return scan(LocalPlayer.Character) or scan(LocalPlayer:FindFirstChildOfClass("Backpack"))
+end
+
+local function getAvailableEggUID()
+	local save = getSaveModule()
+	if save and save.Get then
+		local ok, data = pcall(save.Get)
+		if ok and typeof(data) == "table" and typeof(data.EggInventory) == "table" then
+			for uid, record in pairs(data.EggInventory) do
+				if typeof(uid) == "string" and typeof(record) == "table" and record.Placement == nil then
+					if eggUIDExistsInCharacterOrBackpack(uid) then
+						return uid
+					end
+				end
+			end
+			for uid, record in pairs(data.EggInventory) do
+				if typeof(uid) == "string" and typeof(record) == "table" and record.Placement == nil then
+					return uid
+				end
+			end
+		end
+	end
+
+	local eggToolDisplay = nil
+	local shared = game:GetService("ReplicatedStorage")
+	if shared.Shared and shared.Shared:FindFirstChild("Eggs") then
+		eggToolDisplay = safeRequire(shared.Shared.Eggs:FindFirstChild("EggToolDisplay"))
+	end
+	for _, tool in ipairs(findEggTools(eggToolDisplay)) do
+		local ok, uid = pcall(function()
+			return eggToolDisplay and eggToolDisplay.GetToolUid and eggToolDisplay.GetToolUid(tool)
+		end)
+		if ok and typeof(uid) == "string" and uid ~= "" then
+			return uid
+		end
+	end
+
+	return nil
+end
+
+local function equipOneAvailableEgg(preferredUID)
+	local equipped = getEquippedEggUID()
+	if equipped then
+		return equipped
+	end
+
+	local eggState = getEggStateModule()
+	if not eggState or not eggState.WearEggTool then
+		return nil
+	end
+
+	local uid = preferredUID
+	if typeof(uid) ~= "string" or uid == "" then
+		uid = getAvailableEggUID()
+	end
+	if typeof(uid) ~= "string" or uid == "" then
+		return nil
+	end
+
+	local ok, equippedOk = pcall(function()
+		return eggState.WearEggTool(uid)
+	end)
+	if ok and equippedOk then
+		return uid
+	end
+	return nil
+end
+
+local function setEquipEgg(item, enabled)
+	disconnectToggle(item)
+	if not enabled then
+		return
+	end
+
+	local running = true
+	local currentUID = nil
+	toggleConnections[item] = {
+		Disconnect = function()
+			running = false
+		end,
+	}
+
+	task.spawn(function()
+		while running and not cleanedUp do
+			local equipped = getEquippedEggUID()
+			if equipped then
+				currentUID = equipped
+			else
+				currentUID = equipOneAvailableEgg(currentUID) or equipOneAvailableEgg(nil)
+			end
+
+			if currentUID and not eggUIDExistsInCharacterOrBackpack(currentUID) then
+				currentUID = nil
+			end
+
+			task.wait(0.75)
+		end
+	end)
+end
+
+local function getOpenEggDependencies()
+	local shared = game:GetService("ReplicatedStorage")
+	local eggState = safeRequire(shared.Client:FindFirstChild("EggState"))
+	local eggRecords = safeRequire(shared.Shared.Util:FindFirstChild("EggRecords"))
+	local renderer = nil
+	if shared.Shared:FindFirstChild("Eggs") then
+		renderer = safeRequire(shared.Shared.Eggs:FindFirstChild("PlacedEggRenderer"))
+	end
+	return eggState, eggRecords, renderer
+end
+
+local function openReadyEggs()
+	local eggState, eggRecords, renderer = getOpenEggDependencies()
+	if not eggState or not eggState.ReadOwnerEggs or not eggRecords
+		or not eggRecords.GrowthAlpha or not eggRecords.CurrentNightCredit
+		or not renderer or not renderer.ActivateLocalEgg then
+		return false
+	end
+
+	local ok, ownerEggs = pcall(function()
+		return eggState.ReadOwnerEggs(LocalPlayer.UserId)
+	end)
+	if not ok or typeof(ownerEggs) ~= "table" then
+		return false
+	end
+
+	local serverTime = workspace:GetServerTimeNow()
+	local opened = false
+
+	for uid, record in pairs(ownerEggs) do
+		if typeof(uid) == "string" and typeof(record) == "table" and record.Placement then
+			local ready = pcall(function()
+				return eggRecords.GrowthAlpha(
+					record,
+					serverTime,
+					record.GrowthSpeedMultiplier,
+					eggRecords.CurrentNightCredit(record, serverTime, record.GrowthSpeedMultiplier),
+					LocalPlayer
+				) >= 1
+			end)
+
+			if ready then
+				local activated, success = pcall(function()
+					return renderer.ActivateLocalEgg(uid)
+				end)
+				if activated and success == true then
+					opened = true
+					task.wait(0.15)
+				end
+			end
+		end
+	end
+
+	return opened
+end
+
+local function setOpenEggs(item, enabled)
+	disconnectToggle(item)
+	if not enabled then
+		return
+	end
+
+	local running = true
+	toggleConnections[item] = {
+		Disconnect = function()
+			running = false
+		end,
+	}
+
+	task.spawn(function()
+		while running and not cleanedUp do
+			openReadyEggs()
+			task.wait(1)
+		end
+	end)
+end
+
+local function setAutoRedeemCodex(item, enabled)
+	disconnectToggle(item)
+	if not enabled then
+		return
+	end
+
+	local shared = game:GetService("ReplicatedStorage")
+	local packages = shared:FindFirstChild("Packages")
+	local networking = packages and packages:FindFirstChild("Networking")
+	local redeemRemote = networking and networking:FindFirstChild("RF/Codex/AskRedeemAll")
+	if not redeemRemote or not redeemRemote:IsA("RemoteFunction") then
+		return
+	end
+
+	local running = true
+	toggleConnections[item] = {
+		Disconnect = function()
+			running = false
+		end,
+	}
+
+	task.spawn(function()
+		while running and not cleanedUp do
+			pcall(function()
+				redeemRemote:InvokeServer()
+			end)
+			task.wait(1)
+		end
+	end)
+end
+
+local function getTreadmillUpgradeClient()
+	local playerScripts = LocalPlayer:FindFirstChild("PlayerScripts")
+	local guiFolder = playerScripts and playerScripts:FindFirstChild("GUI")
+	local treadmillScript = guiFolder and guiFolder:FindFirstChild("TreadmillUpgrade")
+	local clientModule = treadmillScript and treadmillScript:FindFirstChild("Client")
+	return clientModule and safeRequire(clientModule) or nil
+end
+
+local function setTreadmillUpgrade(item, enabled)
+	disconnectToggle(item)
+	if not enabled then
+		return
+	end
+
+	local running = true
+	toggleConnections[item] = {
+		Disconnect = function()
+			running = false
+		end,
+	}
+
+	task.spawn(function()
+		while running and not cleanedUp do
+			local client = getTreadmillUpgradeClient()
+			if client and client.CanAffordNext and client.RequestCashUpgrade then
+				local shared = game:GetService("ReplicatedStorage")
+				local save = safeRequire(shared.Shared:FindFirstChild("Save"))
+				local affordable = false
+				if save and save.Get then
+					local ok, data = pcall(save.Get)
+					if ok and typeof(data) == "table" then
+						local okCan, result = pcall(client.CanAffordNext, data)
+						affordable = okCan and result == true
+					end
+				end
+				if affordable then
+					pcall(client.RequestCashUpgrade)
+				end
+			end
+			task.wait(1)
+		end
+	end)
+end
+
+local function setPlotUpgrade(item, enabled)
+	disconnectToggle(item)
+	if not enabled then
+		return
+	end
+
+	local shared = game:GetService("ReplicatedStorage")
+	local baseUpgrade = safeRequire(shared.Client:FindFirstChild("BaseUpgrade"))
+	if not baseUpgrade or not baseUpgrade.PurchaseNextTier or not baseUpgrade.IsNextTierAffordable then
+		return
+	end
+
+	local running = true
+	toggleConnections[item] = {
+		Disconnect = function()
+			running = false
+		end,
+	}
+
+	task.spawn(function()
+		while running and not cleanedUp do
+			local save = safeRequire(shared.Shared:FindFirstChild("Save"))
+			local affordable = false
+			if save and save.Get then
+				local ok, data = pcall(save.Get)
+				if ok and typeof(data) == "table" then
+					local okCan, result = pcall(baseUpgrade.IsNextTierAffordable, data)
+					affordable = okCan and result == true
+				end
+			end
+			if affordable then
+				pcall(baseUpgrade.PurchaseNextTier)
+			end
+			task.wait(1)
+		end
+	end)
+end
+
+local function getTrailModules()
+	local shared = game:GetService("ReplicatedStorage")
+	local remotes = safeRequire(shared.Shared:FindFirstChild("Remotes"))
+	local trails = safeRequire(shared.Data:FindFirstChild("Trails"))
+	local save = safeRequire(shared.Shared:FindFirstChild("Save"))
+	return remotes, trails, save
+end
+
+local function getTrailRank(config)
+	local speed = config and config.SpeedMultiplier
+	local price = config and config.Price
+	if typeof(speed) ~= "number" then speed = -math.huge end
+	if typeof(price) ~= "number" then price = -math.huge end
+	return speed, price
+end
+
+local function setCollectOfflineEarnings(item, enabled)
+	disconnectToggle(item)
+	if not enabled then
+		return
+	end
+
+	local shared = game:GetService("ReplicatedStorage")
+	local packages = shared:FindFirstChild("Packages")
+	local networking = packages and packages:FindFirstChild("Networking")
+	local collectRemote = networking and networking:FindFirstChild("RF/AwayEarnings/AskCollect")
+	if not collectRemote or not collectRemote:IsA("RemoteFunction") then
+		return
+	end
+
+	local running = true
+	toggleConnections[item] = {
+		Disconnect = function()
+			running = false
+		end,
+	}
+
+	task.spawn(function()
+		while running and not cleanedUp do
+			pcall(function()
+				collectRemote:InvokeServer({Kind = "Claim"})
+			end)
+			task.wait(1)
+		end
+	end)
+end
+
+local function setBuyTrails(item, enabled)
+	disconnectToggle(item)
+	if not enabled then
+		return
+	end
+
+	local remotes, trails, save = getTrailModules()
+	if not remotes or not remotes.Trailwear or not remotes.Trailwear.AskPurchase or not trails or not trails.Directory or not save or not save.Get then
+		return
+	end
+
+	local running = true
+	toggleConnections[item] = {
+		Disconnect = function()
+			running = false
+		end,
+	}
+
+	task.spawn(function()
+		while running and not cleanedUp do
+			local okData, data = pcall(save.Get)
+			if okData and typeof(data) == "table" then
+				local money = typeof(data.Money) == "number" and data.Money or 0
+				local owned = typeof(data.TrailInventory) == "table" and data.TrailInventory or {}
+				local candidates = {}
+
+				for id, config in pairs(trails.Directory) do
+					if typeof(id) == "string" and typeof(config) == "table" and config.DisplayInShop and owned[id] ~= true then
+						table.insert(candidates, {Id = id, Config = config})
+					end
+				end
+
+				table.sort(candidates, function(a, b)
+					local aSpeed, aPrice = getTrailRank(a.Config)
+					local bSpeed, bPrice = getTrailRank(b.Config)
+					if aSpeed ~= bSpeed then return aSpeed > bSpeed end
+					if aPrice ~= bPrice then return aPrice > bPrice end
+					return a.Id < b.Id
+				end)
+
+				for _, entry in ipairs(candidates) do
+					local price = entry.Config.Price
+					if typeof(price) == "number" and price >= 0 and money >= price then
+						pcall(function()
+							remotes.Trailwear.AskPurchase:InvokeServer(entry.Id)
+						end)
+						break
+					end
+				end
+			end
+
+			task.wait(1)
+		end
+	end)
+end
+
+local function setEquipBestTrail(item, enabled)
+	disconnectToggle(item)
+	if not enabled then
+		return
+	end
+
+	local remotes, trails, save = getTrailModules()
+	if not remotes or not remotes.Trailwear or not remotes.Trailwear.AskChoose or not trails or not trails.Directory or not save or not save.Get then
+		return
+	end
+
+	local running = true
+	toggleConnections[item] = {
+		Disconnect = function()
+			running = false
+		end,
+	}
+
+	task.spawn(function()
+		while running and not cleanedUp do
+			local okData, data = pcall(save.Get)
+			if okData and typeof(data) == "table" and typeof(data.TrailInventory) == "table" then
+				local bestId, bestConfig = nil, nil
+				for id, owned in pairs(data.TrailInventory) do
+					if owned == true and trails.Directory[id] then
+						local config = trails.Directory[id]
+						if not bestConfig then
+							bestId, bestConfig = id, config
+						else
+							local speed, price = getTrailRank(config)
+							local bestSpeed, bestPrice = getTrailRank(bestConfig)
+							if speed > bestSpeed or (speed == bestSpeed and (price > bestPrice or (price == bestPrice and id < bestId))) then
+								bestId, bestConfig = id, config
+							end
+						end
+					end
+				end
+				if bestId and data.EquippedTrail ~= bestId then
+					pcall(function()
+						remotes.Trailwear.AskChoose:InvokeServer(bestId)
+					end)
+				end
+			end
+			task.wait(1)
+		end
+	end)
+end
+
+local function isBatTool(tool)
+	if not tool or not tool:IsA("Tool") then
+		return false
+	end
+
+	local name = string.lower(tool.Name or "")
+	return string.find(name, "bat", 1, true) ~= nil
+		or string.find(name, "bastão", 1, true) ~= nil
+		or string.find(name, "bastao", 1, true) ~= nil
+end
+
+local function setAutoBatAttack(item, enabled)
+	disconnectToggle(item)
+	if not enabled then
+		return
+	end
+
+	local running = true
+	toggleConnections[item] = {
+		Disconnect = function()
+			running = false
+		end,
+	}
+
+	task.spawn(function()
+		while running and not cleanedUp do
+			local character = LocalPlayer.Character
+			if character then
+				local tool = character:FindFirstChildOfClass("Tool")
+				if tool and isBatTool(tool) then
+					local grip = tool:FindFirstChild("Grip") or tool:FindFirstChild("Handle")
+					if grip and grip.Parent == tool then
+						pcall(function()
+							tool:Activate()
+						end)
+					end
+				end
+			end
+			task.wait(0.10)
+		end
+	end)
+end
+
+local function setEquipBat(item, enabled)
+	disconnectToggle(item)
+	if not enabled then
+		return
+	end
+
+	local running = true
+	toggleConnections[item] = {
+		Disconnect = function()
+			running = false
+		end,
+	}
+
+	task.spawn(function()
+		while running and not cleanedUp do
+			local character = LocalPlayer.Character
+			local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+			if character and backpack then
+				for _, tool in ipairs(backpack:GetChildren()) do
+					if isBatTool(tool) then
+						pcall(function()
+							tool.Parent = character
+						end)
+						break
+					end
+				end
+			end
+			task.wait(0.50)
+		end
+	end)
+end
+
+local function createStandardRow(item, layoutOrder)
+	local Row = make("Frame", {
+		Name = item.Title .. "Row",
+		Size = UDim2.new(1, -18, 0, 52),
+		BackgroundColor3 = COLORS.Black2,
+		BorderSizePixel = 0,
+		LayoutOrder = layoutOrder,
+		Visible = searchQuery == "" or string.find(string.lower(item.Title or ""), string.lower(searchQuery), 1, true) or string.find(string.lower(item.Description or ""), string.lower(searchQuery), 1, true),
+		ZIndex = 4,
+	}, ResultsScroll)
+
+	make("UIStroke", {
+		Thickness = 1,
+		Color = COLORS.Gray2,
+		Transparency = 0.30,
+	}, Row)
+
+	local Hit = make("TextButton", {
+		Name = "ActionButton",
+		Position = UDim2.fromScale(0, 0),
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Text = "",
+		AutoButtonColor = false,
+		ZIndex = 4,
+	}, Row)
+
+	local Icon = make("ImageLabel", {
+		Name = "Icon",
+		Position = UDim2.fromScale(0.035, 0.20),
+		Size = UDim2.fromScale(0.10, 0.60),
+		BackgroundTransparency = 1,
+		Image = item.Icon or (item.Compact and "" or ""),
+		ImageColor3 = COLORS.SoftWhite,
+		ScaleType = Enum.ScaleType.Fit,
+		ZIndex = 5,
+	}, Row)
+
+	local Title = make("TextLabel", {
+		Position = UDim2.fromScale(0.16, 0),
+		Size = UDim2.fromScale(0.68, 1),
+		BackgroundTransparency = 1,
+		Text = item.Title or "Option",
+		TextColor3 = COLORS.White,
+		Font = Enum.Font.GothamSemibold,
+		TextSize = 14,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		ZIndex = 5,
+	}, Row)
+
+	local Selector = make("TextLabel", {
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.fromScale(0.96, 0.5),
+		Size = UDim2.fromScale(0.09, 0.50),
+		BackgroundTransparency = 1,
+		Text = item.Selector and "◆" or "",
+		TextColor3 = COLORS.SoftWhite,
+		Font = Enum.Font.GothamBold,
+		TextSize = 15,
+		TextXAlignment = Enum.TextXAlignment.Center,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		ZIndex = 5,
+	}, Row)
+
+	Hit.MouseEnter:Connect(function()
+		tween(Row, 0.10, {BackgroundColor3 = COLORS.DarkGray})
+	end)
+	Hit.MouseLeave:Connect(function()
+		tween(Row, 0.10, {BackgroundColor3 = COLORS.Black2})
+	end)
+
+	if item.Toggle then
+		local ToggleButton = make("TextButton", {
+			Name = "Toggle",
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.fromScale(0.92, 0.5),
+			Size = UDim2.fromOffset(52, 24),
+			BackgroundColor3 = COLORS.Gray,
+			BorderSizePixel = 0,
+			AutoButtonColor = false,
+			Text = "",
+			ZIndex = 5,
+		}, Row)
+		make("UICorner", {CornerRadius = UDim.new(1, 0)}, ToggleButton)
+
+		local Knob = make("Frame", {
+			Name = "Knob",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.23, 0.5),
+			Size = UDim2.fromOffset(19, 19),
+			BackgroundColor3 = COLORS.White,
+			BorderSizePixel = 0,
+			ZIndex = 6,
+		}, ToggleButton)
+		make("UICorner", {CornerRadius = UDim.new(1, 0)}, Knob)
+
+		local enabled = item.Enabled == true
+		toggleStates[item] = enabled
+		local targetColor = enabled and COLORS.Gray3 or COLORS.Gray
+		local targetPosition = UDim2.fromScale(enabled and 0.77 or 0.23, 0.5)
+		ToggleButton.BackgroundColor3 = targetColor
+		Knob.Position = targetPosition
+
+		ToggleButton.MouseEnter:Connect(function()
+			tween(ToggleButton, 0.10, {BackgroundColor3 = COLORS.Gray3})
+		end)
+		ToggleButton.MouseLeave:Connect(function()
+			local on = toggleStates[item] == true
+			tween(ToggleButton, 0.10, {BackgroundColor3 = on and COLORS.Gray3 or COLORS.Gray})
+		end)
+
+		Hit.Activated:Connect(function()
+			toggleStates[item] = not toggleStates[item]
+			local on = toggleStates[item] == true
+			local newColor = on and COLORS.Gray3 or COLORS.Gray
+			local newPosition = UDim2.fromScale(on and 0.77 or 0.23, 0.5)
+			tween(ToggleButton, 0.14, {BackgroundColor3 = newColor})
+			tween(Knob, 0.14, {Position = newPosition})
+
+			if item.Controller then
+				if item.Controller == "OpenEggs" then
+					setOpenEggs(item, on)
+				elseif item.Controller == "EquipEgg" then
+					setEquipEgg(item, on)
+				elseif item.Controller == "EquipBestPets" then
+					setEquipBestPets(item, on)
+				elseif item.Controller == "PlaceEggs" then
+					setPlaceEggs(item, on)
+				elseif item.Controller == "AutoGoToBase" then
+					setAutoGoToBase(item, on)
+				elseif item.Controller == "AutoRedeemCodex" then
+					setAutoRedeemCodex(item, on)
+				elseif item.Controller == "CollectOfflineEarnings" then
+					setCollectOfflineEarnings(item, on)
+				elseif item.Controller == "TreadmillUpgrade" then
+					setTreadmillUpgrade(item, on)
+				elseif item.Controller == "PlotUpgrade" then
+					setPlotUpgrade(item, on)
+				elseif item.Controller == "BuyTrails" then
+					setBuyTrails(item, on)
+				elseif item.Controller == "EquipBestTrail" then
+					setEquipBestTrail(item, on)
+				elseif item.Controller == "AutoBatAttack" then
+					setAutoBatAttack(item, on)
+				elseif item.Controller == "EquipBat" then
+					setEquipBat(item, on)
+				end
+			end
+		end)
+	elseif item.Action then
+		Hit.Activated:Connect(item.Action)
+	end
+
+	return Row
+end
+
+local ResultsScroll = make("ScrollingFrame", {
+	Name = "Results",
+	Position = UDim2.fromScale(0.22, 0.065),
+	Size = UDim2.fromScale(0.78, 0.935),
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	ScrollBarThickness = 3,
+	ScrollBarImageColor3 = COLORS.White,
+	ScrollBarImageTransparency = 0.05,
+	CanvasSize = UDim2.fromScale(1, 0),
+	AutomaticCanvasSize = Enum.AutomaticSize.Y,
+	ScrollingDirection = Enum.ScrollingDirection.Y,
+	ScrollingEnabled = true,
+	Active = true,
+	Selectable = false,
+	ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
+	ZIndex = 4,
+}, Content)
+
+make("UIListLayout", {
+	Padding = UDim.new(0, 7),
+	SortOrder = Enum.SortOrder.LayoutOrder,
+	HorizontalAlignment = Enum.HorizontalAlignment.Center,
+}, ResultsScroll)
+
+local ResultsPadding = make("UIPadding", {
+	PaddingTop = UDim.new(0, 2),
+	PaddingBottom = UDim.new(0, 8),
+	PaddingRight = UDim.new(0, 40),
+}, ResultsScroll)
+
+local resultsScrollWheelConnection
+local resultsScrollTouchStart = nil
+local resultsScrollTouchCanvasY = nil
+local resultsScrollInputConnection
+
+local function isResultsScrollingAllowed()
+	return currentTab ~= "Credits" and ResultsScroll.Visible and ResultsScroll.ScrollingEnabled and not visualPanelOpen
+end
+
+local function getResultsMaxScrollY()
+	return math.max(0, ResultsScroll.AbsoluteCanvasSize.Y - ResultsScroll.AbsoluteSize.Y)
+end
+
+local function setResultsScrollY(y)
+	local maxY = getResultsMaxScrollY()
+	ResultsScroll.CanvasPosition = Vector2.new(0, math.clamp(y or 0, 0, maxY))
+end
+
+local function isPointInsideResults(point)
+	if not ResultsScroll.Visible then
+		return false
+	end
+	local position = ResultsScroll.AbsolutePosition
+	local size = ResultsScroll.AbsoluteSize
+	return point.X >= position.X
+		and point.X <= position.X + size.X
+		and point.Y >= position.Y
+		and point.Y <= position.Y + size.Y
+end
+
+local function updateResultsScrollMode()
+	local enabled = currentTab ~= "Credits"
+	ResultsScroll.ScrollingEnabled = enabled
+	ResultsScroll.Active = enabled
+	ResultsScroll.ScrollBarThickness = enabled and 3 or 0
+	ResultsScroll.CanvasPosition = Vector2.new(0, 0)
+end
+
+resultsScrollWheelConnection = ResultsScroll.InputChanged:Connect(function(input)
+	if not isResultsScrollingAllowed() then
+		return
+	end
+
+	if input.UserInputType == Enum.UserInputType.MouseWheel then
+		local delta = input.Position.Z
+		if delta ~= 0 then
+			setResultsScrollY(ResultsScroll.CanvasPosition.Y - (delta * ResultsScroll.AbsoluteSize.Y * 0.16))
+		end
+	elseif input.UserInputType == Enum.UserInputType.Touch then
+		resultsScrollTouchStart = input.Position
+		resultsScrollTouchCanvasY = ResultsScroll.CanvasPosition.Y
+	end
+end)
+
+resultsScrollInputConnection = UserInputService.InputChanged:Connect(function(input)
+	if not isResultsScrollingAllowed() then
+		return
+	end
+
+	if input.UserInputType == Enum.UserInputType.Touch and resultsScrollTouchStart and resultsScrollTouchCanvasY then
+		local deltaY = input.Position.Y - resultsScrollTouchStart.Y
+		if math.abs(deltaY) >= 1 then
+			setResultsScrollY(resultsScrollTouchCanvasY - deltaY)
+		end
+	elseif input.UserInputType == Enum.UserInputType.MouseWheel and isPointInsideResults(input.Position) then
+		local delta = input.Position.Z
+		if delta ~= 0 then
+			setResultsScrollY(ResultsScroll.CanvasPosition.Y - (delta * ResultsScroll.AbsoluteSize.Y * 0.16))
+		end
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Touch then
+		resultsScrollTouchStart = nil
+		resultsScrollTouchCanvasY = nil
+	end
+end)
+
+local NotificationContainer = make("Frame", {
+	Name = "NotificationContainer",
+	AnchorPoint = Vector2.new(1, 1),
+	Position = UDim2.fromScale(0.98, 0.96),
+	Size = UDim2.fromScale(0.30, 0.42),
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	Active = false,
+	ZIndex = 2000,
+}, ScreenGui)
+
+make("UIListLayout", {
+	Padding = UDim.new(0.012, 0),
+	HorizontalAlignment = Enum.HorizontalAlignment.Right,
+	VerticalAlignment = Enum.VerticalAlignment.Bottom,
+	SortOrder = Enum.SortOrder.LayoutOrder,
+}, NotificationContainer)
+
+local notificationSerial = 0
+
+local function copyDiscordLink()
+	if typeof(setclipboard) == "function" then
+		local ok = pcall(setclipboard, DISCORD_LINK)
+		if ok then
+			return true
+		end
+	end
+	if typeof(toclipboard) == "function" then
+		local ok = pcall(toclipboard, DISCORD_LINK)
+		if ok then
+			return true
+		end
+	end
+	return false
+end
+
+local function copyText(text)
+	if typeof(setclipboard) == "function" then
+		local ok = pcall(setclipboard, text)
+		if ok then return true end
+	end
+	if typeof(toclipboard) == "function" then
+		local ok = pcall(toclipboard, text)
+		if ok then return true end
+	end
+	return false
+end
+
+local function copyGameId()
+	return copyText(tostring(game.PlaceId))
+end
+
+local function copyServerId()
+	return copyText(tostring(game.JobId))
+end
+
+local function requestServerRejoin()
+	local success, err = pcall(function()
+		TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
+	end)
+	if not success then
+		warn("Phantom Hub Rejoin error:", err)
+	end
+end
+
+local function showCopiedNotification(message, iconImage)
+	if cleanedUp or not ScreenGui.Parent then
+		return
+	end
+
+	notificationSerial += 1
+	local serial = notificationSerial
+
+	local Notice = make("Frame", {
+		Name = "CopiedNotification",
+		AnchorPoint = Vector2.new(1, 0),
+		Size = UDim2.fromScale(1, 0.20),
+		BackgroundColor3 = COLORS.Black2,
+		BackgroundTransparency = 0.04,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		LayoutOrder = -serial,
+		ZIndex = 2001,
+	}, NotificationContainer)
+	make("UIAspectRatioConstraint", {
+		AspectRatio = 4.9,
+		DominantAxis = Enum.DominantAxis.Width,
+	}, Notice)
+	make("UIStroke", {
+		Thickness = 1.2,
+		Color = COLORS.Gray3,
+		Transparency = 0.10,
+	}, Notice)
+
+	local Icon = make("ImageLabel", {
+		Name = "Icon",
+		Position = UDim2.fromScale(0.045, 0.18),
+		Size = UDim2.fromScale(0.16, 0.64),
+		BackgroundTransparency = 1,
+		Image = iconImage or IMAGE_DISCORD_COPIED,
+		ImageColor3 = COLORS.White,
+		ScaleType = Enum.ScaleType.Fit,
+		ZIndex = 2002,
+	}, Notice)
+
+	local Label = make("TextLabel", {
+		Name = "Label",
+		Position = UDim2.fromScale(0.25, 0.08),
+		Size = UDim2.fromScale(0.68, 0.78),
+		BackgroundTransparency = 1,
+		Text = message or "Discord link copied!",
+		TextColor3 = COLORS.White,
+		Font = Enum.Font.GothamSemibold,
+		TextSize = 12,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		ZIndex = 2002,
+	}, Notice)
+
+	local Progress = make("Frame", {
+		Name = "Progress",
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.fromScale(0, 1),
+		Size = UDim2.fromScale(1, 0.055),
+		BackgroundColor3 = COLORS.White,
+		BorderSizePixel = 0,
+		ZIndex = 2003,
+	}, Notice)
+
+	Notice.Position = UDim2.fromScale(1.06, 0)
+	Progress.Size = UDim2.fromScale(0, 0.055)
+
+	tween(Notice, 0.24, {
+		Position = UDim2.fromScale(1, 0),
+	})
+	tween(Progress, 1.8, {
+		Size = UDim2.fromScale(1, 0.055),
+	}, Enum.EasingStyle.Linear)
+
+	task.delay(1.82, function()
+		if not Notice.Parent or cleanedUp or serial > notificationSerial then
+			if Notice.Parent then
+				Notice:Destroy()
+			end
+			return
+		end
+		tween(Notice, 0.22, {
+			Position = UDim2.fromScale(1.06, 0),
+		})
+		task.delay(0.24, function()
+			if Notice.Parent then
+				Notice:Destroy()
+			end
+		end)
+	end)
+end
+
+local openConfirm
+
+local function requestServerHop()
+	local success, err = pcall(function()
+		TeleportService:Teleport(game.PlaceId, LocalPlayer)
+	end)
+	if not success then
+		warn("Phantom Hub Auto Rejoin error:", err)
+	end
+end
+
+local visualSelectionState = {
+	Name = false,
+	Mutation = false,
+	Distance = false,
+	Rarity = false,
+}
+local VisualEggInfoModal
+local VisualEggInfoOverlay
+local VisualEggInfoPanel
+local VisualPanelSearchQuery = ""
+
+local function setVisualSelection(name, value)
+	visualSelectionState[name] = value == true
+end
+
+local function updateVisualSelectionButton(button, knob, name)
+	local on = visualSelectionState[name] == true
+	local targetColor = on and COLORS.Gray3 or COLORS.Gray
+	local targetPosition = UDim2.fromScale(on and 0.77 or 0.23, 0.5)
+	tween(button, 0.14, {BackgroundColor3 = targetColor})
+	tween(knob, 0.14, {Position = targetPosition})
+end
+
+local function createVisualSelectionRow(parent, name, text, order)
+	local Row = make("Frame", {
+		Name = name .. "Row",
+		Size = UDim2.new(1, -18, 0, 62),
+		BackgroundColor3 = COLORS.Black2,
+		BorderSizePixel = 0,
+		LayoutOrder = order,
+		ZIndex = 1002,
+	}, parent)
+	make("UIStroke", {Thickness = 1.15, Color = COLORS.Gray3, Transparency = 0.16, ApplyStrokeMode = Enum.ApplyStrokeMode.Border}, Row)
+
+	make("TextLabel", {
+		Position = UDim2.new(0, 14, 0, 0),
+		Size = UDim2.new(1, -90, 1, 0),
+		BackgroundTransparency = 1,
+		Text = text,
+		TextColor3 = COLORS.White,
+		Font = Enum.Font.GothamSemibold,
+		TextSize = 13,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		ZIndex = 1002,
+	}, Row)
+
+	local ToggleButton = make("TextButton", {
+		Name = "Toggle",
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -14, 0.5, 0),
+		Size = UDim2.fromOffset(52, 24),
+		BackgroundColor3 = COLORS.Gray,
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		Text = "",
+		ZIndex = 1002,
+	}, Row)
+	make("UICorner", {CornerRadius = UDim.new(1, 0)}, ToggleButton)
+
+	local Knob = make("Frame", {
+		Name = "Knob",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.23, 0.5),
+		Size = UDim2.fromOffset(19, 19),
+		BackgroundColor3 = COLORS.White,
+		BorderSizePixel = 0,
+		ZIndex = 1002,
+	}, ToggleButton)
+	make("UICorner", {CornerRadius = UDim.new(1, 0)}, Knob)
+
+	updateVisualSelectionButton(ToggleButton, Knob, name)
+	ToggleButton.Activated:Connect(function()
+		setVisualSelection(name, not visualSelectionState[name])
+		updateVisualSelectionButton(ToggleButton, Knob, name)
+	end)
+	return Row
+end
+
+local function closeVisualEggInfoPanel()
+	visualPanelOpen = false
+	if VisualEggInfoModal then
+		VisualEggInfoModal.Visible = false
+	end
+	if VisualEggInfoPanel then
+		VisualEggInfoPanel.Visible = false
+	end
+end
+
+local function updateVisualPanelSearch()
+	local Scroll = VisualEggInfoPanel:FindFirstChild("Options")
+	if not Scroll then return end
+	
+	local query = string.lower(VisualPanelSearchQuery)
+	
+	for _, child in ipairs(Scroll:GetChildren()) do
+		if child:IsA("GuiObject") and child.Name ~= "UIListLayout" and child.Name ~= "UIPadding" then
+			local titleLabel = child:FindFirstChild("TitleLabel")
+			if titleLabel then
+				local title = string.lower(titleLabel.Text)
+				child.Visible = query == "" or string.find(title, query, 1, true)
+			end
+		end
+	end
+	
+	task.wait()
+	local listLayout = Scroll:FindFirstChildOfClass("UIListLayout")
+	if listLayout then
+		local canvasYSize = listLayout.AbsoluteContentSize.Y
+		if canvasYSize > 0 then
+			Scroll.CanvasSize = UDim2.fromScale(1, math.max(1, (canvasYSize + 10) / Scroll.AbsoluteSize.Y))
+		end
+	end
+end
+
+local function openVisualEggInfoPanel()
+	if cleanedUp or not ScreenGui.Parent then
+		return
+	end
+	if not VisualEggInfoOverlay then
+		VisualEggInfoModal = make("Frame", {
+			Name = "VisualEggInfoModal",
+			Position = UDim2.fromScale(0, 0),
+			Size = UDim2.fromScale(1, 1),
+			BackgroundColor3 = COLORS.Black,
+			BackgroundTransparency = 0.42,
+			BorderSizePixel = 0,
+			Visible = false,
+			Active = true,
+			ZIndex = 999,
+		}, ScreenGui)
+
+		VisualEggInfoOverlay = make("Frame", {
+			Name = "VisualEggInfoOverlay",
+			Position = UDim2.fromScale(0.50, 0.11),
+			Size = UDim2.fromScale(0.40, 0.78),
+			BackgroundColor3 = COLORS.Black,
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			Visible = false,
+			Active = false,
+			ClipsDescendants = true,
+			ZIndex = 1001,
+		}, ScreenGui)
+		VisualEggInfoPanel = make("Frame", {
+			Name = "VisualEggInfoPanel",
+			Position = UDim2.fromScale(0.50, 0.5),
+			Size = UDim2.fromScale(0.40, 0.78),
+			BackgroundColor3 = COLORS.Black,
+			BorderSizePixel = 0,
+			Active = true,
+			ClipsDescendants = true,
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			ZIndex = 1000,
+		}, ScreenGui)
+		make("UIStroke", {Thickness = 1.2, Color = COLORS.Gray2, Transparency = 0.10}, VisualEggInfoPanel)
+
+		make("TextLabel", {
+			Position = UDim2.fromScale(0.055, 0.035),
+			Size = UDim2.fromScale(0.69, 0.11),
+			BackgroundTransparency = 1,
+			Text = "Egg ESP Settings",
+			TextColor3 = COLORS.White,
+			Font = Enum.Font.GothamBold,
+			TextSize = 15,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Center,
+			ZIndex = 1001,
+		}, VisualEggInfoPanel)
+
+		local Close = make("TextButton", {
+			Name = "Close",
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.fromScale(0.955, 0.035),
+			Size = UDim2.fromScale(0.095, 0.105),
+			BackgroundColor3 = COLORS.Gray,
+			BackgroundTransparency = 0.18,
+			BorderSizePixel = 0,
+			AutoButtonColor = false,
+			Text = "X",
+			TextColor3 = COLORS.White,
+			Font = Enum.Font.GothamBold,
+			TextSize = 13,
+			ZIndex = 1003,
+		}, VisualEggInfoPanel)
+		make("UIAspectRatioConstraint", {AspectRatio = 1}, Close)
+		Close.MouseEnter:Connect(function() tween(Close, 0.10, {BackgroundColor3 = COLORS.Gray3, BackgroundTransparency = 0}) end)
+		Close.MouseLeave:Connect(function() tween(Close, 0.10, {BackgroundColor3 = COLORS.Gray, BackgroundTransparency = 0.18}) end)
+		Close.Activated:Connect(closeVisualEggInfoPanel)
+
+		local SearchContainer = make("Frame", {
+			Name = "SearchContainer",
+			Position = UDim2.fromScale(0.045, 0.13),
+			Size = UDim2.fromScale(0.91, 0.050),
+			BackgroundColor3 = COLORS.Black2,
+			BorderSizePixel = 0,
+			ZIndex = 1001,
+		}, VisualEggInfoPanel)
+		make("UIStroke", {Thickness = 1.2, Color = COLORS.Gray2, Transparency = 0.10}, SearchContainer)
+
+		local SearchIcon = make("ImageLabel", {
+			Name = "Icon",
+			Position = UDim2.fromScale(0.035, 0.15),
+			Size = UDim2.fromScale(0.12, 0.70),
+			BackgroundTransparency = 1,
+			Image = IMAGE_SEARCH,
+			ImageColor3 = COLORS.SoftWhite,
+			ScaleType = Enum.ScaleType.Fit,
+			ZIndex = 1002,
+		}, SearchContainer)
+
+		local SearchBox = make("TextBox", {
+			Name = "SearchBox",
+			Position = UDim2.fromScale(0.17, 0.15),
+			Size = UDim2.fromScale(0.72, 0.70),
+			BackgroundTransparency = 1,
+			Text = "",
+			PlaceholderText = "Search...",
+			PlaceholderColor3 = COLORS.Muted,
+			TextColor3 = COLORS.White,
+			Font = Enum.Font.Gotham,
+			TextSize = 11,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Center,
+			CursorPosition = -1,
+			SelectionStart = -1,
+			ZIndex = 1002,
+		}, SearchContainer)
+
+		local SearchHint = make("TextLabel", {
+			Name = "SearchHint",
+			Position = UDim2.fromScale(0.17, 0.15),
+			Size = UDim2.fromScale(0.72, 0.70),
+			BackgroundTransparency = 1,
+			Text = "Search...",
+			TextColor3 = COLORS.Muted,
+			Font = Enum.Font.Gotham,
+			TextSize = 11,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Center,
+			ZIndex = 1001,
+		}, SearchContainer)
+
+		local SearchClear = make("TextButton", {
+			Name = "Clear",
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.fromScale(0.968, 0.5),
+			Size = UDim2.fromScale(0.065, 0.70),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			Text = "×",
+			TextColor3 = COLORS.White,
+			Font = Enum.Font.GothamBold,
+			TextSize = 14,
+			Visible = false,
+			ZIndex = 1002,
+		}, SearchContainer)
+
+		SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+			VisualPanelSearchQuery = SearchBox.Text
+			local hasText = SearchBox.Text ~= ""
+			SearchHint.Visible = not hasText
+			SearchClear.Visible = hasText
+			updateVisualPanelSearch()
+		end)
+
+		SearchClear.Activated:Connect(function()
+			SearchBox.Text = ""
+			SearchBox:CaptureFocus()
+		end)
+
+		local ButtonContainer = make("Frame", {
+			Name = "ButtonContainer",
+			Position = UDim2.fromScale(0.045, 0.195),
+			Size = UDim2.fromScale(0.91, 0.055),
+			BackgroundColor3 = COLORS.Black2,
+			BorderSizePixel = 0,
+			ZIndex = 1001,
+		}, VisualEggInfoPanel)
+		make("UIStroke", {Thickness = 1.2, Color = COLORS.Gray2, Transparency = 0.10}, ButtonContainer)
+
+		local EnableAllButton = make("TextButton", {
+			Name = "EnableAll",
+			Position = UDim2.fromScale(0.08, 0.15),
+			Size = UDim2.fromScale(0.38, 0.70),
+			BackgroundColor3 = COLORS.Gray,
+			BorderSizePixel = 0,
+			AutoButtonColor = false,
+			Text = "Enable All",
+			TextColor3 = COLORS.White,
+			Font = Enum.Font.GothamSemibold,
+			TextSize = 11,
+			ZIndex = 1002,
+		}, ButtonContainer)
+		make("UICorner", {CornerRadius = UDim.new(0, 4)}, EnableAllButton)
+
+		local DisableAllButton = make("TextButton", {
+			Name = "DisableAll",
+			Position = UDim2.fromScale(0.54, 0.15),
+			Size = UDim2.fromScale(0.38, 0.70),
+			BackgroundColor3 = COLORS.Gray,
+			BorderSizePixel = 0,
+			AutoButtonColor = false,
+			Text = "Disable All",
+			TextColor3 = COLORS.White,
+			Font = Enum.Font.GothamSemibold,
+			TextSize = 11,
+			ZIndex = 1002,
+		}, ButtonContainer)
+		make("UICorner", {CornerRadius = UDim.new(0, 4)}, DisableAllButton)
+
+		EnableAllButton.MouseEnter:Connect(function()
+			tween(EnableAllButton, 0.10, {BackgroundColor3 = COLORS.Gray3})
+		end)
+		EnableAllButton.MouseLeave:Connect(function()
+			tween(EnableAllButton, 0.10, {BackgroundColor3 = COLORS.Gray})
+		end)
+
+		DisableAllButton.MouseEnter:Connect(function()
+			tween(DisableAllButton, 0.10, {BackgroundColor3 = COLORS.Gray3})
+		end)
+		DisableAllButton.MouseLeave:Connect(function()
+			tween(DisableAllButton, 0.10, {BackgroundColor3 = COLORS.Gray})
+		end)
+
+		EnableAllButton.Activated:Connect(function()
+			setVisualSelection("Name", true)
+			setVisualSelection("Mutation", true)
+			setVisualSelection("Distance", true)
+			setVisualSelection("Rarity", true)
+			
+			local Scroll = VisualEggInfoPanel:FindFirstChild("Options")
+			if Scroll then
+				for _, child in ipairs(Scroll:GetChildren()) do
+					if child:IsA("GuiObject") and string.find(child.Name, "Row") then
+						local toggleButton = child:FindFirstChild("Toggle")
+						local knob = toggleButton and toggleButton:FindFirstChild("Knob")
+						if toggleButton and knob then
+							local buttonName = child.Name:gsub("Row", "")
+							updateVisualSelectionButton(toggleButton, knob, buttonName)
+						end
+					end
+				end
+			end
+		end)
+
+		DisableAllButton.Activated:Connect(function()
+			setVisualSelection("Name", false)
+			setVisualSelection("Mutation", false)
+			setVisualSelection("Distance", false)
+			setVisualSelection("Rarity", false)
+			
+			local Scroll = VisualEggInfoPanel:FindFirstChild("Options")
+			if Scroll then
+				for _, child in ipairs(Scroll:GetChildren()) do
+					if child:IsA("GuiObject") and string.find(child.Name, "Row") then
+						local toggleButton = child:FindFirstChild("Toggle")
+						local knob = toggleButton and toggleButton:FindFirstChild("Knob")
+						if toggleButton and knob then
+							local buttonName = child.Name:gsub("Row", "")
+							updateVisualSelectionButton(toggleButton, knob, buttonName)
+						end
+					end
+				end
+			end
+		end)
+
+		local Scroll = make("ScrollingFrame", {
+			Name = "Options",
+			Position = UDim2.fromScale(0.045, 0.265),
+			Size = UDim2.fromScale(0.91, 0.695),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ScrollBarThickness = 3,
+			ScrollBarImageColor3 = COLORS.White,
+			ScrollBarImageTransparency = 0.05,
+			ScrollingDirection = Enum.ScrollingDirection.Y,
+			ScrollingEnabled = true,
+			Active = true,
+			AutomaticCanvasSize = Enum.AutomaticSize.Y,
+			CanvasSize = UDim2.fromScale(0, 0),
+			ZIndex = 1001,
+		}, VisualEggInfoPanel)
+		make("UIListLayout", {Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder}, Scroll)
+		make("UIPadding", {
+			PaddingBottom = UDim.new(0, 10),
+			PaddingLeft = UDim.new(0, 10),
+			PaddingRight = UDim.new(0, 0),
+			PaddingTop = UDim.new(0, 8),
+		}, Scroll)
+
+		local nameRow = createVisualSelectionRow(Scroll, "Name", "Name", 1)
+		local titleLabel = make("TextLabel", {Name = "TitleLabel", Text = "Name", BackgroundTransparency = 1}, nameRow)
+		titleLabel.Visible = false
+		
+		local mutationRow = createVisualSelectionRow(Scroll, "Mutation", "Mutation", 2)
+		titleLabel = make("TextLabel", {Name = "TitleLabel", Text = "Mutation", BackgroundTransparency = 1}, mutationRow)
+		titleLabel.Visible = false
+		
+		local distanceRow = createVisualSelectionRow(Scroll, "Distance", "Distance", 3)
+		titleLabel = make("TextLabel", {Name = "TitleLabel", Text = "Distance", BackgroundTransparency = 1}, distanceRow)
+		titleLabel.Visible = false
+		
+		local rarityRow = createVisualSelectionRow(Scroll, "Rarity", "Rarity", 4)
+		titleLabel = make("TextLabel", {Name = "TitleLabel", Text = "Rarity", BackgroundTransparency = 1}, rarityRow)
+		titleLabel.Visible = false
+
+		installEnglishGuard(VisualEggInfoPanel)
+		registerCleanup(function()
+			if VisualEggInfoModal and VisualEggInfoModal.Parent then
+				VisualEggInfoModal:Destroy()
+			end
+			if VisualEggInfoPanel and VisualEggInfoPanel.Parent then
+				VisualEggInfoPanel:Destroy()
+			end
+		end)
+	end
+	visualPanelOpen = true
+	VisualEggInfoModal.Visible = true
+	VisualEggInfoPanel.Visible = true
+end
+
+local datasets = {
+	Main = {
+		{
+			Type = "Category",
+			Title = "Plot",
+			Icon = "rbxassetid://72377406954512",
+			Expanded = false,
+			Items = {
+				{
+					Title = "Auto Open Eggs",
+					Description = "Automatically opens eggs in your plot when they are ready.",
+					Toggle = true,
+					Enabled = false,
+					Compact = true,
+					Controller = "OpenEggs",
+				},
+				{
+					Title = "Auto Equip Eggs",
+					Description = "Automatically equips an available egg whenever no egg is currently in your hand.",
+					Toggle = true,
+					Enabled = false,
+					Compact = true,
+					Controller = "EquipEgg",
+				},
+				{
+					Title = "Equip Best Pets",
+					Description = "Automatically equips your best available pets every 5 seconds.",
+					Toggle = true,
+					Enabled = false,
+					Compact = true,
+					Controller = "EquipBestPets",
+				},
+				{
+					Title = "Auto Place Eggs",
+					Description = "Automatically places available eggs while you are inside your own plot.",
+					Toggle = true,
+					Enabled = false,
+					Compact = true,
+					Controller = "PlaceEggs",
+				},
+				{
+					Title = "Auto Go To Base",
+					Description = "Automatically moves you to your base before placing eggs when both options are enabled.",
+					Toggle = true,
+					Enabled = false,
+					Compact = true,
+					Controller = "AutoGoToBase",
+				},
+			},
+		},
+		{
+			Type = "Category",
+			Title = "Collect",
+			Icon = "rbxassetid://84487893427781",
+			Expanded = false,
+			Items = {
+				{
+					Title = "Auto Redeem Codex",
+					Description = "Automatically redeems all available Codex rewards every second.",
+					Toggle = true,
+					Enabled = false,
+					Compact = true,
+					Controller = "AutoRedeemCodex",
+				},
+				{
+					Title = "Auto Collect Offline Earnings",
+					Description = "Automatically collects your available offline earnings every second.",
+					Toggle = true,
+					Enabled = false,
+					Compact = true,
+					Controller = "CollectOfflineEarnings",
+				},
+			},
+		},
+	},
+	["Auto Buy"] = {
+		{
+			Type = "Category",
+			Title = "Upgrades",
+			Icon = "rbxassetid://99024336494762",
+			Expanded = false,
+			Items = {
+				{
+					Title = "Auto Buy Treadmill Upgrades",
+					Description = "Automatically purchases the next Treadmill upgrade whenever you meet its requirements.",
+					Toggle = true,
+					Enabled = false,
+					Compact = true,
+					Controller = "TreadmillUpgrade",
+				},
+				{
+					Title = "Auto Buy Plot Upgrades",
+					Description = "Automatically purchases the next Plot upgrade whenever you meet its requirements.",
+					Toggle = true,
+					Enabled = false,
+					Compact = true,
+					Controller = "PlotUpgrade",
+				},
+			},
+		},
+		{
+			Type = "Category",
+			Title = "Trail",
+			Icon = "rbxassetid://129977800846764",
+			Expanded = false,
+			Items = {
+				{
+					Title = "Auto Buy Trails",
+					Description = "Automatically buys the best affordable trails you do not own, prioritizing higher speed multipliers.",
+					Toggle = true,
+					Enabled = false,
+					Compact = true,
+					Controller = "BuyTrails",
+				},
+				{
+					Title = "Equip Best Trail",
+					Description = "Automatically equips the best trail you currently own.",
+					Toggle = true,
+					Enabled = false,
+					Compact = true,
+					Controller = "EquipBestTrail",
+				},
+			},
+		},
+	},
+	Farm = {},
+	Config = {
+		{
+			Type = "Category",
+			Title = "Player",
+			Icon = "rbxassetid://102791662357524",
+			Expanded = false,
+			Items = {
+				{
+					Title = "Auto Rejoin",
+					Description = "Are you sure you want to switch servers?",
+					Icon = IMAGE_CLICK,
+					Compact = true,
+					Action = function()
+						openConfirm("Are you sure you want to switch servers?", requestServerHop)
+					end,
+				},
+				{
+					Title = "Quick Rejoin",
+					Description = "Are you sure you want to quickly rejoin this same server?",
+					Icon = IMAGE_CLICK,
+					Compact = true,
+					Action = function()
+						openConfirm("Are you sure you want to quickly rejoin the same server you are currently in?", requestServerRejoin)
+					end,
+				},
+				{
+					Title = "Copy Game ID",
+					Description = "Copy the current game ID to your clipboard.",
+					Icon = IMAGE_CLICK,
+					Compact = true,
+					Action = function()
+						if copyGameId() then
+							showCopiedNotification("Game ID copied!", IMAGE_GAME_ID)
+						end
+					end,
+				},
+				{
+					Title = "Copy Server ID",
+					Description = "Copy the current server ID to your clipboard.",
+					Icon = IMAGE_CLICK,
+					Compact = true,
+					Action = function()
+						if copyServerId() then
+							showCopiedNotification("Server ID copied!", IMAGE_GAME_ID)
+						end
+					end,
+				},
+				{
+					Title = "Anti AFK",
+					Description = "Simulate a short movement every minute while enabled.",
+					Toggle = true,
+					Enabled = false,
+					Compact = true,
+				},
+					{
+						Title = "Infinity Jump",
+						Description = "Allows you to jump infinitely without any restrictions.",
+						Toggle = true,
+						Enabled = false,
+						Compact = true,
+					},
+					{
+						Title = "Auto Bat Attack",
+						Description = "Automatically attacks with the bat whenever a bat is equipped.",
+						Toggle = true,
+						Enabled = false,
+						Compact = true,
+						Controller = "AutoBatAttack",
+					},
+					{
+						Title = "Auto Equip Bat",
+						Description = "Automatically equips a bat whenever one is available in your inventory.",
+						Toggle = true,
+						Enabled = false,
+						Compact = true,
+						Controller = "EquipBat",
+					},
+			},
+		},
+		{
+			Type = "Category",
+			Title = "Visual",
+			Icon = "rbxassetid://74492590812457",
+			Expanded = false,
+			Items = {
+				{
+					Title = "Guardian ESP",
+					Description = "Shows the names of the guards above their heads.",
+					Toggle = true,
+					Enabled = false,
+					Compact = true,
+				},
+				{
+					Title = "Egg ESP Settings",
+					Description = "Choose which egg information should be displayed.",
+					Selector = true,
+					Icon = IMAGE_CLICK,
+					Action = openVisualEggInfoPanel,
+					Compact = true,
+				},
+				{
+					Title = "Egg ESP",
+					Description = "Enables the selected egg information on screen.",
+					Toggle = true,
+					Enabled = false,
+					Compact = true,
+				},
+			},
+		},
+	},
+
+	Credits = {
+		{
+			Title = "By: Cleiton10HDx",
+			Description = "Owner of Phantom Hub.",
+			Compact = true,
+		},
+		{
+			Title = "Discord",
+			Description = "Copy the official Phantom Hub Discord server link.",
+			Icon = IMAGE_CLICK,
+			Compact = true,
+			Action = function()
+				if copyDiscordLink() then
+					showCopiedNotification("Discord link copied!")
+				end
+			end,
+		},
+	},
+}
+
+local currentTab = "Main"
+local currentCategories = {}
+local visualPanelOpen = false
+
+local function setTab(name)
+	currentTab = name
+	updateResultsScrollMode()
+	for tabName, button in pairs(tabButtons) do
+		local selected = tabName == name
+		tween(button, 0.14, {
+			BackgroundColor3 = selected and COLORS.Gray2 or COLORS.Black2,
+			BackgroundTransparency = selected and 0 or 0.15,
+		})
+		local icon = button:FindFirstChild("Icon")
+		if icon and icon:IsA("ImageLabel") then
+			tween(icon, 0.14, {ImageColor3 = selected and COLORS.White or COLORS.SoftWhite})
+		end
+		local label = button:FindFirstChild("Label")
+		if label and label:IsA("TextLabel") then
+			tween(label, 0.14, {TextColor3 = selected and COLORS.White or COLORS.SoftWhite})
+		end
+	end
+	SearchBox.Text = ""
+	SearchHint.Visible = true
+	SearchClear.Visible = false
+	searchQuery = ""
+	currentCategories = datasets[name] or {}
+	renderResults()
+end
+
+local tabs = {
+	{Name = "Main", Icon = IMAGE_MAIN},
+	{Name = "Auto Buy", Icon = IMAGE_AUTOBUY},
+	{Name = "Farm", Icon = IMAGE_FARM},
+	{Name = "Config", Icon = IMAGE_CONFIG},
+	{Name = "Credits", Icon = IMAGE_CREDITS},
+}
+
+local tabButtons = {}
+
+for index, tabInfo in ipairs(tabs) do
+	local Tab = make("TextButton", {
+		Name = tabInfo.Name,
+		Size = UDim2.fromScale(1, 0.105),
+		BackgroundColor3 = COLORS.Black2,
+		BackgroundTransparency = 0.15,
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		Text = "",
+		LayoutOrder = index,
+		ZIndex = 5,
+	}, TabList)
+	make("UIStroke", {
+		Thickness = 1,
+		Color = COLORS.Gray,
+		Transparency = 0.55,
+	}, Tab)
+
+	make("ImageLabel", {
+		Name = "Icon",
+		Position = UDim2.fromScale(0.065, 0.22),
+		Size = UDim2.fromScale(0.18, 0.56),
+		BackgroundTransparency = 1,
+		Image = tabInfo.Icon,
+		ImageColor3 = COLORS.SoftWhite,
+		ScaleType = Enum.ScaleType.Fit,
+		ZIndex = 6,
+	}, Tab)
+
+	make("TextLabel", {
+		Name = "Label",
+		Position = UDim2.fromScale(0.30, 0),
+		Size = UDim2.fromScale(0.62, 1),
+		BackgroundTransparency = 1,
+		Text = tabInfo.Name,
+		TextColor3 = COLORS.SoftWhite,
+		Font = Enum.Font.GothamSemibold,
+		TextSize = 13,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		ZIndex = 6,
+	}, Tab)
+
+	Tab.MouseEnter:Connect(function()
+		if currentTab ~= tabInfo.Name then
+			tween(Tab, 0.11, {BackgroundColor3 = COLORS.DarkGray, BackgroundTransparency = 0.05})
+		end
+	end)
+	Tab.MouseLeave:Connect(function()
+		if currentTab ~= tabInfo.Name then
+			tween(Tab, 0.11, {BackgroundColor3 = COLORS.Black2, BackgroundTransparency = 0.15})
+		end
+	end)
+	Tab.Activated:Connect(function()
+		if visualPanelOpen then
+			return
+		end
+		setTab(tabInfo.Name)
+	end)
+
+	tabButtons[tabInfo.Name] = Tab
+end
+
+local ConfirmOverlay = make("Frame", {
+	Name = "ConfirmOverlay",
+	Position = UDim2.fromScale(0, 0),
+	Size = UDim2.fromScale(1, 1),
+	BackgroundColor3 = COLORS.Black,
+	BackgroundTransparency = 0.42,
+	BorderSizePixel = 0,
+	Visible = false,
+	Active = true,
+	ZIndex = 1000,
+}, ScreenGui)
+
+local ConfirmPanel = make("Frame", {
+	Name = "ConfirmPanel",
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	Size = UDim2.fromScale(0.44, 0.25),
+	BackgroundColor3 = COLORS.Black2,
+	BorderSizePixel = 0,
+	Active = true,
+	ZIndex = 1001,
+}, ConfirmOverlay)
+make("UIAspectRatioConstraint", {AspectRatio = 1.75}, ConfirmPanel)
+make("UIStroke", {
+	Thickness = 1.4,
+	Color = COLORS.Gray3,
+	Transparency = 0.08,
+}, ConfirmPanel)
+
+local ConfirmDescription = make("TextLabel", {
+	Position = UDim2.fromScale(0.08, 0.10),
+	Size = UDim2.fromScale(0.84, 0.45),
+	BackgroundTransparency = 1,
+	Text = "Are you sure you want to remove Phantom Hub and stop all of its active features?",
+	TextColor3 = COLORS.White,
+	Font = Enum.Font.Gotham,
+	TextSize = 12,
+	TextWrapped = true,
+	TextXAlignment = Enum.TextXAlignment.Center,
+	TextYAlignment = Enum.TextYAlignment.Center,
+	ZIndex = 1002,
+}, ConfirmPanel)
+
+local ConfirmOK = make("TextButton", {
+	Position = UDim2.fromScale(0.08, 0.66),
+	Size = UDim2.fromScale(0.39, 0.20),
+	BackgroundColor3 = COLORS.Gray,
+	BorderSizePixel = 0,
+	AutoButtonColor = false,
+	Active = true,
+	Selectable = false,
+	Text = "Confirm",
+	TextColor3 = Color3.fromRGB(75, 190, 105),
+	Font = Enum.Font.GothamBold,
+	TextSize = 12,
+	ZIndex = 1003,
+}, ConfirmPanel)
+
+local ConfirmCancel = make("TextButton", {
+	Position = UDim2.fromScale(0.53, 0.66),
+	Size = UDim2.fromScale(0.39, 0.20),
+	BackgroundColor3 = COLORS.Gray,
+	BorderSizePixel = 0,
+	AutoButtonColor = false,
+	Active = true,
+	Selectable = false,
+	Text = "Cancel",
+	TextColor3 = Color3.fromRGB(220, 75, 75),
+	Font = Enum.Font.GothamBold,
+	TextSize = 12,
+	ZIndex = 1003,
+}, ConfirmPanel)
+
+openConfirm = function(description, action)
+	if cleanedUp or not ScreenGui.Parent then
+		return
+	end
+
+	ConfirmDescription.Text = description
+	pendingAction = action
+	ConfirmOverlay.Visible = true
+	ConfirmOverlay.ZIndex = 1000
+	ConfirmPanel.Position = UDim2.fromScale(0.5, 0.5)
+	ConfirmPanel.Size = UDim2.fromScale(0.42, 0.24)
+	tween(ConfirmPanel, 0.18, {
+		Size = UDim2.fromScale(0.44, 0.25),
+		Position = UDim2.fromScale(0.5, 0.5),
+	})
+end
+
+local function closeConfirm()
+	pendingAction = nil
+	ConfirmOverlay.Visible = false
+	ConfirmPanel.Position = UDim2.fromScale(0.5, 0.5)
+end
+
+local confirmBusy = false
+
+local function activateConfirmCancel()
+	if confirmBusy then
+		return
+	end
+	confirmBusy = true
+	closeConfirm()
+	task.defer(function()
+		confirmBusy = false
+	end)
+end
+
+local function activateConfirmOK()
+	if confirmBusy then
+		return
+	end
+	confirmBusy = true
+	local action = pendingAction
+	closeConfirm()
+	if action then
+		local ok, err = pcall(action)
+		if not ok then
+		warn("Phantom Hub cleanup error:", err)
+		end
+	end
+	confirmBusy = false
+end
+
+ConfirmCancel.Activated:Connect(activateConfirmCancel)
+ConfirmOK.Activated:Connect(activateConfirmOK)
+
+ConfirmCancel.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		activateConfirmCancel()
+	end
+end)
+
+ConfirmOK.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		activateConfirmOK()
+	end
+end)
+
+local BUTTON_COLORS = {
+	Neutral = COLORS.Gray,
+	NeutralHover = COLORS.Gray2,
+	ConfirmText = Color3.fromRGB(75, 190, 105),
+	CancelText = Color3.fromRGB(220, 75, 75),
+}
+
+for _, button in ipairs({ConfirmCancel, ConfirmOK}) do
+	button.MouseEnter:Connect(function()
+		tween(button, 0.1, {BackgroundColor3 = BUTTON_COLORS.NeutralHover})
+	end)
+	button.MouseLeave:Connect(function()
+		tween(button, 0.1, {BackgroundColor3 = BUTTON_COLORS.Neutral})
+	end)
+end
+
+local function hideMenu()
+	if not Menu.Parent then
+		return
+	end
+	Menu.Visible = false
+	ConfirmOverlay.Visible = false
+	LockOverlay.Visible = false
+	closeVisualEggInfoPanel()
+end
+
+local function showMenu()
+	if not Menu.Parent or cleanedUp then
+		return
+	end
+	Menu.Visible = true
+	setTab(currentTab)
+end
+
+MinimizeButton.Activated:Connect(function()
+	hideMenu()
+end)
+
+local closeBusy = false
+
+local function requestCloseFromButton()
+	if closeBusy or cleanedUp or not ScreenGui.Parent then
+		return
+	end
+	closeBusy = true
+	openConfirm(
+		"Are you sure you want to remove Phantom Hub and stop all of its active features?",
+		function()
+			cleanupAll()
+			if ScreenGui.Parent then
+				ScreenGui:Destroy()
+			end
+		end
+	)
+	task.defer(function()
+		closeBusy = false
+	end)
+end
+
+CloseButton.Activated:Connect(requestCloseFromButton)
+CloseButton.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		requestCloseFromButton()
+	end
+end)
+
+local function isPointInside(guiObject, point)
+	local position = guiObject.AbsolutePosition
+	local size = guiObject.AbsoluteSize
+	return point.X >= position.X and point.X <= position.X + size.X
+		and point.Y >= position.Y and point.Y <= position.Y + size.Y
+end
+
+local closeFallbackConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if cleanedUp or not ScreenGui.Parent or not Menu.Visible or ConfirmOverlay.Visible then
+		return
+	end
+	if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
+		return
+	end
+	if isPointInside(CloseButton, input.Position) then
+		requestCloseFromButton()
+	end
+end)
+registerCleanup(function()
+	closeFallbackConnection:Disconnect()
+end)
+
+local function toggleMenu()
+	if not ScreenGui.Parent then
+		return
+	end
+	if Menu.Visible then
+		hideMenu()
+	else
+		showMenu()
+	end
+end
+
+local launcherDragging = false
+local launcherDragInput = nil
+local launcherDragStart = nil
+local launcherStartPos = nil
+local launcherDidDrag = false
+
+local function clampLauncher(position)
+	local viewport = getViewport()
+	local x = math.clamp(position.X.Scale, 0.0, 0.925)
+	local y = math.clamp(position.Y.Scale, 0.02, 0.92)
+
+	if position.X.Scale < 0 then
+		x = 0.015
+	elseif position.X.Scale > 0.925 then
+		x = 0.907
+	end
+
+	return UDim2.fromScale(x, y)
+end
+
+local function updateLauncherDrag(input)
+	if visualPanelOpen then
+		return
+	end
+	if lockEnabled and lockButtonSelected then
+		return
+	end
+	local delta = input.Position - launcherDragStart
+	if delta.Magnitude > 4 then
+		launcherDidDrag = true
+	end
+	local viewport = getViewport()
+	if viewport.X <= 0 or viewport.Y <= 0 then
+		return
+	end
+	local dx = delta.X / viewport.X
+	local dy = delta.Y / viewport.Y
+	local target = UDim2.fromScale(
+		launcherStartPos.X.Scale + dx,
+		launcherStartPos.Y.Scale + dy
+	)
+	LauncherFrame.Position = clampLauncher(target)
+end
+
+local function beginLauncherDrag(input)
+	if visualPanelOpen then
+		return
+	end
+	if lockEnabled and lockButtonSelected then
+		return
+	end
+	launcherDragging = true
+	launcherDidDrag = false
+	launcherDragStart = input.Position
+	launcherStartPos = LauncherFrame.Position
+	launcherDragInput = input.UserInputType == Enum.UserInputType.Touch and input or nil
+end
+
+local function endLauncherDrag()
+	launcherDragging = false
+	launcherDragInput = nil
+	launcherDragStart = nil
+	launcherStartPos = nil
+end
+
+Launcher.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		beginLauncherDrag(input)
+	end
+end)
+
+local menuDragging = false
+local menuDragInput = nil
+local menuDragStart = nil
+local menuStartPos = nil
+local dragCorner = ""
+local pointerDownAt = 0
+local didDrag = false
+
+local CornerSize = UDim2.fromScale(0.075, 0.11)
+local corners = {}
+
+local function makeCorner(name, position, anchor)
+	local corner = make("TextButton", {
+		Name = name,
+		AnchorPoint = anchor,
+		Position = position,
+		Size = CornerSize,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Text = "",
+		AutoButtonColor = false,
+		Active = true,
+		ZIndex = 10,
+	}, Menu)
+	return corner
+end
+
+corners.TopLeft = makeCorner("DragTopLeft", UDim2.fromScale(0, 0), Vector2.new(0, 0))
+corners.TopRight = makeCorner("DragTopRight", UDim2.fromScale(1, 0), Vector2.new(1, 0))
+corners.BottomLeft = makeCorner("DragBottomLeft", UDim2.fromScale(0, 1), Vector2.new(0, 1))
+corners.BottomRight = makeCorner("DragBottomRight", UDim2.fromScale(1, 1), Vector2.new(1, 1))
+
+for name, corner in pairs(corners) do
+	corner.MouseEnter:Connect(function()
+		tween(MenuStroke, 0.10, {Color = COLORS.White, Transparency = 0.05})
+	end)
+	corner.MouseLeave:Connect(function()
+		if not menuDragging then
+			tween(MenuStroke, 0.10, {Color = COLORS.Gray3, Transparency = 0.12})
+		end
+	end)
+	corner.InputBegan:Connect(function(input)
+		if visualPanelOpen then
+			return
+		end
+		if lockEnabled and lockMenuSelected then
+			return
+		end
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			pointerDownAt = os.clock()
+			didDrag = false
+			menuDragging = false
+			menuDragInput = input.UserInputType == Enum.UserInputType.Touch and input or nil
+			menuDragStart = input.Position
+			menuStartPos = Menu.Position
+			dragCorner = name
+		end
+	end)
+end
+
+function updateMenuDrag(input)
+	if visualPanelOpen then
+		return
+	end
+	if lockEnabled and lockMenuSelected then
+		return
+	end
+	if not menuDragStart or not menuStartPos then
+		return
+	end
+	local delta = input.Position - menuDragStart
+	if delta.Magnitude < 4 then
+		return
+	end
+	if os.clock() - pointerDownAt < 0.06 then
+		return
+	end
+	didDrag = true
+	menuDragging = true
+
+	local viewport = getViewport()
+	if viewport.X <= 0 or viewport.Y <= 0 then
+		return
+	end
+	local dx = delta.X / viewport.X
+	local dy = delta.Y / viewport.Y
+	local x = menuStartPos.X.Scale + dx
+	local y = menuStartPos.Y.Scale + dy
+	Menu.Position = UDim2.fromScale(x, y)
+end
+
+function endMenuDrag()
+	if not menuDragging then
+		menuDragInput = nil
+		return
+	end
+
+	local viewport = getViewport()
+	local absolutePosition = Menu.AbsolutePosition
+	local absoluteSize = Menu.AbsoluteSize
+	local fullyLeft = absolutePosition.X + absoluteSize.X < 0
+	local fullyRight = absolutePosition.X > viewport.X
+	local fullyTop = absolutePosition.Y + absoluteSize.Y < 0
+	local fullyBottom = absolutePosition.Y > viewport.Y
+
+	if fullyLeft then
+		local y = math.clamp(Menu.Position.Y.Scale, 0.05, 0.95)
+		tween(Menu, 0.20, {Position = UDim2.fromScale(0.02, y)})
+	elseif fullyRight then
+		local y = math.clamp(Menu.Position.Y.Scale, 0.05, 0.95)
+		tween(Menu, 0.20, {Position = UDim2.fromScale(0.98, y)})
+	elseif fullyTop then
+		tween(Menu, 0.20, {Position = UDim2.fromScale(math.clamp(Menu.Position.X.Scale, 0.02, 0.98), 0.05)})
+	elseif fullyBottom then
+		tween(Menu, 0.20, {Position = UDim2.fromScale(math.clamp(Menu.Position.X.Scale, 0.02, 0.98), 0.95)})
+	end
+
+	menuDragging = false
+	menuDragInput = nil
+	menuDragStart = nil
+	menuStartPos = nil
+	tween(MenuStroke, 0.12, {Color = COLORS.Gray3, Transparency = 0.12})
+end
+
+for name, corner in pairs(corners) do
+	corner.Activated:Connect(function()
+		if didDrag then
+			didDrag = false
+			return
+		end
+	end)
+end
+
+local inputChangedConnection = UserInputService.InputChanged:Connect(function(input)
+	if launcherDragging and ((launcherDragInput and input == launcherDragInput) or (not launcherDragInput and input.UserInputType == Enum.UserInputType.MouseMovement)) then
+		updateLauncherDrag(input)
+	end
+	if menuDragInput and input == menuDragInput then
+		updateMenuDrag(input)
+	elseif menuDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+		updateMenuDrag(input)
+	elseif menuDragStart and not menuDragInput and input.UserInputType == Enum.UserInputType.MouseMovement then
+		updateMenuDrag(input)
+	end
+end)
+
+local inputEndedConnection = UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		if launcherDragging then
+			endLauncherDrag()
+		end
+		if menuDragging then
+			endMenuDrag()
+		end
+	end
+end)
+
+Launcher.Activated:Connect(function()
+	if launcherDidDrag then
+		launcherDidDrag = false
+		return
+	end
+	toggleMenu()
+end)
+
+local function updateSearchVisual()
+	local hasText = SearchBox.Text ~= ""
+	SearchHint.Visible = not hasText
+	SearchClear.Visible = hasText
+end
+
+local searchTextConnection = SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+	searchQuery = SearchBox.Text
+	updateSearchVisual()
+	renderResults()
+end)
+
+SearchClear.Activated:Connect(function()
+	SearchBox.Text = ""
+	SearchBox:CaptureFocus()
+end)
+
+applyEnglishOnly(ScreenGui)
+
+local englishGuardConnection = ScreenGui.DescendantAdded:Connect(function(descendant)
+	applyEnglishOnly(descendant)
+end)
+registerCleanup(function()
+	if englishGuardConnection then
+		englishGuardConnection:Disconnect()
+	end
+end)
+
+setTab("Main")
+Menu.Visible = false
+
+local renderSteppedConnection = RunService.RenderStepped:Connect(function()
+	if not ScreenGui.Parent then
+		return
+	end
+	updateGlobalScale()
+end)
+
+registerCleanup(function()
+	for _, connection in pairs(toggleConnections) do
+		if connection and connection.Disconnect then connection:Disconnect() end
+	end
+end)
+
+registerCleanup(function()
+	for _, connection in pairs(toggleConnections) do
+		pcall(function()
+			connection:Disconnect()
+		end)
+	end
+	toggleConnections = {}
+	if resultsScrollWheelConnection then
+		resultsScrollWheelConnection:Disconnect()
+	end
+	if resultsScrollInputConnection then
+		resultsScrollInputConnection:Disconnect()
+	end
+	inputChangedConnection:Disconnect()
+	inputEndedConnection:Disconnect()
+	searchTextConnection:Disconnect()
+	renderSteppedConnection:Disconnect()
+end)
