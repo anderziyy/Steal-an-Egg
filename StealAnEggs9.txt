@@ -1043,27 +1043,9 @@ local visualSelectionState = {
 	Distance = false,
 	Rarity = false,
 }
-
 local VisualEggInfoOverlay
-local VisualEggInfoPanel
 local VisualEggInfoBlocker
-local VisualEggInfoScroll
-local guardianESPConnection
-local eggESPConnection
-local guardianESPObjects = {}
-local eggESPObjects = {}
-local visualEggCache = {}
-
-local RARITY_COLORS = {
-	Common = Color3.fromRGB(245, 245, 247),
-	Uncommon = Color3.fromRGB(75, 210, 110),
-	Rare = Color3.fromRGB(70, 140, 255),
-	Epic = Color3.fromRGB(175, 80, 235),
-	Legendary = Color3.fromRGB(255, 205, 60),
-	Mythic = Color3.fromRGB(245, 75, 75),
-	Divine = Color3.fromRGB(80, 220, 255),
-	Secret = Color3.fromRGB(255, 145, 55),
-}
+local VisualEggInfoPanel
 
 local function setVisualSelection(name, value)
 	visualSelectionState[name] = value == true
@@ -1080,7 +1062,7 @@ end
 local function createVisualSelectionRow(parent, name, text, order)
 	local Row = make("Frame", {
 		Name = name .. "Row",
-		Size = UDim2.new(1, -14, 0, 58),
+		Size = UDim2.new(1, -18, 0, 62),
 		BackgroundColor3 = COLORS.Black2,
 		BorderSizePixel = 0,
 		LayoutOrder = order,
@@ -1110,7 +1092,6 @@ local function createVisualSelectionRow(parent, name, text, order)
 		BorderSizePixel = 0,
 		AutoButtonColor = false,
 		Text = "",
-		Active = true,
 		ZIndex = 1006,
 	}, Row)
 	make("UICorner", {CornerRadius = UDim.new(1, 0)}, ToggleButton)
@@ -1138,19 +1119,9 @@ local function closeVisualEggInfoPanel()
 	if VisualEggInfoOverlay then
 		VisualEggInfoOverlay.Visible = false
 	end
-end
-
-local function positionVisualEggInfoPanel()
-	if not VisualEggInfoOverlay or not VisualEggInfoPanel or not VisualEggInfoBlocker or not ResultsScroll then
-		return
+	if VisualEggInfoBlocker then
+		VisualEggInfoBlocker.Visible = false
 	end
-
-	local viewportHeight = ResultsScroll.AbsoluteSize.Y
-	local scrollY = ResultsScroll.CanvasPosition.Y
-	VisualEggInfoBlocker.Position = UDim2.new(0, 0, 0, scrollY)
-	VisualEggInfoBlocker.Size = UDim2.new(1, 0, 0, viewportHeight)
-	VisualEggInfoPanel.Position = UDim2.new(0.50, 4, 0, scrollY + viewportHeight * 0.06)
-	VisualEggInfoPanel.Size = UDim2.new(0.47, -8, 0, math.max(180, viewportHeight * 0.88))
 end
 
 local function openVisualEggInfoPanel()
@@ -1159,41 +1130,46 @@ local function openVisualEggInfoPanel()
 	end
 
 	if not VisualEggInfoOverlay then
-		-- The blocker and panel live inside the main options ScrollingFrame.
-		-- Only the right half is occupied by the settings panel; the transparent
-		-- blocker prevents interaction with the underlying menu while it is open.
+		-- The visual settings surface is anchored to the same viewport area as the
+		-- main Results ScrollingFrame. It stays inside the menu's options region
+		-- instead of becoming a full-screen panel.
 		VisualEggInfoOverlay = make("Frame", {
 			Name = "VisualEggInfoOverlay",
-			Position = UDim2.fromScale(0, 0),
-			Size = UDim2.fromScale(1, 1),
+			Position = ResultsScroll.Position,
+			Size = ResultsScroll.Size,
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Visible = false,
+			ClipsDescendants = true,
 			Active = true,
 			ZIndex = 1000,
-		}, ResultsScroll)
+		}, Content)
 
+		-- A transparent full-screen blocker prevents interaction with the main
+		-- menu and launcher while the settings panel is open. The actual panel
+		-- remains visually confined to the Results/option area.
 		VisualEggInfoBlocker = make("TextButton", {
-			Name = "InputBlocker",
-			Position = UDim2.fromOffset(0, 0),
+			Name = "VisualEggInfoBlocker",
+			Position = UDim2.fromScale(0, 0),
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			AutoButtonColor = false,
 			Text = "",
+			Visible = false,
 			Active = true,
 			Selectable = false,
-			ZIndex = 1000,
-		}, VisualEggInfoOverlay)
+			ZIndex = 999,
+		}, ScreenGui)
 
 		VisualEggInfoPanel = make("Frame", {
 			Name = "VisualEggInfoPanel",
-			AnchorPoint = Vector2.new(0, 0),
-			Position = UDim2.fromScale(0.50, 0.06),
-			Size = UDim2.fromScale(0.47, 0.88),
+			Position = UDim2.fromScale(0.50, 0),
+			Size = UDim2.fromScale(0.50, 1),
 			BackgroundColor3 = COLORS.Black2,
 			BorderSizePixel = 0,
 			Active = true,
+			ClipsDescendants = true,
 			ZIndex = 1001,
 		}, VisualEggInfoOverlay)
 		make("UIStroke", {Thickness = 1.5, Color = COLORS.Gray3, Transparency = 0.08}, VisualEggInfoPanel)
@@ -1215,7 +1191,7 @@ local function openVisualEggInfoPanel()
 			Name = "Close",
 			AnchorPoint = Vector2.new(1, 0),
 			Position = UDim2.fromScale(0.94, 0.045),
-			Size = UDim2.fromOffset(32, 32),
+			Size = UDim2.fromScale(0.085, 0.105),
 			BackgroundColor3 = COLORS.Gray,
 			BackgroundTransparency = 0.18,
 			BorderSizePixel = 0,
@@ -1224,14 +1200,14 @@ local function openVisualEggInfoPanel()
 			TextColor3 = COLORS.White,
 			Font = Enum.Font.GothamBold,
 			TextSize = 14,
-			ZIndex = 1006,
+			ZIndex = 1005,
 		}, VisualEggInfoPanel)
-		make("UICorner", {CornerRadius = UDim.new(0, 7)}, Close)
+		make("UIAspectRatioConstraint", {AspectRatio = 1}, Close)
 		Close.MouseEnter:Connect(function() tween(Close, 0.10, {BackgroundColor3 = COLORS.Gray3, BackgroundTransparency = 0}) end)
 		Close.MouseLeave:Connect(function() tween(Close, 0.10, {BackgroundColor3 = COLORS.Gray, BackgroundTransparency = 0.18}) end)
 		Close.Activated:Connect(closeVisualEggInfoPanel)
 
-		VisualEggInfoScroll = make("ScrollingFrame", {
+		local Scroll = make("ScrollingFrame", {
 			Name = "Options",
 			Position = UDim2.fromScale(0.045, 0.17),
 			Size = UDim2.fromScale(0.91, 0.78),
@@ -1247,537 +1223,31 @@ local function openVisualEggInfoPanel()
 			CanvasSize = UDim2.fromScale(0, 0),
 			ZIndex = 1003,
 		}, VisualEggInfoPanel)
-		make("UIListLayout", {Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder}, VisualEggInfoScroll)
-		make("UIPadding", {PaddingRight = UDim.new(0, 9), PaddingBottom = UDim.new(0, 7)}, VisualEggInfoScroll)
-		createVisualSelectionRow(VisualEggInfoScroll, "Name", "Name", 1)
-		createVisualSelectionRow(VisualEggInfoScroll, "Mutation", "Mutation", 2)
-		createVisualSelectionRow(VisualEggInfoScroll, "Distance", "Distance", 3)
-		createVisualSelectionRow(VisualEggInfoScroll, "Rarity", "Rarity", 4)
+		make("UIListLayout", {Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder}, Scroll)
+		make("UIPadding", {PaddingRight = UDim.new(0, 9), PaddingBottom = UDim.new(0, 7)}, Scroll)
+		createVisualSelectionRow(Scroll, "Name", "Name", 1)
+		createVisualSelectionRow(Scroll, "Mutation", "Mutation", 2)
+		createVisualSelectionRow(Scroll, "Distance", "Distance", 3)
+		createVisualSelectionRow(Scroll, "Rarity", "Rarity", 4)
 
-		local blockerInput = VisualEggInfoBlocker.InputBegan:Connect(function() end)
-		registerCleanup(function()
-			pcall(function() blockerInput:Disconnect() end)
-		end)
 		installEnglishGuard(VisualEggInfoOverlay)
+		installEnglishGuard(VisualEggInfoBlocker)
 		registerCleanup(function()
+			if VisualEggInfoBlocker and VisualEggInfoBlocker.Parent then
+				VisualEggInfoBlocker:Destroy()
+			end
 			if VisualEggInfoOverlay and VisualEggInfoOverlay.Parent then
 				VisualEggInfoOverlay:Destroy()
 			end
-			VisualEggInfoOverlay = nil
 		end)
 	end
 
-	positionVisualEggInfoPanel()
+	-- Keep the settings surface aligned with the options viewport in case the
+	-- main Content frame was resized before this panel was opened.
+	VisualEggInfoOverlay.Position = ResultsScroll.Position
+	VisualEggInfoOverlay.Size = ResultsScroll.Size
+	VisualEggInfoBlocker.Visible = true
 	VisualEggInfoOverlay.Visible = true
-end
-
-local function getVisualModuleCandidates()
-	local shared = game:GetService("ReplicatedStorage")
-	local candidates = {}
-	local dataFolder = shared:FindFirstChild("Data")
-	if not dataFolder then
-		return candidates
-	end
-
-	local function addModule(instance)
-		if instance and instance:IsA("ModuleScript") then
-			local ok, value = pcall(require, instance)
-			if ok and typeof(value) == "table" then
-				table.insert(candidates, value)
-			end
-		end
-	end
-
-	for _, name in ipairs({"Assets", "Pets", "Pet", "Eggs", "Egg", "AssetsDirectory", "Directory"}) do
-		addModule(dataFolder:FindFirstChild(name))
-	end
-
-	return candidates
-end
-
-local function scanConfigForAsset(config, key, depth, visited)
-	if typeof(config) ~= "table" or depth > 4 or visited[config] then
-		return nil
-	end
-	visited[config] = true
-
-	local direct = config[key]
-	if typeof(direct) == "table" then
-		return direct
-	end
-
-	for k, value in pairs(config) do
-		if k == key and (typeof(value) == "string" or typeof(value) == "number") then
-			return value
-		end
-		if typeof(value) == "table" then
-			local found = scanConfigForAsset(value, key, depth + 1, visited)
-			if found ~= nil then
-				return found
-			end
-		end
-	end
-	return nil
-end
-
-local function resolveEggConfig(assetCategory)
-	if typeof(assetCategory) ~= "string" or assetCategory == "" then
-		return nil
-	end
-	if visualEggCache[assetCategory] then
-		return visualEggCache[assetCategory]
-	end
-
-	local result = nil
-	for _, moduleData in ipairs(getVisualModuleCandidates()) do
-		local entry = moduleData[assetCategory]
-		if typeof(entry) == "table" then
-			result = entry
-			break
-		end
-	end
-
-	if result then
-		visualEggCache[assetCategory] = result
-	end
-	return result
-end
-
-local function resolveEggDisplayName(record)
-	if typeof(record) ~= "table" then
-		return "Unknown"
-	end
-
-	for _, key in ipairs({"PetName", "DisplayName", "EggName", "AssetName"}) do
-		local value = record[key]
-		if typeof(value) == "string" and value ~= "" then
-			return value
-		end
-	end
-
-	local category = record.AssetCategory or record.Category or record.EggType
-	if typeof(category) == "string" and category ~= "" then
-		local config = resolveEggConfig(category)
-		if config then
-			for _, key in ipairs({"DisplayName", "PetName", "Name"}) do
-				local value = config[key]
-				if typeof(value) == "string" and value ~= "" then
-					return value
-				end
-			end
-		end
-		return category
-	end
-
-	return "Unknown"
-end
-
-local function resolveEggRarity(record)
-	if typeof(record) ~= "table" then
-		return "Unknown"
-	end
-	for _, key in ipairs({"Rarity", "RarityName", "Tier"}) do
-		local value = record[key]
-		if typeof(value) == "string" and value ~= "" then
-			return value
-		end
-	end
-
-	local category = record.AssetCategory or record.Category or record.EggType
-	local config = resolveEggConfig(category)
-	if config then
-		for _, key in ipairs({"Rarity", "RarityName", "Tier"}) do
-			local value = config[key]
-			if typeof(value) == "string" and value ~= "" then
-				return value
-			end
-		end
-	end
-	return "Unknown"
-end
-
-local function resolveEggMutation(record)
-	if typeof(record) ~= "table" then
-		return "No Mutation"
-	end
-
-	local values = {}
-	local function add(value)
-		if typeof(value) == "string" and value ~= "" then
-			if not table.find(values, value) then
-				table.insert(values, value)
-			end
-		elseif typeof(value) == "table" then
-			for k, v in pairs(value) do
-				if typeof(v) == "string" and v ~= "" and not table.find(values, v) then
-					table.insert(values, v)
-				elseif v == true and typeof(k) == "string" and not table.find(values, k) then
-					table.insert(values, k)
-				end
-			end
-		end
-	end
-
-	add(record.Mutation)
-	add(record.MutationName)
-	add(record.BaseMutation)
-	add(record.Mutations)
-
-	if #values == 0 then
-		return "No Mutation"
-	end
-	return table.concat(values, ", ")
-end
-
-local function getRecordPosition(record)
-	if typeof(record) ~= "table" then
-		return nil
-	end
-
-	for _, key in ipairs({"BoundsCFrame", "BottomCFrame", "CFrame"}) do
-		local value = record[key]
-		if typeof(value) == "CFrame" then
-			return value.Position
-		end
-	end
-
-	local placement = record.Placement
-	if typeof(placement) == "CFrame" then
-		return placement.Position
-	end
-	if typeof(placement) == "table" then
-		for _, key in ipairs({"CFrame", "BoundsCFrame", "BottomCFrame"}) do
-			local value = placement[key]
-			if typeof(value) == "CFrame" then
-				return value.Position
-			end
-		end
-	end
-	return nil
-end
-
-local function findWorldPartForEgg(uid)
-	if typeof(uid) ~= "string" or uid == "" then
-		return nil
-	end
-
-	local objects = workspace:FindFirstChild("__OBJECTS")
-	if objects then
-		local direct = objects:FindFirstChild(uid, true)
-		if direct then
-			if direct:IsA("BasePart") then
-				return direct
-			end
-			if direct:IsA("Model") then
-				return direct.PrimaryPart or direct:FindFirstChildWhichIsA("BasePart", true)
-			end
-		end
-	end
-	return workspace:FindFirstChild(uid, true)
-end
-
-local function createBillboardLabel(adornPart, name, lines)
-	if not adornPart or not adornPart:IsA("BasePart") then
-		return nil
-	end
-
-	local billboard = Instance.new("BillboardGui")
-	billboard.Name = name
-	billboard.Adornee = adornPart
-	billboard.AlwaysOnTop = true
-	billboard.LightInfluence = 0
-	billboard.MaxDistance = 1000
-	billboard.Size = UDim2.fromOffset(240, math.max(26, (#lines * 20) + 8))
-	billboard.StudsOffsetWorldSpace = Vector3.new(0, 3.5, 0)
-	billboard.ResetOnSpawn = false
-	billboard.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	billboard.Parent = ScreenGui
-
-	local holder = Instance.new("Frame")
-	holder.Size = UDim2.fromScale(1, 1)
-	holder.BackgroundTransparency = 1
-	holder.BorderSizePixel = 0
-	holder.Parent = billboard
-
-	local layout = Instance.new("UIListLayout")
-	layout.FillDirection = Enum.FillDirection.Vertical
-	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	layout.VerticalAlignment = Enum.VerticalAlignment.Center
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Padding = UDim.new(0, 0)
-	layout.Parent = holder
-
-	for index, line in ipairs(lines) do
-		local label = Instance.new("TextLabel")
-		label.Size = UDim2.new(1, 0, 0, 19)
-		label.BackgroundTransparency = 1
-		label.Text = line.Text
-		label.TextColor3 = line.Color or COLORS.White
-		label.Font = Enum.Font.GothamSemibold
-		label.TextSize = 13
-		label.TextStrokeTransparency = 0.35
-		label.TextXAlignment = Enum.TextXAlignment.Center
-		label.TextYAlignment = Enum.TextYAlignment.Center
-		label.LayoutOrder = index
-		label.Parent = holder
-	end
-
-	return billboard
-end
-
-local function destroyVisualObject(object)
-	if object and object.Parent then
-		object:Destroy()
-	end
-end
-
-local function setGuardianESP(item, enabled)
-	if guardianESPConnection then
-		guardianESPConnection:Disconnect()
-		guardianESPConnection = nil
-	end
-	for _, object in pairs(guardianESPObjects) do
-		destroyVisualObject(object)
-	end
-	table.clear(guardianESPObjects)
-
-	if not enabled then
-		return
-	end
-
-	local function refresh()
-		if cleanedUp or not ScreenGui.Parent then
-			return
-		end
-
-		local folder = workspace:FindFirstChild("__OBJECTS")
-		folder = folder and folder:FindFirstChild("Areas")
-		folder = folder and folder:FindFirstChild("GuardAreas")
-		if not folder then
-			return
-		end
-
-		local current = {}
-		for _, model in ipairs(folder:GetChildren()) do
-			if model:IsA("Model") then
-				local root = model:FindFirstChild("HumanoidRootPart") or model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
-				if root then
-					current[model] = true
-					if not guardianESPObjects[model] then
-						guardianESPObjects[model] = createBillboardLabel(root, "GuardianESP_" .. model.Name, {
-							{Text = model.Name, Color = Color3.fromRGB(255, 75, 75)},
-						})
-					end
-				end
-			end
-		end
-
-		for model, object in pairs(guardianESPObjects) do
-			if not current[model] then
-				destroyVisualObject(object)
-				guardianESPObjects[model] = nil
-			end
-		end
-	end
-
-	refresh()
-	local nextRefresh = 0
-	guardianESPConnection = RunService.Heartbeat:Connect(function()
-		local now = os.clock()
-		if now < nextRefresh then
-			return
-		end
-		nextRefresh = now + 0.50
-		refresh()
-	end)
-	registerCleanup(function()
-		if guardianESPConnection then
-			guardianESPConnection:Disconnect()
-			guardianESPConnection = nil
-		end
-		for _, object in pairs(guardianESPObjects) do
-			destroyVisualObject(object)
-		end
-		table.clear(guardianESPObjects)
-	end)
-end
-
-local function collectVisualEggRecords()
-	local records = {}
-	local seen = {}
-	local shared = game:GetService("ReplicatedStorage")
-	local eggState = safeRequire(shared.Client:FindFirstChild("EggState"))
-
-	if eggState and eggState.ReadOwnerEggs then
-		local ok, ownerEggs = pcall(function()
-			return eggState.ReadOwnerEggs(LocalPlayer.UserId)
-		end)
-		if ok and typeof(ownerEggs) == "table" then
-			for uid, record in pairs(ownerEggs) do
-				if typeof(uid) == "string" and typeof(record) == "table" and not seen[uid] then
-					seen[uid] = true
-					records[uid] = record
-				end
-			end
-		end
-	end
-
-	if eggState and eggState.SyncFieldEggs then
-		local ok, snapshot = pcall(function()
-			return eggState.SyncFieldEggs()
-		end)
-		if ok and typeof(snapshot) == "table" and typeof(snapshot.Records) == "table" then
-			for _, record in ipairs(snapshot.Records) do
-				local uid = record and record.Uid
-				if typeof(uid) == "string" and typeof(record) == "table" and not seen[uid] then
-					seen[uid] = true
-					records[uid] = record
-				end
-			end
-		end
-	end
-
-	return records
-end
-
-local function getRarityColor(rarity)
-	if typeof(rarity) ~= "string" then
-		return COLORS.White
-	end
-	local normalized = string.lower(string.gsub(rarity, "[^%a]", ""))
-	local colors = {
-		common = RARITY_COLORS.Common,
-		uncommon = RARITY_COLORS.Uncommon,
-		rare = RARITY_COLORS.Rare,
-		epic = RARITY_COLORS.Epic,
-		legendary = RARITY_COLORS.Legendary,
-		mythic = RARITY_COLORS.Mythic,
-		divine = RARITY_COLORS.Divine,
-		secret = RARITY_COLORS.Secret,
-	}
-	return colors[normalized] or COLORS.White
-end
-
-local function getEggInfoLines(record, position)
-	local lines = {}
-	if visualSelectionState.Name then
-		table.insert(lines, {Text = resolveEggDisplayName(record), Color = COLORS.White})
-	end
-	if visualSelectionState.Mutation then
-		table.insert(lines, {Text = "Mutation: " .. resolveEggMutation(record), Color = COLORS.White})
-	end
-	if visualSelectionState.Distance and position then
-		local character = LocalPlayer.Character
-		local hrp = character and character:FindFirstChild("HumanoidRootPart")
-		if hrp then
-			local distance = (hrp.Position - position).Magnitude
-			table.insert(lines, {Text = string.format("Distance: %.0f", distance), Color = COLORS.SoftWhite})
-		end
-	end
-	if visualSelectionState.Rarity then
-		local rarity = resolveEggRarity(record)
-		local rarityColor = getRarityColor(rarity)
-		table.insert(lines, {Text = "Rarity: " .. rarity, Color = rarityColor})
-	end
-	return lines
-end
-
-local function setEggESP(item, enabled)
-	if eggESPConnection then
-		eggESPConnection:Disconnect()
-		eggESPConnection = nil
-	end
-	for _, object in pairs(eggESPObjects) do
-		destroyVisualObject(object.Billboard)
-		destroyVisualObject(object.Adornee)
-	end
-	table.clear(eggESPObjects)
-
-	if not enabled then
-		return
-	end
-
-	local function refresh()
-		if cleanedUp or not ScreenGui.Parent then
-			return
-		end
-		if not (visualSelectionState.Name or visualSelectionState.Mutation or visualSelectionState.Distance or visualSelectionState.Rarity) then
-			for uid, object in pairs(eggESPObjects) do
-				destroyVisualObject(object.Billboard)
-				destroyVisualObject(object.Adornee)
-				eggESPObjects[uid] = nil
-			end
-			return
-		end
-
-		local records = collectVisualEggRecords()
-		local current = {}
-		for uid, record in pairs(records) do
-			local position = getRecordPosition(record)
-			local part = findWorldPartForEgg(uid)
-			local temporaryPart = nil
-
-			if not part and position then
-				temporaryPart = Instance.new("Part")
-				temporaryPart.Name = "PhantomHubEggESP_" .. uid
-				temporaryPart.Anchored = true
-				temporaryPart.CanCollide = false
-				temporaryPart.CanQuery = false
-				temporaryPart.CanTouch = false
-				temporaryPart.Transparency = 1
-				temporaryPart.Size = Vector3.new(0.2, 0.2, 0.2)
-				temporaryPart.CFrame = CFrame.new(position)
-				temporaryPart.Parent = workspace
-				part = temporaryPart
-			end
-
-			if part then
-				local lines = getEggInfoLines(record, part.Position)
-				if #lines > 0 then
-					current[uid] = true
-					local old = eggESPObjects[uid]
-					if old then
-						destroyVisualObject(old.Billboard)
-						destroyVisualObject(old.Adornee)
-					end
-					eggESPObjects[uid] = {
-						Adornee = temporaryPart,
-						Billboard = createBillboardLabel(part, "EggESP_" .. uid, lines),
-					}
-				end
-			end
-		end
-
-		for uid, object in pairs(eggESPObjects) do
-			if not current[uid] then
-				destroyVisualObject(object.Billboard)
-				destroyVisualObject(object.Adornee)
-				eggESPObjects[uid] = nil
-			end
-		end
-	end
-
-	refresh()
-	local nextRefresh = 0
-	eggESPConnection = RunService.Heartbeat:Connect(function()
-		local now = os.clock()
-		if now < nextRefresh then
-			return
-		end
-		nextRefresh = now + 0.25
-		refresh()
-	end)
-	registerCleanup(function()
-		if eggESPConnection then
-			eggESPConnection:Disconnect()
-			eggESPConnection = nil
-		end
-		for _, object in pairs(eggESPObjects) do
-			destroyVisualObject(object.Billboard)
-			destroyVisualObject(object.Adornee)
-		end
-		table.clear(eggESPObjects)
-	end)
 end
 
 local datasets = {
@@ -1997,7 +1467,6 @@ local datasets = {
 					Toggle = true,
 					Enabled = false,
 					Compact = true,
-					Controller = "GuardianESP",
 				},
 				{
 					Title = "Egg ESP Settings",
@@ -2013,7 +1482,6 @@ local datasets = {
 					Toggle = true,
 					Enabled = false,
 					Compact = true,
-					Controller = "EggESP",
 				},
 			},
 		},
@@ -2259,16 +1727,6 @@ local function findEggTools(eggToolDisplay)
 	return tools
 end
 
-
-local function hasAvailableEggInInventory()
-	local shared = game:GetService("ReplicatedStorage")
-	local eggToolDisplay = safeRequire(shared.Shared.Eggs:FindFirstChild("EggToolDisplay"))
-	if not eggToolDisplay then
-		return false
-	end
-	return #findEggTools(eggToolDisplay) > 0
-end
-
 local autoGoToBaseEnabled = false
 local baseMovementRunning = false
 
@@ -2289,11 +1747,6 @@ local function resolveMyBaseCenterPoint()
 end
 
 local function moveToMyBase()
-	if not hasAvailableEggInInventory() then
-		baseMovementRunning = false
-		return false
-	end
-
 	local centerPoint = resolveMyBaseCenterPoint()
 	local character = LocalPlayer.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -3163,10 +2616,6 @@ local function setToggleState(item, enabled)
 		setAutoBatAttack(item, toggleStates[item])
 	elseif item.Controller == "EquipBat" then
 		setEquipBat(item, toggleStates[item])
-	elseif item.Controller == "GuardianESP" then
-		setGuardianESP(item, toggleStates[item])
-	elseif item.Controller == "EggESP" then
-		setEggESP(item, toggleStates[item])
 	end
 end
 
@@ -3351,7 +2800,6 @@ renderResults = function()
 end
 
 local function setTab(name)
-	closeVisualEggInfoPanel()
 	currentTab = name
 	updateResultsScrollMode()
 	for tabName, button in pairs(tabButtons) do
