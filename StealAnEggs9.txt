@@ -346,7 +346,7 @@ local Content = make("Frame", {
 	ZIndex = 3,
 }, Body)
 
-local SearchBar = make("Frame", {
+SearchBar = make("Frame", {
 	Name = "SearchBar",
 	Position = UDim2.fromScale(0.035, 0.035),
 	Size = UDim2.fromScale(0.93, 0.095),
@@ -371,7 +371,7 @@ local SearchIcon = make("ImageLabel", {
 	ZIndex = 6,
 }, SearchBar)
 
-local SearchBox = make("TextBox", {
+SearchBox = make("TextBox", {
 	Name = "Input",
 	Position = UDim2.fromScale(0.12, 0),
 	Size = UDim2.fromScale(0.78, 1),
@@ -404,7 +404,7 @@ local SearchHint = make("TextLabel", {
 	ZIndex = 7,
 }, SearchBar)
 
-local SearchClear = make("TextButton", {
+SearchClear = make("TextButton", {
 	Name = "Clear",
 	AnchorPoint = Vector2.new(1, 0.5),
 	Position = UDim2.fromScale(0.965, 0.5),
@@ -639,7 +639,7 @@ end
 
 LockButton.Activated:Connect(openLockPanel)
 
-local TabList = make("ScrollingFrame", {
+TabList = make("ScrollingFrame", {
 	Name = "Tabs",
 	Position = UDim2.fromScale(0.055, 0.045),
 	Size = UDim2.fromScale(0.89, 0.90),
@@ -759,7 +759,7 @@ local tabs = {
 local tabButtons = {}
 local currentTab = "Main"
 
-local ResultsScroll = make("ScrollingFrame", {
+ResultsScroll = make("ScrollingFrame", {
 	Name = "Results",
 	Position = UDim2.fromScale(0.035, 0.155),
 	Size = UDim2.fromScale(0.93, 0.815),
@@ -1045,6 +1045,11 @@ local visualSelectionState = {
 }
 local VisualEggInfoOverlay
 local VisualEggInfoPanel
+local ResultsScroll
+local SearchBar
+local SearchBox
+local SearchClear
+local TabList
 
 local function setVisualSelection(name, value)
 	visualSelectionState[name] = value == true
@@ -1061,7 +1066,7 @@ end
 local function createVisualSelectionRow(parent, name, text, order)
 	local Row = make("Frame", {
 		Name = name .. "Row",
-		Size = UDim2.new(1, -8, 0, 50),
+		Size = UDim2.new(1, -18, 0, 62),
 		BackgroundColor3 = COLORS.Black2,
 		BorderSizePixel = 0,
 		LayoutOrder = order,
@@ -1114,44 +1119,72 @@ local function createVisualSelectionRow(parent, name, text, order)
 	return Row
 end
 
+local visualOverlayPreviousScrollY = 0
+local visualMenuBlocked = false
+
+local function setMainMenuInteractionBlocked(blocked)
+	visualMenuBlocked = blocked == true
+	if TabList then
+		TabList.Active = not visualMenuBlocked
+	end
+	if SearchBar then
+		SearchBar.Active = not visualMenuBlocked
+	end
+	if SearchBox then
+		SearchBox.TextEditable = not visualMenuBlocked
+		SearchBox.Active = not visualMenuBlocked
+	end
+	if SearchClear then
+		SearchClear.Active = not visualMenuBlocked
+	end
+end
+
 local function closeVisualEggInfoPanel()
 	if VisualEggInfoOverlay then
 		VisualEggInfoOverlay.Visible = false
 	end
+	if ResultsScroll then
+		ResultsScroll.ScrollingEnabled = true
+		ResultsScroll.Active = true
+		ResultsScroll.CanvasPosition = Vector2.new(0, visualOverlayPreviousScrollY or 0)
+	end
+	setMainMenuInteractionBlocked(false)
 end
 
 local function openVisualEggInfoPanel()
-	if cleanedUp or not ScreenGui.Parent then
+	if cleanedUp or not ScreenGui.Parent or not ResultsScroll then
 		return
 	end
+	
 	if not VisualEggInfoOverlay then
 		VisualEggInfoOverlay = make("Frame", {
 			Name = "VisualEggInfoOverlay",
-			Position = UDim2.fromScale(0, 0),
-			Size = UDim2.new(1, 0, 0, 0),
-			BackgroundTransparency = 1,
+			Position = UDim2.fromOffset(0, 0),
+			Size = UDim2.new(1, 0, 0, ResultsScroll.AbsoluteSize.Y),
+			BackgroundColor3 = COLORS.Black,
+			BackgroundTransparency = 0.08,
 			BorderSizePixel = 0,
 			Visible = false,
-			Active = false,
-			LayoutOrder = -1000,
+			Active = true,
+			ClipsDescendants = true,
 			ZIndex = 1000,
 		}, ResultsScroll)
 
 		VisualEggInfoPanel = make("Frame", {
 			Name = "VisualEggInfoPanel",
-			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.fromScale(0.985, 0.03),
-			Size = UDim2.fromScale(0.47, 0.50),
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.fromScale(0.992, 0.5),
+			Size = UDim2.fromScale(0.495, 0.95),
 			BackgroundColor3 = COLORS.Black2,
 			BorderSizePixel = 0,
 			Active = true,
 			ZIndex = 1001,
 		}, VisualEggInfoOverlay)
-		make("UIStroke", {Thickness = 1.5, Color = COLORS.Gray3, Transparency = 0.08}, VisualEggInfoPanel)
+		make("UIStroke", {Thickness = 1.6, Color = COLORS.Gray3, Transparency = 0.05}, VisualEggInfoPanel)
 
 		make("TextLabel", {
-			Position = UDim2.fromScale(0.06, 0.035),
-			Size = UDim2.fromScale(0.68, 0.11),
+			Position = UDim2.fromScale(0.055, 0.035),
+			Size = UDim2.fromScale(0.72, 0.10),
 			BackgroundTransparency = 1,
 			Text = "Egg ESP Settings",
 			TextColor3 = COLORS.White,
@@ -1165,10 +1198,10 @@ local function openVisualEggInfoPanel()
 		local Close = make("TextButton", {
 			Name = "Close",
 			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.fromScale(0.94, 0.045),
-			Size = UDim2.fromScale(0.085, 0.105),
+			Position = UDim2.fromScale(0.945, 0.035),
+			Size = UDim2.fromScale(0.085, 0.095),
 			BackgroundColor3 = COLORS.Gray,
-			BackgroundTransparency = 0.18,
+			BackgroundTransparency = 0.10,
 			BorderSizePixel = 0,
 			AutoButtonColor = false,
 			Text = "X",
@@ -1178,14 +1211,15 @@ local function openVisualEggInfoPanel()
 			ZIndex = 1005,
 		}, VisualEggInfoPanel)
 		make("UIAspectRatioConstraint", {AspectRatio = 1}, Close)
+		make("UIStroke", {Thickness = 1, Color = COLORS.Gray3, Transparency = 0.15}, Close)
 		Close.MouseEnter:Connect(function() tween(Close, 0.10, {BackgroundColor3 = COLORS.Gray3, BackgroundTransparency = 0}) end)
-		Close.MouseLeave:Connect(function() tween(Close, 0.10, {BackgroundColor3 = COLORS.Gray, BackgroundTransparency = 0.18}) end)
+		Close.MouseLeave:Connect(function() tween(Close, 0.10, {BackgroundColor3 = COLORS.Gray, BackgroundTransparency = 0.10}) end)
 		Close.Activated:Connect(closeVisualEggInfoPanel)
 
 		local Scroll = make("ScrollingFrame", {
 			Name = "Options",
-			Position = UDim2.fromScale(0.05, 0.18),
-			Size = UDim2.fromScale(0.90, 0.76),
+			Position = UDim2.fromScale(0.045, 0.155),
+			Size = UDim2.fromScale(0.91, 0.80),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			ScrollBarThickness = 3,
@@ -1198,8 +1232,8 @@ local function openVisualEggInfoPanel()
 			CanvasSize = UDim2.fromScale(0, 0),
 			ZIndex = 1003,
 		}, VisualEggInfoPanel)
-		make("UIListLayout", {Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder}, Scroll)
-		make("UIPadding", {PaddingRight = UDim.new(0, 9), PaddingBottom = UDim.new(0, 7)}, Scroll)
+		make("UIListLayout", {Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder}, Scroll)
+		make("UIPadding", {PaddingLeft = UDim.new(0, 2), PaddingRight = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8)}, Scroll)
 		createVisualSelectionRow(Scroll, "Name", "Name", 1)
 		createVisualSelectionRow(Scroll, "Mutation", "Mutation", 2)
 		createVisualSelectionRow(Scroll, "Distance", "Distance", 3)
@@ -1211,6 +1245,14 @@ local function openVisualEggInfoPanel()
 			end
 		end)
 	end
+
+	visualOverlayPreviousScrollY = ResultsScroll.CanvasPosition.Y
+	ResultsScroll.CanvasPosition = Vector2.new(0, 0)
+	ResultsScroll.ScrollingEnabled = false
+	ResultsScroll.Active = true
+	VisualEggInfoOverlay.Size = UDim2.new(1, 0, 0, ResultsScroll.AbsoluteSize.Y)
+	VisualEggInfoOverlay.Position = UDim2.fromOffset(0, 0)
+	setMainMenuInteractionBlocked(true)
 	VisualEggInfoOverlay.Visible = true
 end
 
@@ -1472,7 +1514,7 @@ local datasets = {
 
 local function clearResults()
 	for _, child in ipairs(ResultsScroll:GetChildren()) do
-		if not child:IsA("UIListLayout") and not child:IsA("UIPadding") then
+		if child ~= VisualEggInfoOverlay and not child:IsA("UIListLayout") and not child:IsA("UIPadding") then
 			child:Destroy()
 		end
 	end
@@ -1691,45 +1733,31 @@ local function findEggTools(eggToolDisplay)
 	return tools
 end
 
-local autoGoToBaseEnabled = false
-local baseMovementRunning = false
-
--- Checks the same two sources used by the egg-equipping system:
--- an egg currently equipped/in the backpack, or an unplaced egg recorded in EggInventory.
-local function hasAvailableEggForAction()
-	local character = LocalPlayer.Character
-	if character then
-		for _, child in ipairs(character:GetChildren()) do
-			if child:IsA("Tool") and child:GetAttribute("ItemType") == "AssetEgg" then
-				return true
-			end
-		end
-	end
-
-	local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
-	if backpack then
-		for _, child in ipairs(backpack:GetChildren()) do
-			if child:IsA("Tool") and child:GetAttribute("ItemType") == "AssetEgg" then
-				return true
-			end
-		end
-	end
-
+local function hasAvailableEgg()
 	local shared = game:GetService("ReplicatedStorage")
-	local saveModule = safeRequire(shared.Shared:FindFirstChild("Save"))
-	if saveModule and saveModule.Get then
-		local ok, data = pcall(saveModule.Get)
+	local save = safeRequire(shared.Shared:FindFirstChild("Save"))
+	if save and save.Get then
+		local ok, data = pcall(save.Get)
 		if ok and typeof(data) == "table" and typeof(data.EggInventory) == "table" then
-			for _, record in pairs(data.EggInventory) do
-				if typeof(record) == "table" and record.Placement == nil then
+			for uid, record in pairs(data.EggInventory) do
+				if typeof(uid) == "string" and uid ~= "" and typeof(record) == "table" and record.Placement == nil then
 					return true
 				end
 			end
 		end
 	end
 
+	local eggsFolder = shared.Shared and shared.Shared:FindFirstChild("Eggs")
+	local eggToolDisplay = eggsFolder and safeRequire(eggsFolder:FindFirstChild("EggToolDisplay"))
+	if eggToolDisplay then
+		return #findEggTools(eggToolDisplay) > 0
+	end
+
 	return false
 end
+
+local autoGoToBaseEnabled = false
+local baseMovementRunning = false
 
 local function resolveMyBaseCenterPoint()
 	local shared = game:GetService("ReplicatedStorage")
@@ -1748,6 +1776,11 @@ local function resolveMyBaseCenterPoint()
 end
 
 local function moveToMyBase()
+	if not hasAvailableEgg() then
+		baseMovementRunning = false
+		return false
+	end
+
 	local centerPoint = resolveMyBaseCenterPoint()
 	local character = LocalPlayer.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -1825,6 +1858,10 @@ local function getOwnPlotPlacement()
 end
 
 local function placeOneEgg()
+	if not hasAvailableEgg() then
+		return false
+	end
+
 	local shared = game:GetService("ReplicatedStorage")
 	local eggToolDisplay = safeRequire(shared.Shared.Eggs:FindFirstChild("EggToolDisplay"))
 	local eggState = safeRequire(shared.Client:FindFirstChild("EggState"))
@@ -1876,20 +1913,21 @@ local function setPlaceEggs(item, enabled)
 
 	task.spawn(function()
 		while running and not cleanedUp do
-			-- Base movement is only active when Auto Place Eggs is also enabled
-			-- and at least one unplaced egg exists in the inventory/hand.
-			if autoGoToBaseEnabled and hasAvailableEggForAction() then
+			-- No egg means neither movement nor placement should run.
+			if not hasAvailableEgg() then
+				baseMovementRunning = false
+				task.wait(0.50)
+				continue
+			end
+
+			-- When both options are enabled, reaching the base is always the first step.
+			if autoGoToBaseEnabled then
 				local atBase = moveToMyBase()
 				if not atBase then
 					-- Do not attempt to place an egg until the player reaches CenterPoint.
 					task.wait(0.15)
 					continue
 				end
-			end
-
-			if not hasAvailableEggForAction() then
-				task.wait(0.50)
-				continue
 			end
 
 			local placed = placeOneEgg()
@@ -2807,6 +2845,9 @@ renderResults = function()
 end
 
 local function setTab(name)
+	if VisualEggInfoOverlay and VisualEggInfoOverlay.Visible then
+		closeVisualEggInfoPanel()
+	end
 	currentTab = name
 	updateResultsScrollMode()
 	for tabName, button in pairs(tabButtons) do
