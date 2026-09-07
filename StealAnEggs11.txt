@@ -1067,7 +1067,7 @@ local function createVisualSelectionRow(parent, name, text, order)
 		BackgroundColor3 = COLORS.Black2,
 		BorderSizePixel = 0,
 		LayoutOrder = order,
-		ZIndex = 1005,
+		ZIndex = 1004,
 	}, parent)
 	make("UIStroke", {Thickness = 1.15, Color = COLORS.Gray3, Transparency = 0.16, ApplyStrokeMode = Enum.ApplyStrokeMode.Border}, Row)
 
@@ -1081,7 +1081,7 @@ local function createVisualSelectionRow(parent, name, text, order)
 		TextSize = 13,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Center,
-		ZIndex = 1007,
+		ZIndex = 1005,
 	}, Row)
 
 	local ToggleButton = make("TextButton", {
@@ -1104,7 +1104,7 @@ local function createVisualSelectionRow(parent, name, text, order)
 		Size = UDim2.fromOffset(19, 19),
 		BackgroundColor3 = COLORS.White,
 		BorderSizePixel = 0,
-		ZIndex = 1008,
+		ZIndex = 1007,
 	}, ToggleButton)
 	make("UICorner", {CornerRadius = UDim.new(1, 0)}, Knob)
 
@@ -1118,14 +1118,6 @@ end
 
 local function closeVisualEggInfoPanel()
 	visualPanelOpen = false
-	launcherDragging = false
-	menuDragging = false
-	launcherDragInput = nil
-	menuDragInput = nil
-	launcherDragStart = nil
-	menuDragStart = nil
-	launcherStartPos = nil
-	menuStartPos = nil
 	if VisualEggInfoOverlay then
 		VisualEggInfoOverlay.Visible = false
 	end
@@ -1146,11 +1138,10 @@ local function openVisualEggInfoPanel()
 			Position = UDim2.fromScale(0, 0),
 			Size = UDim2.fromScale(1, 1),
 			BackgroundColor3 = COLORS.Black,
-			BackgroundTransparency = 0.42,
+			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Visible = false,
-			Active = true,
-			ClipsDescendants = false,
+			Active = false,
 			ZIndex = 1000,
 		}, ScreenGui)
 
@@ -1178,7 +1169,7 @@ local function openVisualEggInfoPanel()
 			BorderSizePixel = 0,
 			Active = true,
 			ClipsDescendants = true,
-			ZIndex = 1002,
+			ZIndex = 101,
 		}, VisualEggInfoOverlay)
 		make("UIStroke", {Thickness = 1.2, Color = COLORS.Gray2, Transparency = 0.10}, VisualEggInfoPanel)
 
@@ -1192,7 +1183,7 @@ local function openVisualEggInfoPanel()
 			TextSize = 15,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextYAlignment = Enum.TextYAlignment.Center,
-			ZIndex = 1003,
+			ZIndex = 102,
 		}, VisualEggInfoPanel)
 
 		local Close = make("TextButton", {
@@ -1208,7 +1199,7 @@ local function openVisualEggInfoPanel()
 			TextColor3 = COLORS.White,
 			Font = Enum.Font.GothamBold,
 			TextSize = 13,
-			ZIndex = 1005,
+			ZIndex = 105,
 		}, VisualEggInfoPanel)
 		make("UIAspectRatioConstraint", {AspectRatio = 1}, Close)
 		Close.MouseEnter:Connect(function() tween(Close, 0.10, {BackgroundColor3 = COLORS.Gray3, BackgroundTransparency = 0}) end)
@@ -1229,7 +1220,7 @@ local function openVisualEggInfoPanel()
 			Active = true,
 			AutomaticCanvasSize = Enum.AutomaticSize.Y,
 			CanvasSize = UDim2.fromScale(0, 0),
-			ZIndex = 1004,
+			ZIndex = 103,
 		}, VisualEggInfoPanel)
 		make("UIListLayout", {Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder}, Scroll)
 		make("UIPadding", {
@@ -1244,14 +1235,9 @@ local function openVisualEggInfoPanel()
 		createVisualSelectionRow(Scroll, "Rarity", "Rarity", 4)
 		installEnglishGuard(VisualEggInfoOverlay)
 		registerCleanup(function()
-			if VisualEggInfoModal and VisualEggInfoModal.Parent then
-				VisualEggInfoModal:Destroy()
-			elseif VisualEggInfoOverlay and VisualEggInfoOverlay.Parent then
+			if VisualEggInfoOverlay and VisualEggInfoOverlay.Parent then
 				VisualEggInfoOverlay:Destroy()
 			end
-			VisualEggInfoModal = nil
-			VisualEggInfoOverlay = nil
-			VisualEggInfoPanel = nil
 		end)
 	end
 	visualPanelOpen = true
@@ -3117,7 +3103,7 @@ local function isPointInside(guiObject, point)
 end
 
 local closeFallbackConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if cleanedUp or not ScreenGui.Parent or not Menu.Visible or ConfirmOverlay.Visible or visualPanelOpen then
+	if cleanedUp or not ScreenGui.Parent or not Menu.Visible or ConfirmOverlay.Visible then
 		return
 	end
 	if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
