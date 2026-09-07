@@ -637,12 +637,7 @@ local function openLockPanel()
 	LockPanel.Position = UDim2.fromScale(0.5, 0.5)
 end
 
-LockButton.Activated:Connect(function()
-	if visualPanelOpen then
-		return
-	end
-	openLockPanel()
-end)
+LockButton.Activated:Connect(openLockPanel)
 
 local TabList = make("ScrollingFrame", {
 	Name = "Tabs",
@@ -764,8 +759,6 @@ local tabs = {
 local tabButtons = {}
 local currentTab = "Main"
 local visualPanelOpen = false
-local visualPanelPreviousResultsScrollY = 0
-local visualPanelPreviousTabScrollY = 0
 
 local ResultsScroll = make("ScrollingFrame", {
 	Name = "Results",
@@ -1074,7 +1067,7 @@ local function createVisualSelectionRow(parent, name, text, order)
 		BackgroundColor3 = COLORS.Black2,
 		BorderSizePixel = 0,
 		LayoutOrder = order,
-		ZIndex = 1004,
+		ZIndex = 1002,
 	}, parent)
 	make("UIStroke", {Thickness = 1.15, Color = COLORS.Gray3, Transparency = 0.16, ApplyStrokeMode = Enum.ApplyStrokeMode.Border}, Row)
 
@@ -1088,7 +1081,7 @@ local function createVisualSelectionRow(parent, name, text, order)
 		TextSize = 13,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Center,
-		ZIndex = 1005,
+		ZIndex = 1002,
 	}, Row)
 
 	local ToggleButton = make("TextButton", {
@@ -1100,7 +1093,7 @@ local function createVisualSelectionRow(parent, name, text, order)
 		BorderSizePixel = 0,
 		AutoButtonColor = false,
 		Text = "",
-		ZIndex = 1006,
+		ZIndex = 1002,
 	}, Row)
 	make("UICorner", {CornerRadius = UDim.new(1, 0)}, ToggleButton)
 
@@ -1111,13 +1104,12 @@ local function createVisualSelectionRow(parent, name, text, order)
 		Size = UDim2.fromOffset(19, 19),
 		BackgroundColor3 = COLORS.White,
 		BorderSizePixel = 0,
-		ZIndex = 1007,
+		ZIndex = 1002,
 	}, ToggleButton)
 	make("UICorner", {CornerRadius = UDim.new(1, 0)}, Knob)
 
 	updateVisualSelectionButton(ToggleButton, Knob, name)
 	ToggleButton.Activated:Connect(function()
-		-- This toggle belongs to the visual panel and remains interactive while it is open.
 		setVisualSelection(name, not visualSelectionState[name])
 		updateVisualSelectionButton(ToggleButton, Knob, name)
 	end)
@@ -1126,26 +1118,11 @@ end
 
 local function closeVisualEggInfoPanel()
 	visualPanelOpen = false
-
-	-- Restore the menu exactly to the state it had when the panel opened.
-	if TabList then
-		TabList.ScrollingEnabled = true
-		TabList.Active = true
-		TabList.CanvasPosition = Vector2.new(0, visualPanelPreviousTabScrollY)
-	end
-	if ResultsScroll then
-		ResultsScroll.ScrollingEnabled = currentTab ~= "Credits"
-		ResultsScroll.Active = currentTab ~= "Credits"
-		ResultsScroll.CanvasPosition = Vector2.new(0, visualPanelPreviousResultsScrollY)
-	end
-	SearchBox.Active = true
-	SearchClear.Active = true
-
-	if VisualEggInfoOverlay then
-		VisualEggInfoOverlay.Visible = false
-	end
 	if VisualEggInfoModal then
 		VisualEggInfoModal.Visible = false
+	end
+	if VisualEggInfoPanel then
+		VisualEggInfoPanel.Visible = false
 	end
 end
 
@@ -1161,12 +1138,11 @@ local function openVisualEggInfoPanel()
 			Position = UDim2.fromScale(0, 0),
 			Size = UDim2.fromScale(1, 1),
 			BackgroundColor3 = COLORS.Black,
-			-- Same dimming level used by the main X/confirmation overlay.
 			BackgroundTransparency = 0.42,
 			BorderSizePixel = 0,
 			Visible = false,
 			Active = true,
-			ZIndex = 90,
+			ZIndex = 999,
 		}, ScreenGui)
 
 		-- Keep the existing panel width and bottom edge; extend only upward
@@ -1176,27 +1152,24 @@ local function openVisualEggInfoPanel()
 			Position = UDim2.fromScale(0.50, 0.035),
 			Size = UDim2.fromScale(0.465, 0.935),
 			BackgroundColor3 = COLORS.Black,
-			-- The full-screen modal supplies the dim background so this holder does
-			-- not darken the area around the panel a second time.
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Visible = false,
-			Active = true,
+			Active = false,
 			ClipsDescendants = true,
-			ZIndex = 100,
-		}, Content)
-		make("UIStroke", {Thickness = 1.4, Color = COLORS.Gray3, Transparency = 0.05}, VisualEggInfoOverlay)
-
+			ZIndex = 1001,
+		}, ScreenGui)
 		VisualEggInfoPanel = make("Frame", {
 			Name = "VisualEggInfoPanel",
-			Position = UDim2.fromScale(0.025, 0.020),
-			Size = UDim2.fromScale(0.95, 0.96),
+			Position = UDim2.fromScale(0.50, 0.5),
+			Size = UDim2.fromScale(0.465, 0.935),
 			BackgroundColor3 = COLORS.Black2,
 			BorderSizePixel = 0,
 			Active = true,
 			ClipsDescendants = true,
-			ZIndex = 101,
-		}, VisualEggInfoOverlay)
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			ZIndex = 1000,
+		}, ScreenGui)
 		make("UIStroke", {Thickness = 1.2, Color = COLORS.Gray2, Transparency = 0.10}, VisualEggInfoPanel)
 
 		make("TextLabel", {
@@ -1209,7 +1182,7 @@ local function openVisualEggInfoPanel()
 			TextSize = 15,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextYAlignment = Enum.TextYAlignment.Center,
-			ZIndex = 102,
+			ZIndex = 1001,
 		}, VisualEggInfoPanel)
 
 		local Close = make("TextButton", {
@@ -1225,7 +1198,7 @@ local function openVisualEggInfoPanel()
 			TextColor3 = COLORS.White,
 			Font = Enum.Font.GothamBold,
 			TextSize = 13,
-			ZIndex = 105,
+			ZIndex = 1003,
 		}, VisualEggInfoPanel)
 		make("UIAspectRatioConstraint", {AspectRatio = 1}, Close)
 		Close.MouseEnter:Connect(function() tween(Close, 0.10, {BackgroundColor3 = COLORS.Gray3, BackgroundTransparency = 0}) end)
@@ -1246,7 +1219,7 @@ local function openVisualEggInfoPanel()
 			Active = true,
 			AutomaticCanvasSize = Enum.AutomaticSize.Y,
 			CanvasSize = UDim2.fromScale(0, 0),
-			ZIndex = 103,
+			ZIndex = 1001,
 		}, VisualEggInfoPanel)
 		make("UIListLayout", {Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder}, Scroll)
 		make("UIPadding", {
@@ -1259,32 +1232,21 @@ local function openVisualEggInfoPanel()
 		createVisualSelectionRow(Scroll, "Mutation", "Mutation", 2)
 		createVisualSelectionRow(Scroll, "Distance", "Distance", 3)
 		createVisualSelectionRow(Scroll, "Rarity", "Rarity", 4)
-		installEnglishGuard(VisualEggInfoOverlay)
+		installEnglishGuard(VisualEggInfoPanel)
 		registerCleanup(function()
-			if VisualEggInfoOverlay and VisualEggInfoOverlay.Parent then
-				VisualEggInfoOverlay:Destroy()
+			if VisualEggInfoModal and VisualEggInfoModal.Parent then
+				VisualEggInfoModal:Destroy()
+			end
+			if VisualEggInfoPanel and VisualEggInfoPanel.Parent then
+				VisualEggInfoPanel:Destroy()
 			end
 		end)
 	end
-	-- Capture the current menu state before locking it so closing the panel
-	-- returns the player to the exact same tab/scroll position/category layout.
-	visualPanelPreviousResultsScrollY = ResultsScroll.CanvasPosition.Y
-	visualPanelPreviousTabScrollY = TabList.CanvasPosition.Y
-
 	visualPanelOpen = true
-
-	-- Freeze the main menu's scrolling/search input while leaving the visual panel
-	-- above the blocker fully interactive. Category expansion and tab switching
-	-- are also guarded in their click handlers below.
-	TabList.ScrollingEnabled = false
-	TabList.Active = false
-	ResultsScroll.ScrollingEnabled = false
-	ResultsScroll.Active = false
-	SearchBox.Active = false
-	SearchClear.Active = false
-
 	VisualEggInfoModal.Visible = true
-	VisualEggInfoOverlay.Visible = true
+	VisualEggInfoPanel.Visible = true
+	-- The modal blocks the menu and launcher visually/input-wise while leaving
+	-- the Visual settings panel itself interactive until its X button is used.
 end
 
 local datasets = {
@@ -1510,12 +1472,7 @@ local datasets = {
 					Description = "Choose which egg information should be displayed.",
 					Selector = true,
 					Icon = IMAGE_CLICK,
-					Action = function()
-						if visualPanelOpen then
-							return
-						end
-						openVisualEggInfoPanel()
-					end,
+					Action = openVisualEggInfoPanel,
 					Compact = true,
 				},
 				{
@@ -2718,9 +2675,6 @@ createStandardRow = function(item, layoutOrder)
 		Right.MouseEnter:Connect(function() tween(Right, 0.10, {BackgroundColor3 = COLORS.Gray3}) end)
 		Right.MouseLeave:Connect(function() tween(Right, 0.10, {BackgroundColor3 = COLORS.Gray}) end)
 		Right.Activated:Connect(function()
-			if visualPanelOpen then
-				return
-			end
 			if item.Action then item.Action() end
 		end)
 		return Row
@@ -2763,9 +2717,6 @@ createStandardRow = function(item, layoutOrder)
 		updateToggle(false)
 
 		ToggleButton.Activated:Connect(function()
-			if visualPanelOpen then
-				return
-			end
 			setToggleState(item, not (toggleStates[item] == true))
 			updateToggle(true)
 		end)
@@ -2784,39 +2735,16 @@ createStandardRow = function(item, layoutOrder)
 		Name = "ClickSurface", Position = UDim2.fromScale(0, 0), Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 4,
 	}, Row)
-	Hit.MouseEnter:Connect(function()
-		if visualPanelOpen then
-			return
-		end
-		tween(Row, 0.10, {BackgroundColor3 = COLORS.DarkGray})
-	end)
-	Hit.MouseLeave:Connect(function()
-		if visualPanelOpen then
-			return
-		end
-		tween(Row, 0.10, {BackgroundColor3 = COLORS.Black2})
-	end)
+	Hit.MouseEnter:Connect(function() tween(Row, 0.10, {BackgroundColor3 = COLORS.DarkGray}) end)
+	Hit.MouseLeave:Connect(function() tween(Row, 0.10, {BackgroundColor3 = COLORS.Black2}) end)
 	if item.Action then
-		Hit.Activated:Connect(function()
-			if visualPanelOpen then
-				return
-			end
-			item.Action()
-		end)
-		Right.Activated:Connect(function()
-			if visualPanelOpen then
-				return
-			end
-			item.Action()
-		end)
+		Hit.Activated:Connect(item.Action)
+		Right.Activated:Connect(item.Action)
 	end
 	return Row
 end
 
 renderResults = function()
-	if visualPanelOpen then
-		return
-	end
 	local previousScrollY = ResultsScroll.CanvasPosition.Y
 	clearResults()
 	local query = SearchBox.Text
@@ -2883,9 +2811,6 @@ renderResults = function()
 end
 
 local function setTab(name)
-	if visualPanelOpen then
-		return
-	end
 	currentTab = name
 	updateResultsScrollMode()
 	for tabName, button in pairs(tabButtons) do
@@ -2953,17 +2878,11 @@ for index, tabInfo in ipairs(tabs) do
 	}, Tab)
 
 	Tab.MouseEnter:Connect(function()
-		if visualPanelOpen then
-			return
-		end
 		if currentTab ~= tabInfo.Name then
 			tween(Tab, 0.11, {BackgroundColor3 = COLORS.DarkGray, BackgroundTransparency = 0.05})
 		end
 	end)
 	Tab.MouseLeave:Connect(function()
-		if visualPanelOpen then
-			return
-		end
 		if currentTab ~= tabInfo.Name then
 			tween(Tab, 0.11, {BackgroundColor3 = COLORS.Black2, BackgroundTransparency = 0.15})
 		end
@@ -3135,9 +3054,6 @@ for _, button in ipairs({ConfirmCancel, ConfirmOK}) do
 end
 
 local function hideMenu()
-	if visualPanelOpen then
-		return
-	end
 	if not Menu.Parent then
 		return
 	end
@@ -3156,18 +3072,12 @@ local function showMenu()
 end
 
 MinimizeButton.Activated:Connect(function()
-	if visualPanelOpen then
-		return
-	end
 	hideMenu()
 end)
 
 local closeBusy = false
 
 local function requestCloseFromButton()
-	if visualPanelOpen then
-		return
-	end
 	if closeBusy or cleanedUp or not ScreenGui.Parent then
 		return
 	end
@@ -3455,9 +3365,6 @@ local inputEndedConnection = UserInputService.InputEnded:Connect(function(input)
 end)
 
 Launcher.Activated:Connect(function()
-	if visualPanelOpen then
-		return
-	end
 	if launcherDidDrag then
 		launcherDidDrag = false
 		return
@@ -3472,17 +3379,11 @@ local function updateSearchVisual()
 end
 
 local searchTextConnection = SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
-	if visualPanelOpen then
-		return
-	end
 	updateSearchVisual()
 	renderResults()
 end)
 
 SearchClear.Activated:Connect(function()
-	if visualPanelOpen then
-		return
-	end
 	SearchBox.Text = ""
 	SearchBox:CaptureFocus()
 end)
