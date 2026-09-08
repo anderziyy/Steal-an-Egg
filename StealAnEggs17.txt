@@ -1892,37 +1892,23 @@ local function setPlaceEggs(item, enabled)
 
 	task.spawn(function()
 		while running and not cleanedUp do
-			-- Only act when an egg is actually available in the character/backpack.
-			-- If it is in the backpack, equip it first so PlantEgg receives a valid
-			-- equipped egg/tool instead of only seeing its saved inventory UID.
-			local equippedUID = getEquippedEggUID()
-			if not equippedUID then
-				local availableUID = getAvailableEggUID()
-				if typeof(availableUID) == "string" and availableUID ~= "" then
-					equippedUID = equipOneAvailableEgg(availableUID)
-				end
-			end
-
-			if not equippedUID then
+			-- Placing eggs is inactive while there is no egg in the inventory/hand.
+			-- This uses the same inventory + equipped-egg detection already used by
+			-- Auto Equip Eggs instead of attempting a placement blindly.
+			local availableUID = getAvailableEggUID()
+			if not availableUID and not getEquippedEggUID() then
 				task.wait(0.50)
 				continue
 			end
 
-			-- When both options are enabled, reaching the player's own base is
-			-- always the first step. Auto Go To Base by itself never moves the player.
+			-- When both options are enabled, reaching the base is always the first step.
 			if autoGoToBaseEnabled then
 				local atBase = moveToMyBase()
 				if not atBase then
+					-- Do not attempt to place an egg until the player reaches CenterPoint.
 					task.wait(0.15)
 					continue
 				end
-			end
-
-			-- Re-check the equipped egg immediately before placement.
-			equippedUID = getEquippedEggUID()
-			if not equippedUID then
-				task.wait(0.15)
-				continue
 			end
 
 			local placed = placeOneEgg()
@@ -2090,11 +2076,9 @@ local function getAvailableEggUID()
 					end
 				end
 			end
-			for uid, record in pairs(data.EggInventory) do
-				if typeof(uid) == "string" and typeof(record) == "table" and record.Placement == nil then
-					return uid
-				end
-			end
+			-- Only accept an egg UID when the corresponding egg Tool is actually
+			-- present in the character or Backpack. This prevents stale save-data
+			-- entries from triggering movement/placement when no egg is available.
 		end
 	end
 
