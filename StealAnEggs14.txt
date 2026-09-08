@@ -1141,10 +1141,8 @@ local function openVisualEggInfoPanel()
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Visible = false,
-			-- Input shield: blocks interaction with the menu underneath while
-			-- remaining below the Visual settings panel (ZIndex 101).
-			Active = true,
-			ZIndex = 99,
+			Active = false,
+			ZIndex = 1000,
 		}, ScreenGui)
 
 		-- Keep the existing panel width and bottom edge; extend only upward
@@ -1221,7 +1219,8 @@ local function openVisualEggInfoPanel()
 			ScrollingEnabled = true,
 			Active = true,
 			AutomaticCanvasSize = Enum.AutomaticSize.Y,
-			CanvasSize = UDim2.fromScale(0, 0),
+			CanvasSize = UDim2.fromScale(0, 1.2),
+			ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
 			ZIndex = 103,
 		}, VisualEggInfoPanel)
 		make("UIListLayout", {Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder}, Scroll)
