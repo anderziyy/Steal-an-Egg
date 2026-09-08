@@ -21,7 +21,7 @@ local IMAGE_GAME_ID = "rbxassetid://88704800286791"
 local DISCORD_LINK = "https://discord.gg/72P6NhC5Pf"
 
 local COLORS = {
-	Black = Color3.fromRGB(7, 7, 10),
+	Black = Color3.fromRGB(11, 11, 13),
 	Black2 = Color3.fromRGB(16, 16, 18),
 	DarkGray = Color3.fromRGB(24, 24, 27),
 	Gray = Color3.fromRGB(43, 43, 47),
@@ -298,226 +298,1305 @@ local CloseButton = make("TextButton", {
 	Text = "X",
 	TextColor3 = COLORS.White,
 	Font = Enum.Font.GothamBold,
-	TextSize = 16,
-	ZIndex = 20,
+	TextSize = 14,
+	ZIndex = 50,
 }, Header)
+
+local function styleHeaderButton(button)
+	button.MouseEnter:Connect(function()
+		tween(button, 0.12, {BackgroundColor3 = COLORS.Gray3, BackgroundTransparency = 0})
+	end)
+	button.MouseLeave:Connect(function()
+		tween(button, 0.12, {BackgroundColor3 = COLORS.Gray, BackgroundTransparency = 0.18})
+	end)
+end
+styleHeaderButton(LockButton)
+styleHeaderButton(MinimizeButton)
+styleHeaderButton(CloseButton)
+
+local Body = make("Frame", {
+	Name = "Body",
+	Position = UDim2.fromScale(0, 0.105),
+	Size = UDim2.fromScale(1, 0.895),
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	ZIndex = 2,
+}, Menu)
+
+local Sidebar = make("Frame", {
+	Name = "Sidebar",
+	Position = UDim2.fromScale(0, 0),
+	Size = UDim2.fromScale(0.235, 1),
+	BackgroundColor3 = COLORS.Black2,
+	BorderSizePixel = 0,
+	ZIndex = 3,
+}, Body)
+make("UIStroke", {
+	Thickness = 1,
+	Color = COLORS.Gray,
+	Transparency = 0.45,
+}, Sidebar)
+
+local Content = make("Frame", {
+	Name = "Content",
+	Position = UDim2.fromScale(0.235, 0),
+	Size = UDim2.fromScale(0.765, 1),
+	BackgroundColor3 = COLORS.Black,
+	BorderSizePixel = 0,
+	ZIndex = 3,
+}, Body)
+
+local SearchBar = make("Frame", {
+	Name = "SearchBar",
+	Position = UDim2.fromScale(0.035, 0.035),
+	Size = UDim2.fromScale(0.93, 0.095),
+	BackgroundColor3 = COLORS.DarkGray,
+	BorderSizePixel = 0,
+	ZIndex = 5,
+}, Content)
+make("UIStroke", {
+	Thickness = 1,
+	Color = COLORS.Gray2,
+	Transparency = 0.18,
+}, SearchBar)
+
+local SearchIcon = make("ImageLabel", {
+	Name = "Icon",
+	Position = UDim2.fromScale(0.035, 0.23),
+	Size = UDim2.fromScale(0.075, 0.54),
+	BackgroundTransparency = 1,
+	Image = IMAGE_SEARCH,
+	ImageColor3 = COLORS.SoftWhite,
+	ScaleType = Enum.ScaleType.Fit,
+	ZIndex = 6,
+}, SearchBar)
+
+local SearchBox = make("TextBox", {
+	Name = "Input",
+	Position = UDim2.fromScale(0.12, 0),
+	Size = UDim2.fromScale(0.78, 1),
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	ClearTextOnFocus = false,
+	PlaceholderText = "",
+	Text = "",
+	TextColor3 = COLORS.White,
+	TextTransparency = 0,
+	Font = Enum.Font.Gotham,
+	TextSize = 15,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	TextYAlignment = Enum.TextYAlignment.Center,
+	ZIndex = 6,
+}, SearchBar)
+
+local SearchHint = make("TextLabel", {
+	Name = "Hint",
+	Position = UDim2.fromScale(0.12, 0),
+	Size = UDim2.fromScale(0.78, 1),
+	BackgroundTransparency = 1,
+	Text = "Search...",
+	TextColor3 = COLORS.Muted,
+	Font = Enum.Font.Gotham,
+	TextSize = 15,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	TextYAlignment = Enum.TextYAlignment.Center,
+	Visible = true,
+	ZIndex = 7,
+}, SearchBar)
+
+local SearchClear = make("TextButton", {
+	Name = "Clear",
+	AnchorPoint = Vector2.new(1, 0.5),
+	Position = UDim2.fromScale(0.965, 0.5),
+	Size = UDim2.fromScale(0.07, 0.62),
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	AutoButtonColor = false,
+	Text = "X",
+	TextColor3 = COLORS.SoftWhite,
+	Font = Enum.Font.GothamBold,
+	TextSize = 13,
+	Visible = false,
+	ZIndex = 8,
+}, SearchBar)
+
 
 local LockOverlay = make("Frame", {
 	Name = "LockOverlay",
 	Position = UDim2.fromScale(0, 0),
 	Size = UDim2.fromScale(1, 1),
 	BackgroundColor3 = COLORS.Black,
-	BackgroundTransparency = 0.58,
+	BackgroundTransparency = 0.42,
 	BorderSizePixel = 0,
 	Visible = false,
 	Active = true,
-	ZIndex = 100,
+	ZIndex = 1000,
 }, ScreenGui)
 
-local LockLabel = make("TextLabel", {
+local LockPanel = make("Frame", {
+	Name = "LockPanel",
 	AnchorPoint = Vector2.new(0.5, 0.5),
 	Position = UDim2.fromScale(0.5, 0.5),
-	Size = UDim2.fromScale(0.36, 0.12),
+	Size = UDim2.fromScale(0.46, 0.40),
 	BackgroundColor3 = COLORS.Black2,
 	BorderSizePixel = 0,
-	Text = "Menu is locked",
+	Active = true,
+	ZIndex = 1001,
+}, LockOverlay)
+make("UIAspectRatioConstraint", {AspectRatio = 1.65}, LockPanel)
+make("UIStroke", {
+	Thickness = 1.4,
+	Color = COLORS.Gray3,
+	Transparency = 0.08,
+}, LockPanel)
+
+local LockTitle = make("TextLabel", {
+	Position = UDim2.fromScale(0.08, 0.08),
+	Size = UDim2.fromScale(0.72, 0.18),
+	BackgroundTransparency = 1,
+	Text = "Lock Controls",
 	TextColor3 = COLORS.White,
 	Font = Enum.Font.GothamBold,
 	TextSize = 16,
-	ZIndex = 101,
-}, LockOverlay)
-make("UICorner", {CornerRadius = UDim.new(0, 8)}, LockLabel)
+	TextXAlignment = Enum.TextXAlignment.Left,
+	TextYAlignment = Enum.TextYAlignment.Center,
+	ZIndex = 1002,
+}, LockPanel)
 
-local lockEnabled = false
-local lockButtonSelected = false
+local LockPanelClose = make("TextButton", {
+	Name = "Close",
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.fromScale(0.94, 0.05),
+	Size = UDim2.fromScale(0.060, 0.70),
+	BackgroundColor3 = COLORS.Gray,
+	BackgroundTransparency = 0.18,
+	BorderSizePixel = 0,
+	AutoButtonColor = false,
+	Active = true,
+	Selectable = false,
+	Text = "X",
+	TextColor3 = COLORS.White,
+	Font = Enum.Font.GothamBold,
+	TextSize = 13,
+	ZIndex = 1003,
+}, LockPanel)
+make("UIAspectRatioConstraint", {AspectRatio = 1}, LockPanelClose)
+
+local LockDescription = make("TextLabel", {
+	Position = UDim2.fromScale(0.08, 0.25),
+	Size = UDim2.fromScale(0.84, 0.20),
+	BackgroundTransparency = 1,
+	Text = "Lock the mod menu and/or its button in their current position.",
+	TextColor3 = COLORS.Muted,
+	Font = Enum.Font.Gotham,
+	TextSize = 12,
+	TextWrapped = true,
+	TextXAlignment = Enum.TextXAlignment.Center,
+	TextYAlignment = Enum.TextYAlignment.Center,
+	ZIndex = 1002,
+}, LockPanel)
+
 local lockMenuSelected = false
+local lockButtonSelected = false
+local lockEnabled = false
 
-LockButton.MouseEnter:Connect(function()
-	tween(LockButton, 0.1, {BackgroundColor3 = COLORS.Gray2, BackgroundTransparency = 0})
-end)
-LockButton.MouseLeave:Connect(function()
-	tween(LockButton, 0.1, {BackgroundColor3 = COLORS.Gray, BackgroundTransparency = 0.18})
-end)
+local function createLockChoice(name, text, x)
+	local Button = make("TextButton", {
+		Name = name,
+		Position = UDim2.fromScale(x, 0.48),
+		Size = UDim2.fromScale(0.38, 0.18),
+		BackgroundColor3 = COLORS.Black,
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		Text = "",
+		Active = true,
+		ZIndex = 1003,
+	}, LockPanel)
+	make("UIStroke", {Thickness = 1.2, Color = COLORS.Gray3, Transparency = 0.05}, Button)
 
-LockButton.Activated:Connect(function()
-	lockEnabled = not lockEnabled
-	LockOverlay.Visible = lockEnabled
-end)
+	local Label = make("TextLabel", {
+		Position = UDim2.fromScale(0.08, 0),
+		Size = UDim2.fromScale(0.76, 1),
+		BackgroundTransparency = 1,
+		Text = text,
+		TextColor3 = COLORS.White,
+		Font = Enum.Font.GothamSemibold,
+		TextSize = 12,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		ZIndex = 1004,
+	}, Button)
 
-local Content = make("Frame", {
-	Name = "Content",
-	Position = UDim2.fromScale(0, 0.105),
-	Size = UDim2.fromScale(1, 0.895),
-	BackgroundColor3 = COLORS.Black2,
+	local Check = make("TextLabel", {
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.fromScale(0.93, 0.5),
+		Size = UDim2.fromScale(0.18, 0.70),
+		BackgroundTransparency = 1,
+		Text = "",
+		TextColor3 = COLORS.White,
+		Font = Enum.Font.GothamBold,
+		TextSize = 14,
+		TextXAlignment = Enum.TextXAlignment.Center,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		ZIndex = 1004,
+	}, Button)
+
+	local state = false
+	local function setState(value)
+		state = value == true
+		Button.BackgroundColor3 = state and COLORS.Gray2 or COLORS.Black
+		Check.Text = state and "✓" or ""
+	end
+
+	Button.Activated:Connect(function()
+		setState(not state)
+		if name == "MenuChoice" then
+			lockMenuSelected = state
+		else
+			lockButtonSelected = state
+		end
+	end)
+	setState(false)
+	return Button
+end
+
+createLockChoice("MenuChoice", "Lock Menu", 0.08)
+createLockChoice("ButtonChoice", "Lock Button", 0.54)
+
+local LockEnableToggle = make("TextButton", {
+	Name = "EnableLock",
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.fromScale(0.5, 0.72),
+	Size = UDim2.fromScale(0.13, 0.10),
+	BackgroundColor3 = COLORS.Gray,
 	BorderSizePixel = 0,
-	ZIndex = 2,
-}, Menu)
-
-make("UIStroke", {
-	Thickness = 1,
-	Color = COLORS.Gray,
-	Transparency = 0.38,
-}, Content)
-
-local TabList = make("Frame", {
-	Name = "TabList",
-	Position = UDim2.fromScale(0, 0),
-	Size = UDim2.fromScale(0.22, 1),
-	BackgroundColor3 = COLORS.Black2,
+	AutoButtonColor = false,
+	Text = "",
+	ZIndex = 1003,
+}, LockPanel)
+make("UICorner", {CornerRadius = UDim.new(1, 0)}, LockEnableToggle)
+local LockEnableKnob = make("Frame", {
+	Name = "Knob",
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.23, 0.5),
+	Size = UDim2.fromScale(0.34, 0.78),
+	BackgroundColor3 = COLORS.White,
 	BorderSizePixel = 0,
-	ZIndex = 3,
-}, Content)
+	ZIndex = 1004,
+}, LockEnableToggle)
+make("UICorner", {CornerRadius = UDim.new(1, 0)}, LockEnableKnob)
+local LockEnableLabel = make("TextLabel", {
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.fromScale(0.5, 0.84),
+	Size = UDim2.fromScale(0.70, 0.10),
+	BackgroundTransparency = 1,
+	Text = "Enable Lock",
+	TextColor3 = COLORS.White,
+	Font = Enum.Font.GothamSemibold,
+	TextSize = 12,
+	TextXAlignment = Enum.TextXAlignment.Center,
+	TextYAlignment = Enum.TextYAlignment.Center,
+	ZIndex = 1004,
+}, LockPanel)
+
+local function updateLockToggle()
+	local targetColor = lockEnabled and COLORS.Gray3 or COLORS.Gray
+	local targetPosition = UDim2.fromScale(lockEnabled and 0.77 or 0.23, 0.5)
+	tween(LockEnableToggle, 0.16, {BackgroundColor3 = targetColor})
+	tween(LockEnableKnob, 0.16, {Position = targetPosition})
+end
+
+local function setLockEnabled(value)
+	lockEnabled = value == true
+	updateLockToggle()
+end
+
+updateLockToggle()
+
+LockEnableToggle.Activated:Connect(function()
+	setLockEnabled(not lockEnabled)
+end)
+
+local function closeLockPanel()
+	LockOverlay.Visible = false
+end
+
+LockPanelClose.MouseEnter:Connect(function()
+	tween(LockPanelClose, 0.10, {BackgroundColor3 = COLORS.Gray3, BackgroundTransparency = 0})
+end)
+LockPanelClose.MouseLeave:Connect(function()
+	tween(LockPanelClose, 0.10, {BackgroundColor3 = COLORS.Gray, BackgroundTransparency = 0.18})
+end)
+LockPanelClose.Activated:Connect(closeLockPanel)
+
+local function openLockPanel()
+	if cleanedUp or not ScreenGui.Parent then
+		return
+	end
+	LockOverlay.Visible = true
+	LockPanel.Position = UDim2.fromScale(0.5, 0.5)
+end
+
+LockButton.Activated:Connect(openLockPanel)
+
+local TabList = make("ScrollingFrame", {
+	Name = "Tabs",
+	Position = UDim2.fromScale(0.055, 0.045),
+	Size = UDim2.fromScale(0.89, 0.90),
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	ScrollBarThickness = 3,
+	ScrollBarImageColor3 = COLORS.White,
+	ScrollBarImageTransparency = 0.05,
+	CanvasSize = UDim2.fromScale(0, 1.08),
+	AutomaticCanvasSize = Enum.AutomaticSize.Y,
+	ScrollingDirection = Enum.ScrollingDirection.Y,
+	ZIndex = 4,
+}, Sidebar)
 
 make("UIListLayout", {
 	Padding = UDim.new(0, 0),
 	SortOrder = Enum.SortOrder.LayoutOrder,
-	VerticalAlignment = Enum.VerticalAlignment.Top,
+	HorizontalAlignment = Enum.HorizontalAlignment.Center,
 }, TabList)
 
-local TabListStroke = make("UIStroke", {
-	Thickness = 1,
-	Color = COLORS.Gray,
-	Transparency = 0.38,
-	ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-}, TabList)
-
-local SearchContainer = make("Frame", {
-	Name = "SearchContainer",
-	Position = UDim2.fromScale(0.22, 0),
-	Size = UDim2.fromScale(0.78, 0.065),
-	BackgroundColor3 = COLORS.Black2,
-	BorderSizePixel = 0,
-	ZIndex = 3,
-}, Content)
-
-make("UIStroke", {
-	Thickness = 1,
-	Color = COLORS.Gray,
-	Transparency = 0.38,
-	ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-}, SearchContainer)
-
-local SearchIcon = make("ImageLabel", {
-	Name = "Icon",
-	Position = UDim2.fromScale(0.032, 0.15),
-	Size = UDim2.fromScale(0.12, 0.70),
+-- Compact local player information shown at the bottom-left of the Sidebar.
+-- The tab list keeps its original size and position.
+local UserInfo = make("Frame", {
+	Name = "UserInfo",
+	AnchorPoint = Vector2.new(0, 1),
+	Position = UDim2.new(0.055, 0, 1, -5),
+	Size = UDim2.new(0.89, 0, 0, 34),
 	BackgroundTransparency = 1,
-	Image = IMAGE_SEARCH,
-	ImageColor3 = COLORS.SoftWhite,
-	ScaleType = Enum.ScaleType.Fit,
-	ZIndex = 4,
-}, SearchContainer)
+	BorderSizePixel = 0,
+	ZIndex = 8,
+}, Sidebar)
 
-local SearchBox = make("TextBox", {
-	Name = "SearchBox",
-	Position = UDim2.fromScale(0.17, 0.15),
-	Size = UDim2.fromScale(0.72, 0.70),
+local UserAvatar = make("ImageLabel", {
+	Name = "Avatar",
+	Position = UDim2.new(0, 0, 0.5, -15),
+	Size = UDim2.fromOffset(30, 30),
+	BackgroundColor3 = COLORS.DarkGray,
+	BackgroundTransparency = 0,
+	BorderSizePixel = 0,
+	Image = "",
+	ScaleType = Enum.ScaleType.Crop,
+	ZIndex = 9,
+}, UserInfo)
+make("UICorner", {
+	CornerRadius = UDim.new(1, 0),
+}, UserAvatar)
+make("UIStroke", {
+	Thickness = 1.2,
+	Color = COLORS.Gray3,
+	Transparency = 0.08,
+}, UserAvatar)
+
+local UserNameLabel = make("TextLabel", {
+	Name = "Username",
+	Position = UDim2.fromOffset(38, 1),
+	Size = UDim2.new(1, -38, 0, 16),
+	BackgroundTransparency = 1,
+	Text = LocalPlayer.Name,
+	TextColor3 = COLORS.White,
+	TextTransparency = 0,
+	Font = Enum.Font.GothamBold,
+	TextSize = 11,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	TextYAlignment = Enum.TextYAlignment.Center,
+	TextTruncate = Enum.TextTruncate.AtEnd,
+	ZIndex = 9,
+}, UserInfo)
+make("UIStroke", {
+	Thickness = 0.7,
+	Color = COLORS.White,
+	Transparency = 0.78,
+}, UserNameLabel)
+
+local DisplayNameLabel = make("TextLabel", {
+	Name = "DisplayName",
+	Position = UDim2.fromOffset(38, 16),
+	Size = UDim2.new(1, -38, 0, 15),
 	BackgroundTransparency = 1,
 	Text = "",
-	PlaceholderText = "Search...",
-	PlaceholderColor3 = COLORS.Muted,
-	TextColor3 = COLORS.White,
-	Font = Enum.Font.Gotham,
-	TextSize = 13,
-	TextXAlignment = Enum.TextXAlignment.Left,
-	TextYAlignment = Enum.TextYAlignment.Center,
-	CursorPosition = -1,
-	SelectionStart = -1,
-	ZIndex = 4,
-})
-SearchBox.Parent = SearchContainer
-
-local SearchHint = make("TextLabel", {
-	Name = "SearchHint",
-	Position = UDim2.fromScale(0.17, 0.15),
-	Size = UDim2.fromScale(0.72, 0.70),
-	BackgroundTransparency = 1,
-	Text = "Search...",
 	TextColor3 = COLORS.Muted,
+	TextTransparency = 0,
 	Font = Enum.Font.Gotham,
-	TextSize = 13,
+	TextSize = 9,
 	TextXAlignment = Enum.TextXAlignment.Left,
 	TextYAlignment = Enum.TextYAlignment.Center,
-	ZIndex = 3,
-}, SearchContainer)
+	TextTruncate = Enum.TextTruncate.AtEnd,
+	Visible = false,
+	ZIndex = 9,
+}, UserInfo)
 
-local SearchClear = make("TextButton", {
-	Name = "Clear",
-	AnchorPoint = Vector2.new(1, 0.5),
-	Position = UDim2.fromScale(0.968, 0.5),
-	Size = UDim2.fromScale(0.065, 0.70),
+if LocalPlayer.DisplayName ~= LocalPlayer.Name then
+	DisplayNameLabel.Text = "(@" .. LocalPlayer.DisplayName .. ")"
+	DisplayNameLabel.Visible = true
+end
+
+task.spawn(function()
+	local success, content = pcall(function()
+		return Players:GetUserThumbnailAsync(
+			LocalPlayer.UserId,
+			Enum.ThumbnailType.HeadShot,
+			Enum.ThumbnailSize.Size100x100
+		)
+	end)
+	if success and content and content ~= "" and UserAvatar.Parent then
+		UserAvatar.Image = content
+	end
+end)
+
+local tabs = {
+	{Name = "Main", Icon = IMAGE_MAIN},
+	{Name = "Auto Buy", Icon = IMAGE_AUTOBUY},
+	{Name = "Farm", Icon = IMAGE_FARM},
+	{Name = "Config", Icon = IMAGE_CONFIG},
+	{Name = "Credits", Icon = IMAGE_CREDITS},
+}
+
+local tabButtons = {}
+local currentTab = "Main"
+local visualPanelOpen = false
+
+local ResultsScroll = make("ScrollingFrame", {
+	Name = "Results",
+	Position = UDim2.fromScale(0.035, 0.155),
+	Size = UDim2.fromScale(0.93, 0.815),
 	BackgroundTransparency = 1,
 	BorderSizePixel = 0,
-	Text = "×",
-	TextColor3 = COLORS.White,
-	Font = Enum.Font.GothamBold,
-	TextSize = 18,
-	Visible = false,
+	ScrollBarThickness = 3,
+	ScrollBarImageColor3 = COLORS.White,
+	ScrollBarImageTransparency = 0.05,
+	CanvasSize = UDim2.fromScale(1, 0),
+	AutomaticCanvasSize = Enum.AutomaticSize.Y,
+	ScrollingDirection = Enum.ScrollingDirection.Y,
+	ScrollingEnabled = true,
+	Active = true,
+	Selectable = false,
+	ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
 	ZIndex = 4,
-}, SearchContainer)
+}, Content)
 
-local searchQuery = ""
+make("UIListLayout", {
+	Padding = UDim.new(0, 7),
+	SortOrder = Enum.SortOrder.LayoutOrder,
+	HorizontalAlignment = Enum.HorizontalAlignment.Center,
+}, ResultsScroll)
 
-local function renderResults()
-	local ResultsContent = ResultsScroll:FindFirstChild("Content")
-	if ResultsContent then
-		for _, child in ipairs(ResultsContent:GetChildren()) do
-			if child:IsA("GuiObject") and child.Name ~= "UIListLayout" and child.Name ~= "UIPadding" then
-				child:Destroy()
-			end
-		end
+local ResultsPadding = make("UIPadding", {
+	PaddingTop = UDim.new(0, 2),
+	PaddingBottom = UDim.new(0, 8),
+	PaddingRight = UDim.new(0, 40),
+}, ResultsScroll)
+
+local resultsScrollWheelConnection
+local resultsScrollTouchStart = nil
+local resultsScrollTouchCanvasY = nil
+local resultsScrollInputConnection
+
+local function isResultsScrollingAllowed()
+	return currentTab ~= "Credits" and ResultsScroll.Visible and ResultsScroll.ScrollingEnabled and not visualPanelOpen
+end
+
+local function getResultsMaxScrollY()
+	return math.max(0, ResultsScroll.AbsoluteCanvasSize.Y - ResultsScroll.AbsoluteSize.Y)
+end
+
+local function setResultsScrollY(y)
+	local maxY = getResultsMaxScrollY()
+	ResultsScroll.CanvasPosition = Vector2.new(0, math.clamp(y or 0, 0, maxY))
+end
+
+local function isPointInsideResults(point)
+	if not ResultsScroll.Visible then
+		return false
+	end
+	local position = ResultsScroll.AbsolutePosition
+	local size = ResultsScroll.AbsoluteSize
+	return point.X >= position.X
+		and point.X <= position.X + size.X
+		and point.Y >= position.Y
+		and point.Y <= position.Y + size.Y
+end
+
+local function updateResultsScrollMode()
+	local enabled = currentTab ~= "Credits" and not visualPanelOpen
+	ResultsScroll.ScrollingEnabled = enabled
+	ResultsScroll.Active = enabled
+	ResultsScroll.ScrollBarThickness = enabled and 3 or 0
+	ResultsScroll.CanvasPosition = Vector2.new(0, 0)
+end
+
+resultsScrollWheelConnection = ResultsScroll.InputChanged:Connect(function(input)
+	if not isResultsScrollingAllowed() then
+		return
 	end
 
-	local query = string.lower(searchQuery)
-	local layoutOrder = 0
-
-	for _, category in ipairs(currentCategories) do
-		if category.Type == "Category" then
-			local hasMatchingChildren = false
-			if query == "" then
-				hasMatchingChildren = true
-			else
-				for _, child in ipairs(category.Items or {}) do
-					if string.find(string.lower(child.Title or ""), query, 1, true) or
-						string.find(string.lower(child.Description or ""), query, 1, true) then
-						hasMatchingChildren = true
-						break
-					end
-				end
-			end
-
-			if not hasMatchingChildren and query ~= "" then
-				continue
-			end
-
-			layoutOrder += 1
-			createCategoryRow(category, layoutOrder)
+	if input.UserInputType == Enum.UserInputType.MouseWheel then
+		local delta = input.Position.Z
+		if delta ~= 0 then
+			setResultsScrollY(ResultsScroll.CanvasPosition.Y - (delta * ResultsScroll.AbsoluteSize.Y * 0.16))
 		end
+	elseif input.UserInputType == Enum.UserInputType.Touch then
+		resultsScrollTouchStart = input.Position
+		resultsScrollTouchCanvasY = ResultsScroll.CanvasPosition.Y
+	end
+end)
+
+resultsScrollInputConnection = UserInputService.InputChanged:Connect(function(input)
+	if not isResultsScrollingAllowed() then
+		return
 	end
 
-	task.wait()
-	local listLayout = ResultsScroll:FindFirstChildOfClass("UIListLayout")
-	if listLayout then
-		local canvasYSize = listLayout.AbsoluteContentSize.Y
-		if canvasYSize > 0 then
-			ResultsScroll.CanvasSize = UDim2.fromScale(1, math.max(1, (canvasYSize + 10) / ResultsScroll.AbsoluteSize.Y))
+	if input.UserInputType == Enum.UserInputType.Touch and resultsScrollTouchStart and resultsScrollTouchCanvasY then
+		local deltaY = input.Position.Y - resultsScrollTouchStart.Y
+		if math.abs(deltaY) >= 1 then
+			setResultsScrollY(resultsScrollTouchCanvasY - deltaY)
+		end
+	elseif input.UserInputType == Enum.UserInputType.MouseWheel and isPointInsideResults(input.Position) then
+		local delta = input.Position.Z
+		if delta ~= 0 then
+			setResultsScrollY(ResultsScroll.CanvasPosition.Y - (delta * ResultsScroll.AbsoluteSize.Y * 0.16))
+		end
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Touch then
+		resultsScrollTouchStart = nil
+		resultsScrollTouchCanvasY = nil
+	end
+end)
+
+local NotificationContainer = make("Frame", {
+	Name = "NotificationContainer",
+	AnchorPoint = Vector2.new(1, 1),
+	Position = UDim2.fromScale(0.98, 0.96),
+	Size = UDim2.fromScale(0.30, 0.42),
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	Active = false,
+	ZIndex = 2000,
+}, ScreenGui)
+
+make("UIListLayout", {
+	Padding = UDim.new(0.012, 0),
+	HorizontalAlignment = Enum.HorizontalAlignment.Right,
+	VerticalAlignment = Enum.VerticalAlignment.Bottom,
+	SortOrder = Enum.SortOrder.LayoutOrder,
+}, NotificationContainer)
+
+local notificationSerial = 0
+
+local function copyDiscordLink()
+	if typeof(setclipboard) == "function" then
+		local ok = pcall(setclipboard, DISCORD_LINK)
+		if ok then
+			return true
+		end
+	end
+	if typeof(toclipboard) == "function" then
+		local ok = pcall(toclipboard, DISCORD_LINK)
+		if ok then
+			return true
+		end
+	end
+	return false
+end
+
+local function copyText(text)
+	if typeof(setclipboard) == "function" then
+		local ok = pcall(setclipboard, text)
+		if ok then return true end
+	end
+	if typeof(toclipboard) == "function" then
+		local ok = pcall(toclipboard, text)
+		if ok then return true end
+	end
+	return false
+end
+
+local function copyGameId()
+	return copyText(tostring(game.PlaceId))
+end
+
+local function copyServerId()
+	return copyText(tostring(game.JobId))
+end
+
+local function requestServerRejoin()
+	local success, err = pcall(function()
+		TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
+	end)
+	if not success then
+		warn("Phantom Hub Rejoin error:", err)
+	end
+end
+
+local function showCopiedNotification(message, iconImage)
+	if cleanedUp or not ScreenGui.Parent then
+		return
+	end
+
+	notificationSerial += 1
+	local serial = notificationSerial
+
+	local Notice = make("Frame", {
+		Name = "CopiedNotification",
+		AnchorPoint = Vector2.new(1, 0),
+		Size = UDim2.fromScale(1, 0.20),
+		BackgroundColor3 = COLORS.Black2,
+		BackgroundTransparency = 0.04,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		LayoutOrder = -serial,
+		ZIndex = 2001,
+	}, NotificationContainer)
+	make("UIAspectRatioConstraint", {
+		AspectRatio = 4.9,
+		DominantAxis = Enum.DominantAxis.Width,
+	}, Notice)
+	make("UIStroke", {
+		Thickness = 1.2,
+		Color = COLORS.Gray3,
+		Transparency = 0.10,
+	}, Notice)
+
+	local Icon = make("ImageLabel", {
+		Name = "Icon",
+		Position = UDim2.fromScale(0.045, 0.18),
+		Size = UDim2.fromScale(0.16, 0.64),
+		BackgroundTransparency = 1,
+		Image = iconImage or IMAGE_DISCORD_COPIED,
+		ImageColor3 = COLORS.White,
+		ScaleType = Enum.ScaleType.Fit,
+		ZIndex = 2002,
+	}, Notice)
+
+	local Label = make("TextLabel", {
+		Name = "Label",
+		Position = UDim2.fromScale(0.25, 0.08),
+		Size = UDim2.fromScale(0.68, 0.78),
+		BackgroundTransparency = 1,
+		Text = message or "Discord link copied!",
+		TextColor3 = COLORS.White,
+		Font = Enum.Font.GothamSemibold,
+		TextSize = 12,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		ZIndex = 2002,
+	}, Notice)
+
+	local Progress = make("Frame", {
+		Name = "Progress",
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.fromScale(0, 1),
+		Size = UDim2.fromScale(1, 0.055),
+		BackgroundColor3 = COLORS.White,
+		BorderSizePixel = 0,
+		ZIndex = 2003,
+	}, Notice)
+
+	Notice.Position = UDim2.fromScale(1.06, 0)
+	Progress.Size = UDim2.fromScale(0, 0.055)
+
+	tween(Notice, 0.24, {
+		Position = UDim2.fromScale(1, 0),
+	})
+	tween(Progress, 1.8, {
+		Size = UDim2.fromScale(1, 0.055),
+	}, Enum.EasingStyle.Linear)
+
+	task.delay(1.82, function()
+		if not Notice.Parent or cleanedUp or serial > notificationSerial then
+			if Notice.Parent then
+				Notice:Destroy()
+			end
+			return
+		end
+		tween(Notice, 0.22, {
+			Position = UDim2.fromScale(1.06, 0),
+		})
+		task.delay(0.24, function()
+			if Notice.Parent then
+				Notice:Destroy()
+			end
+		end)
+	end)
+end
+
+local openConfirm
+
+local function requestServerHop()
+	local success, err = pcall(function()
+		TeleportService:Teleport(game.PlaceId, LocalPlayer)
+	end)
+	if not success then
+		warn("Phantom Hub Auto Rejoin error:", err)
+	end
+end
+
+local visualSelectionState = {
+	Name = false,
+	Mutation = false,
+	Distance = false,
+	Rarity = false,
+}
+local VisualEggInfoModal
+local VisualEggInfoOverlay
+local VisualEggInfoPanel
+
+local function setVisualSelection(name, value)
+	visualSelectionState[name] = value == true
+end
+
+local function updateVisualSelectionButton(button, knob, name)
+	local on = visualSelectionState[name] == true
+	local targetColor = on and COLORS.Gray3 or COLORS.Gray
+	local targetPosition = UDim2.fromScale(on and 0.77 or 0.23, 0.5)
+	tween(button, 0.14, {BackgroundColor3 = targetColor})
+	tween(knob, 0.14, {Position = targetPosition})
+end
+
+local function createVisualSelectionRow(parent, name, text, order)
+	local Row = make("Frame", {
+		Name = name .. "Row",
+		Size = UDim2.new(1, -18, 0, 62),
+		BackgroundColor3 = COLORS.Black2,
+		BorderSizePixel = 0,
+		LayoutOrder = order,
+		ZIndex = 1004,
+	}, parent)
+	make("UIStroke", {Thickness = 1.15, Color = COLORS.Gray3, Transparency = 0.16, ApplyStrokeMode = Enum.ApplyStrokeMode.Border}, Row)
+
+	make("TextLabel", {
+		Position = UDim2.new(0, 14, 0, 0),
+		Size = UDim2.new(1, -90, 1, 0),
+		BackgroundTransparency = 1,
+		Text = text,
+		TextColor3 = COLORS.White,
+		Font = Enum.Font.GothamSemibold,
+		TextSize = 13,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		ZIndex = 1005,
+	}, Row)
+
+	local ToggleButton = make("TextButton", {
+		Name = "Toggle",
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -14, 0.5, 0),
+		Size = UDim2.fromOffset(52, 24),
+		BackgroundColor3 = COLORS.Gray,
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		Text = "",
+		ZIndex = 1006,
+	}, Row)
+	make("UICorner", {CornerRadius = UDim.new(1, 0)}, ToggleButton)
+
+	local Knob = make("Frame", {
+		Name = "Knob",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.23, 0.5),
+		Size = UDim2.fromOffset(19, 19),
+		BackgroundColor3 = COLORS.White,
+		BorderSizePixel = 0,
+		ZIndex = 1007,
+	}, ToggleButton)
+	make("UICorner", {CornerRadius = UDim.new(1, 0)}, Knob)
+
+	updateVisualSelectionButton(ToggleButton, Knob, name)
+	ToggleButton.Activated:Connect(function()
+		setVisualSelection(name, not visualSelectionState[name])
+		updateVisualSelectionButton(ToggleButton, Knob, name)
+	end)
+	return Row
+end
+
+local function closeVisualEggInfoPanel()
+	visualPanelOpen = false
+	if VisualEggInfoOverlay then
+		VisualEggInfoOverlay.Visible = false
+	end
+	if VisualEggInfoModal then
+		VisualEggInfoModal.Visible = false
+	end
+	updateResultsScrollMode()
+end
+
+local function openVisualEggInfoPanel()
+	if cleanedUp or not ScreenGui.Parent then
+		return
+	end
+	if not VisualEggInfoOverlay then
+		-- Full-screen input blocker. The Visual settings panel remains interactive
+		-- above it, while the menu and launcher underneath become untouchable.
+		VisualEggInfoModal = make("Frame", {
+			Name = "VisualEggInfoModal",
+			Position = UDim2.fromScale(0, 0),
+			Size = UDim2.fromScale(1, 1),
+			BackgroundColor3 = COLORS.Black,
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			Visible = false,
+			Active = false,
+			ZIndex = 1000,
+		}, ScreenGui)
+
+		-- Keep the existing panel width and bottom edge; extend only upward
+		-- so its top covers the search-bar area.
+		VisualEggInfoOverlay = make("Frame", {
+			Name = "VisualEggInfoOverlay",
+			Position = UDim2.fromScale(0.50, 0.035),
+			Size = UDim2.fromScale(0.465, 0.935),
+			BackgroundColor3 = COLORS.Black,
+			BackgroundTransparency = 0.10,
+			BorderSizePixel = 0,
+			Visible = false,
+			Active = true,
+			ClipsDescendants = true,
+			ZIndex = 100,
+		}, Content)
+		make("UIStroke", {Thickness = 1.4, Color = COLORS.Gray3, Transparency = 0.05}, VisualEggInfoOverlay)
+
+		VisualEggInfoPanel = make("Frame", {
+			Name = "VisualEggInfoPanel",
+			Position = UDim2.fromScale(0.025, 0.020),
+			Size = UDim2.fromScale(0.95, 0.96),
+			BackgroundColor3 = COLORS.Black2,
+			BorderSizePixel = 0,
+			Active = true,
+			ClipsDescendants = true,
+			ZIndex = 101,
+		}, VisualEggInfoOverlay)
+		make("UIStroke", {Thickness = 1.2, Color = COLORS.Gray2, Transparency = 0.10}, VisualEggInfoPanel)
+
+		make("TextLabel", {
+			Position = UDim2.fromScale(0.055, 0.035),
+			Size = UDim2.fromScale(0.69, 0.11),
+			BackgroundTransparency = 1,
+			Text = "Egg ESP Settings",
+			TextColor3 = COLORS.White,
+			Font = Enum.Font.GothamBold,
+			TextSize = 15,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Center,
+			ZIndex = 102,
+		}, VisualEggInfoPanel)
+
+		local Close = make("TextButton", {
+			Name = "Close",
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.fromScale(0.955, 0.035),
+			Size = UDim2.fromScale(0.095, 0.105),
+			BackgroundColor3 = COLORS.Gray,
+			BackgroundTransparency = 0.18,
+			BorderSizePixel = 0,
+			AutoButtonColor = false,
+			Text = "X",
+			TextColor3 = COLORS.White,
+			Font = Enum.Font.GothamBold,
+			TextSize = 13,
+			ZIndex = 105,
+		}, VisualEggInfoPanel)
+		make("UIAspectRatioConstraint", {AspectRatio = 1}, Close)
+		Close.MouseEnter:Connect(function() tween(Close, 0.10, {BackgroundColor3 = COLORS.Gray3, BackgroundTransparency = 0}) end)
+		Close.MouseLeave:Connect(function() tween(Close, 0.10, {BackgroundColor3 = COLORS.Gray, BackgroundTransparency = 0.18}) end)
+		Close.Activated:Connect(closeVisualEggInfoPanel)
+
+		local Scroll = make("ScrollingFrame", {
+			Name = "Options",
+			Position = UDim2.fromScale(0.045, 0.17),
+			Size = UDim2.fromScale(0.91, 0.77),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ScrollBarThickness = 3,
+			ScrollBarImageColor3 = COLORS.White,
+			ScrollBarImageTransparency = 0.05,
+			ScrollingDirection = Enum.ScrollingDirection.Y,
+			ScrollingEnabled = true,
+			Active = true,
+			AutomaticCanvasSize = Enum.AutomaticSize.Y,
+			CanvasSize = UDim2.fromScale(0, 1.2),
+			ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
+			ZIndex = 103,
+		}, VisualEggInfoPanel)
+		make("UIListLayout", {Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder}, Scroll)
+		make("UIPadding", {
+			PaddingBottom = UDim.new(0, 10),
+			PaddingLeft = UDim.new(0, 25),
+			PaddingRight = UDim.new(0, 0),
+			PaddingTop = UDim.new(0, 15),
+		}, Scroll)
+		createVisualSelectionRow(Scroll, "Name", "Name", 1)
+		createVisualSelectionRow(Scroll, "Mutation", "Mutation", 2)
+		createVisualSelectionRow(Scroll, "Distance", "Distance", 3)
+		createVisualSelectionRow(Scroll, "Rarity", "Rarity", 4)
+		installEnglishGuard(VisualEggInfoOverlay)
+		registerCleanup(function()
+			if VisualEggInfoOverlay and VisualEggInfoOverlay.Parent then
+				VisualEggInfoOverlay:Destroy()
+			end
+		end)
+	end
+	visualPanelOpen = true
+	updateResultsScrollMode()
+	VisualEggInfoModal.Visible = true
+	VisualEggInfoOverlay.Visible = true
+	-- The modal blocks the menu and launcher visually/input-wise while leaving
+	-- the Visual settings panel itself interactive until its X button is used.
+end
+
+local datasets = {
+	Main = {
+		{
+			Type = "Category",
+			Title = "Plot",
+			Icon = "rbxassetid://72377406954512",
+			Expanded = false,
+			Items = {
+				{
+					Title = "Auto Open Eggs",
+					Description = "Automatically opens eggs in your plot when they are ready.",
+					Toggle = true,
+					Enabled = false,
+					Compact = true,
+					Controller = "OpenEggs",
+				},
+				{
+					Title = "Auto Equip Eggs",
+					Description = "Automatically equips an available egg whenever no egg is currently in your hand.",
+					Toggle = true,
+					Enabled = false,
+					Compact = true,
+					Controller = "EquipEgg",
+				},
+				{
+					Title = "Equip Best Pets",
+					Description = "Automatically equips your best available pets every 5 seconds.",
+					Toggle = true,
+					Enabled = false,
+					Compact = true,
+					Controller = "EquipBestPets",
+				},
+				{
+					Title = "Auto Place Eggs",
+					Description = "Automatically places available eggs while you are inside your own plot.",
+					Toggle = true,
+					Enabled = false,
+					Compact = true,
+					Controller = "PlaceEggs",
+				},
+				{
+					Title = "Auto Go To Base",
+					Description = "Automatically moves you to your base before placing eggs when both options are enabled.",
+					Toggle = true,
+					Enabled = false,
+					Compact = true,
+					Controller = "AutoGoToBase",
+				},
+			},
+		},
+		{
+			Type = "Category",
+			Title = "Collect",
+			Icon = "rbxassetid://84487893427781",
+			Expanded = false,
+			Items = {
+				{
+					Title = "Auto Redeem Codex",
+					Description = "Automatically redeems all available Codex rewards every second.",
+					Toggle = true,
+					Enabled = false,
+					Compact = true,
+					Controller = "AutoRedeemCodex",
+				},
+				{
+					Title = "Auto Collect Offline Earnings",
+					Description = "Automatically collects your available offline earnings every second.",
+					Toggle = true,
+					Enabled = false,
+					Compact = true,
+					Controller = "CollectOfflineEarnings",
+				},
+			},
+		},
+	},
+	["Auto Buy"] = {
+		{
+			Type = "Category",
+			Title = "Upgrades",
+			Icon = "rbxassetid://99024336494762",
+			Expanded = false,
+			Items = {
+				{
+					Title = "Auto Buy Treadmill Upgrades",
+					Description = "Automatically purchases the next Treadmill upgrade whenever you meet its requirements.",
+					Toggle = true,
+					Enabled = false,
+					Compact = true,
+					Controller = "TreadmillUpgrade",
+				},
+				{
+					Title = "Auto Buy Plot Upgrades",
+					Description = "Automatically purchases the next Plot upgrade whenever you meet its requirements.",
+					Toggle = true,
+					Enabled = false,
+					Compact = true,
+					Controller = "PlotUpgrade",
+				},
+			},
+		},
+		{
+			Type = "Category",
+			Title = "Trail",
+			Icon = "rbxassetid://129977800846764",
+			Expanded = false,
+			Items = {
+				{
+					Title = "Auto Buy Trails",
+					Description = "Automatically buys the best affordable trails you do not own, prioritizing higher speed multipliers.",
+					Toggle = true,
+					Enabled = false,
+					Compact = true,
+					Controller = "BuyTrails",
+				},
+				{
+					Title = "Equip Best Trail",
+					Description = "Automatically equips the best trail you currently own.",
+					Toggle = true,
+					Enabled = false,
+					Compact = true,
+					Controller = "EquipBestTrail",
+				},
+			},
+		},
+	},
+	Farm = {},
+	Config = {
+		{
+			Type = "Category",
+			Title = "Player",
+			Icon = "rbxassetid://102791662357524",
+			Expanded = false,
+			Items = {
+				{
+					Title = "Auto Rejoin",
+					Description = "Are you sure you want to switch servers?",
+					Icon = IMAGE_CLICK,
+					Compact = true,
+					Action = function()
+						openConfirm("Are you sure you want to switch servers?", requestServerHop)
+					end,
+				},
+				{
+					Title = "Quick Rejoin",
+					Description = "Are you sure you want to quickly rejoin this same server?",
+					Icon = IMAGE_CLICK,
+					Compact = true,
+					Action = function()
+						openConfirm("Are you sure you want to quickly rejoin the same server you are currently in?", requestServerRejoin)
+					end,
+				},
+				{
+					Title = "Copy Game ID",
+					Description = "Copy the current game ID to your clipboard.",
+					Icon = IMAGE_CLICK,
+					Compact = true,
+					Action = function()
+						if copyGameId() then
+							showCopiedNotification("Game ID copied!", IMAGE_GAME_ID)
+						end
+					end,
+				},
+				{
+					Title = "Copy Server ID",
+					Description = "Copy the current server ID to your clipboard.",
+					Icon = IMAGE_CLICK,
+					Compact = true,
+					Action = function()
+						if copyServerId() then
+							showCopiedNotification("Server ID copied!", IMAGE_GAME_ID)
+						end
+					end,
+				},
+				{
+					Title = "Anti AFK",
+					Description = "Simulate a short movement every minute while enabled.",
+					Toggle = true,
+					Enabled = false,
+					Compact = true,
+				},
+					{
+						Title = "Infinity Jump",
+						Description = "Allows you to jump infinitely without any restrictions.",
+						Toggle = true,
+						Enabled = false,
+						Compact = true,
+					},
+					{
+						Title = "Auto Bat Attack",
+						Description = "Automatically attacks with the bat whenever a bat is equipped.",
+						Toggle = true,
+						Enabled = false,
+						Compact = true,
+						Controller = "AutoBatAttack",
+					},
+					{
+						Title = "Auto Equip Bat",
+						Description = "Automatically equips a bat whenever one is available in your inventory.",
+						Toggle = true,
+						Enabled = false,
+						Compact = true,
+						Controller = "EquipBat",
+					},
+			},
+		},
+		{
+			Type = "Category",
+			Title = "Visual",
+			Icon = "rbxassetid://74492590812457",
+			Expanded = false,
+			Items = {
+				{
+					Title = "Guardian ESP",
+					Description = "Shows the names of the guards above their heads.",
+					Toggle = true,
+					Enabled = false,
+					Compact = true,
+				},
+				{
+					Title = "Egg ESP Settings",
+					Description = "Choose which egg information should be displayed.",
+					Selector = true,
+					Icon = IMAGE_CLICK,
+					Action = openVisualEggInfoPanel,
+					Compact = true,
+				},
+				{
+					Title = "Egg ESP",
+					Description = "Enables the selected egg information on screen.",
+					Toggle = true,
+					Enabled = false,
+					Compact = true,
+				},
+			},
+		},
+	},
+
+	Credits = {
+		{
+			Title = "By: Cleiton10HDx",
+			Description = "Owner of Phantom Hub.",
+			Compact = true,
+		},
+		{
+			Title = "Discord",
+			Description = "Copy the official Phantom Hub Discord server link.",
+			Icon = IMAGE_CLICK,
+			Compact = true,
+			Action = function()
+				copyDiscordLink()
+				showCopiedNotification()
+			end,
+		},
+	},
+}
+
+local function clearResults()
+	for _, child in ipairs(ResultsScroll:GetChildren()) do
+		if not child:IsA("UIListLayout") and not child:IsA("UIPadding") then
+			child:Destroy()
 		end
 	end
 end
 
-local function createCategoryRow(category, layoutOrder)
+local function setResultsScrollPositionY(y)
+	setResultsScrollY(y)
+end
+
+local function getVisibleItems(tabName, query)
+	local normalized = string.lower(query or "")
+
+	if normalized == "" then
+		return datasets[tabName] or {}
+	end
+
+	-- Search globally across every tab, but only return real options.
+	-- Category headers are never search results.
+	local filtered = {}
+	local searchOrder = {"Main", "Auto Buy", "Farm", "Config", "Credits"}
+	for _, datasetName in ipairs(searchOrder) do
+		for _, item in ipairs(datasets[datasetName] or {}) do
+			if item.Type == "Category" then
+				for _, child in ipairs(item.Items or {}) do
+					local title = string.lower(child.Title or "")
+					local description = string.lower(child.Description or "")
+					if string.find(title, normalized, 1, true) or string.find(description, normalized, 1, true) then
+						table.insert(filtered, child)
+					end
+				end
+			else
+				local title = string.lower(item.Title or "")
+				local description = string.lower(item.Description or "")
+				if string.find(title, normalized, 1, true) or string.find(description, normalized, 1, true) then
+					table.insert(filtered, item)
+				end
+			end
+		end
+	end
+
+	return filtered
+end
+
+local function showEmptyState(text)
+	local Empty = make("Frame", {
+		Name = "EmptyState",
+		Size = UDim2.fromScale(1, 0.22),
+		BackgroundColor3 = COLORS.Black2,
+		BorderSizePixel = 0,
+		ZIndex = 4,
+	}, ResultsScroll)
+	make("UIStroke", {
+		Thickness = 1,
+		Color = COLORS.Gray2,
+		Transparency = 0.28,
+	}, Empty)
+	make("TextLabel", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromScale(0.90, 0.68),
+		BackgroundTransparency = 1,
+		Text = text,
+		TextColor3 = COLORS.Muted,
+		Font = Enum.Font.Gotham,
+		TextSize = 14,
+		TextWrapped = true,
+		TextXAlignment = Enum.TextXAlignment.Center,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		ZIndex = 5,
+	}, Empty)
+end
+
+local createStandardRow
+local renderResults
+
+local function createCategoryRow(category, layoutOrder, searchQuery)
 	local expanded = category.Expanded == true
-	local children = category.Items or {}
+	local children = searchQuery ~= "" and (category._SearchItems or category.Items or {}) or (category.Items or {})
 
 	local Row = make("Frame", {
-		Name = category.Title .. "Row",
-		Size = UDim2.new(1, -18, 0, 52),
+		Name = "Category",
+		Position = UDim2.fromScale(0.02, 0),
+		Size = UDim2.fromScale(0.90, 0.15),
 		BackgroundColor3 = COLORS.Black2,
 		BorderSizePixel = 0,
 		LayoutOrder = layoutOrder,
 		ZIndex = 4,
 	}, ResultsScroll)
-
 	make("UIStroke", {
 		Thickness = 1,
 		Color = COLORS.Gray2,
@@ -581,6 +1660,8 @@ local function createCategoryRow(category, layoutOrder)
 	end)
 
 	Hit.Activated:Connect(function()
+		-- While the Visual settings panel is open, category expand/collapse
+		-- controls are temporarily disabled. Existing option states remain untouched.
 		if visualPanelOpen then
 			return
 		end
@@ -707,6 +1788,8 @@ local function setAutoGoToBase(item, enabled)
 		end,
 	}
 
+	-- This option intentionally does not move the player by itself.
+	-- Auto Place Eggs consumes this state and only enforces the move when both toggles are ON.
 	task.spawn(function()
 		while running and not cleanedUp do
 			if not autoGoToBaseEnabled then
@@ -774,6 +1857,7 @@ local function placeOneEgg()
 				end
 				return true
 			end
+			-- A failed PlantEgg call means the current plot/egg state is not valid anymore.
 			return false
 		end
 	end
@@ -796,15 +1880,20 @@ local function setPlaceEggs(item, enabled)
 
 	task.spawn(function()
 		while running and not cleanedUp do
+			-- Placing eggs is inactive while there is no egg in the inventory/hand.
+			-- This uses the same inventory + equipped-egg detection already used by
+			-- Auto Equip Eggs instead of attempting a placement blindly.
 			local availableUID = getAvailableEggUID()
 			if not availableUID and not getEquippedEggUID() then
 				task.wait(0.50)
 				continue
 			end
 
+			-- When both options are enabled, reaching the base is always the first step.
 			if autoGoToBaseEnabled then
 				local atBase = moveToMyBase()
 				if not atBase then
+					-- Do not attempt to place an egg until the player reaches CenterPoint.
 					task.wait(0.15)
 					continue
 				end
@@ -1337,6 +2426,8 @@ local function setBuyTrails(item, enabled)
 					return a.Id < b.Id
 				end)
 
+				-- Purchase only the single highest-priority affordable trail this cycle.
+				-- The loop then refreshes the inventory/money and continues with the next best trail.
 				for _, entry in ipairs(candidates) do
 					local price = entry.Config.Price
 					if typeof(price) == "number" and price >= 0 and money >= price then
@@ -1410,38 +2501,44 @@ local function isBatTool(tool)
 	return string.find(name, "bat", 1, true) ~= nil
 		or string.find(name, "bastão", 1, true) ~= nil
 		or string.find(name, "bastao", 1, true) ~= nil
+		or string.find(name, "volcano", 1, true) ~= nil
 end
 
-local function setAutoBatAttack(item, enabled)
-	disconnectToggle(item)
-	if not enabled then
-		return
+local function findBatTool()
+	local character = LocalPlayer.Character
+	if character then
+		for _, child in ipairs(character:GetChildren()) do
+			if isBatTool(child) then
+				return child
+			end
+		end
 	end
 
-	local running = true
-	toggleConnections[item] = {
-		Disconnect = function()
-			running = false
-		end,
-	}
-
-	task.spawn(function()
-		while running and not cleanedUp do
-			local character = LocalPlayer.Character
-			if character then
-				local tool = character:FindFirstChildOfClass("Tool")
-				if tool and isBatTool(tool) then
-					local grip = tool:FindFirstChild("Grip") or tool:FindFirstChild("Handle")
-					if grip and grip.Parent == tool then
-						pcall(function()
-							tool:Activate()
-						end)
-					end
-				end
+	local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+	if backpack then
+		for _, child in ipairs(backpack:GetChildren()) do
+			if isBatTool(child) then
+				return child
 			end
-			task.wait(0.10)
 		end
-	end)
+	end
+
+	return nil
+end
+
+local function getEquippedBat()
+	local character = LocalPlayer.Character
+	if not character then
+		return nil
+	end
+
+	for _, child in ipairs(character:GetChildren()) do
+		if isBatTool(child) then
+			return child
+		end
+	end
+
+	return nil
 end
 
 local function setEquipBat(item, enabled)
@@ -1460,1142 +2557,268 @@ local function setEquipBat(item, enabled)
 	task.spawn(function()
 		while running and not cleanedUp do
 			local character = LocalPlayer.Character
-			local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
-			if character and backpack then
-				for _, tool in ipairs(backpack:GetChildren()) do
-					if isBatTool(tool) then
-						pcall(function()
-							tool.Parent = character
-						end)
-						break
-					end
+			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+			if humanoid and humanoid.Health > 0 and not getEquippedBat() then
+				local bat = findBatTool()
+				if bat and bat.Parent ~= character then
+					pcall(function()
+						humanoid:EquipTool(bat)
+					end)
 				end
 			end
-			task.wait(0.50)
+			task.wait(0.35)
 		end
 	end)
 end
 
-local function createStandardRow(item, layoutOrder)
+local function setAutoBatAttack(item, enabled)
+	disconnectToggle(item)
+	if not enabled then
+		return
+	end
+
+	local running = true
+	toggleConnections[item] = {
+		Disconnect = function()
+			running = false
+		end,
+	}
+
+	task.spawn(function()
+		while running and not cleanedUp do
+			local tool = getEquippedBat()
+			if tool then
+				pcall(function()
+					tool:Activate()
+				end)
+			end
+			task.wait(0.35)
+		end
+	end)
+end
+
+local function setToggleState(item, enabled)
+	toggleStates[item] = enabled == true
+
+	if item.Controller == "AutoRedeemCodex" then
+		setAutoRedeemCodex(item, toggleStates[item])
+	elseif item.Controller == "TreadmillUpgrade" then
+		setTreadmillUpgrade(item, toggleStates[item])
+	elseif item.Controller == "PlotUpgrade" then
+		setPlotUpgrade(item, toggleStates[item])
+	elseif item.Controller == "CollectOfflineEarnings" then
+		setCollectOfflineEarnings(item, toggleStates[item])
+	elseif item.Controller == "BuyTrails" then
+		setBuyTrails(item, toggleStates[item])
+	elseif item.Controller == "EquipBestTrail" then
+		setEquipBestTrail(item, toggleStates[item])
+	elseif item.Controller == "OpenEggs" then
+		setOpenEggs(item, toggleStates[item])
+	elseif item.Controller == "PlaceEggs" then
+		setPlaceEggs(item, toggleStates[item])
+	elseif item.Controller == "AutoGoToBase" then
+		setAutoGoToBase(item, toggleStates[item])
+	elseif item.Controller == "EquipBestPets" then
+		setEquipBestPets(item, toggleStates[item])
+	elseif item.Controller == "EquipEgg" then
+		setEquipEgg(item, toggleStates[item])
+	elseif item.Title == "Anti AFK" then
+		setAntiAFK(item, toggleStates[item])
+	elseif item.Title == "Infinity Jump" then
+		setInfinityJump(item, toggleStates[item])
+	elseif item.Controller == "AutoBatAttack" then
+		setAutoBatAttack(item, toggleStates[item])
+	elseif item.Controller == "EquipBat" then
+		setEquipBat(item, toggleStates[item])
+	end
+end
+
+createStandardRow = function(item, layoutOrder)
 	local Row = make("Frame", {
-		Name = item.Title .. "Row",
-		Size = UDim2.new(1, -18, 0, 52),
+		Name = "Option",
+		Position = UDim2.fromScale(0.02, 0),
+		Size = UDim2.fromScale(item.Compact and 0.90 or 0.90, 0.15),
 		BackgroundColor3 = COLORS.Black2,
 		BorderSizePixel = 0,
 		LayoutOrder = layoutOrder,
-		Visible = searchQuery == "" or string.find(string.lower(item.Title or ""), string.lower(searchQuery), 1, true) or string.find(string.lower(item.Description or ""), string.lower(searchQuery), 1, true),
 		ZIndex = 4,
 	}, ResultsScroll)
+	make("UIStroke", {Thickness = 1, Color = COLORS.Gray2, Transparency = 0.30}, Row)
 
-	make("UIStroke", {
-		Thickness = 1,
-		Color = COLORS.Gray2,
-		Transparency = 0.30,
+	make("TextLabel", {
+		Position = UDim2.fromScale(0.035, 0.16), Size = UDim2.fromScale(0.73, 0.32),
+		BackgroundTransparency = 1, Text = item.Title or "Option", TextColor3 = COLORS.White,
+		Font = Enum.Font.GothamSemibold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center, ZIndex = 5,
 	}, Row)
 
-	local Hit = make("TextButton", {
-		Name = "ActionButton",
-		Position = UDim2.fromScale(0, 0),
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Text = "",
-		AutoButtonColor = false,
-		ZIndex = 4,
+	make("TextLabel", {
+		Position = UDim2.fromScale(0.035, 0.49), Size = UDim2.fromScale(0.73, 0.34),
+		BackgroundTransparency = 1, Text = item.Description or "", TextColor3 = COLORS.Muted,
+		Font = Enum.Font.Gotham, TextSize = 11, TextWrapped = true,
+		TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 5,
 	}, Row)
 
-	local Icon = make("ImageLabel", {
-		Name = "Icon",
-		Position = UDim2.fromScale(0.035, 0.20),
-		Size = UDim2.fromScale(0.10, 0.60),
-		BackgroundTransparency = 1,
-		Image = item.Icon or (item.Compact and "" or ""),
-		ImageColor3 = COLORS.SoftWhite,
-		ScaleType = Enum.ScaleType.Fit,
-		ZIndex = 5,
-	}, Row)
-
-	local Title = make("TextLabel", {
-		Position = UDim2.fromScale(0.16, 0),
-		Size = UDim2.fromScale(0.68, 1),
-		BackgroundTransparency = 1,
-		Text = item.Title or "Option",
-		TextColor3 = COLORS.White,
-		Font = Enum.Font.GothamSemibold,
-		TextSize = 14,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Center,
-		ZIndex = 5,
-	}, Row)
-
-	local Selector = make("TextLabel", {
-		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.fromScale(0.96, 0.5),
-		Size = UDim2.fromScale(0.09, 0.50),
-		BackgroundTransparency = 1,
-		Text = item.Selector and "◆" or "",
-		TextColor3 = COLORS.SoftWhite,
-		Font = Enum.Font.GothamBold,
-		TextSize = 15,
-		TextXAlignment = Enum.TextXAlignment.Center,
-		TextYAlignment = Enum.TextYAlignment.Center,
-		ZIndex = 5,
-	}, Row)
-
-	Hit.MouseEnter:Connect(function()
-		tween(Row, 0.10, {BackgroundColor3 = COLORS.DarkGray})
-	end)
-	Hit.MouseLeave:Connect(function()
-		tween(Row, 0.10, {BackgroundColor3 = COLORS.Black2})
-	end)
+	if item.Selector then
+		local Right = make("TextButton", {
+			Name = "SelectorButton",
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.fromScale(0.95, 0.5),
+			Size = UDim2.fromScale(0.16, 0.46),
+			BackgroundColor3 = COLORS.Gray,
+			BorderSizePixel = 0,
+			AutoButtonColor = false,
+			Text = "Open",
+			TextColor3 = COLORS.White,
+			Font = Enum.Font.GothamSemibold,
+			TextSize = 11,
+			ZIndex = 7,
+		}, Row)
+		make("UICorner", {CornerRadius = UDim.new(0, 8)}, Right)
+		Right.MouseEnter:Connect(function() tween(Right, 0.10, {BackgroundColor3 = COLORS.Gray3}) end)
+		Right.MouseLeave:Connect(function() tween(Right, 0.10, {BackgroundColor3 = COLORS.Gray}) end)
+		Right.Activated:Connect(function()
+			if item.Action then item.Action() end
+		end)
+		return Row
+	end
 
 	if item.Toggle then
 		local ToggleButton = make("TextButton", {
-			Name = "Toggle",
-			AnchorPoint = Vector2.new(1, 0.5),
-			Position = UDim2.fromScale(0.92, 0.5),
-			Size = UDim2.fromOffset(52, 24),
-			BackgroundColor3 = COLORS.Gray,
-			BorderSizePixel = 0,
-			AutoButtonColor = false,
-			Text = "",
-			ZIndex = 5,
+			Name = "Toggle", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.fromScale(0.95, 0.5),
+			Size = UDim2.fromScale(0.13, 0.44), BackgroundColor3 = COLORS.Gray, BorderSizePixel = 0,
+			AutoButtonColor = false, Text = "", ZIndex = 7,
 		}, Row)
 		make("UICorner", {CornerRadius = UDim.new(1, 0)}, ToggleButton)
-
 		local Knob = make("Frame", {
-			Name = "Knob",
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.23, 0.5),
-			Size = UDim2.fromOffset(19, 19),
-			BackgroundColor3 = COLORS.White,
-			BorderSizePixel = 0,
-			ZIndex = 6,
+			Name = "Knob", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.23, 0.5),
+			Size = UDim2.fromScale(0.34, 0.78), BackgroundColor3 = COLORS.White, BorderSizePixel = 0, ZIndex = 8,
 		}, ToggleButton)
 		make("UICorner", {CornerRadius = UDim.new(1, 0)}, Knob)
 
-		local enabled = item.Enabled == true
-		toggleStates[item] = enabled
-		local targetColor = enabled and COLORS.Gray3 or COLORS.Gray
-		local targetPosition = UDim2.fromScale(enabled and 0.77 or 0.23, 0.5)
-		ToggleButton.BackgroundColor3 = targetColor
-		Knob.Position = targetPosition
+		if toggleStates[item] == nil then
+			toggleStates[item] = item.Enabled == true
+		end
 
-		ToggleButton.MouseEnter:Connect(function()
-			tween(ToggleButton, 0.10, {BackgroundColor3 = COLORS.Gray3})
-		end)
-		ToggleButton.MouseLeave:Connect(function()
+		local function updateToggle(animate)
 			local on = toggleStates[item] == true
-			tween(ToggleButton, 0.10, {BackgroundColor3 = on and COLORS.Gray3 or COLORS.Gray})
-		end)
+			local targetColor = on and COLORS.Gray3 or COLORS.Gray
+			local targetPosition = UDim2.fromScale(on and 0.77 or 0.23, 0.5)
 
-		Hit.Activated:Connect(function()
-			toggleStates[item] = not toggleStates[item]
-			local on = toggleStates[item] == true
-			local newColor = on and COLORS.Gray3 or COLORS.Gray
-			local newPosition = UDim2.fromScale(on and 0.77 or 0.23, 0.5)
-			tween(ToggleButton, 0.14, {BackgroundColor3 = newColor})
-			tween(Knob, 0.14, {Position = newPosition})
-
-			if item.Controller then
-				if item.Controller == "OpenEggs" then
-					setOpenEggs(item, on)
-				elseif item.Controller == "EquipEgg" then
-					setEquipEgg(item, on)
-				elseif item.Controller == "EquipBestPets" then
-					setEquipBestPets(item, on)
-				elseif item.Controller == "PlaceEggs" then
-					setPlaceEggs(item, on)
-				elseif item.Controller == "AutoGoToBase" then
-					setAutoGoToBase(item, on)
-				elseif item.Controller == "AutoRedeemCodex" then
-					setAutoRedeemCodex(item, on)
-				elseif item.Controller == "CollectOfflineEarnings" then
-					setCollectOfflineEarnings(item, on)
-				elseif item.Controller == "TreadmillUpgrade" then
-					setTreadmillUpgrade(item, on)
-				elseif item.Controller == "PlotUpgrade" then
-					setPlotUpgrade(item, on)
-				elseif item.Controller == "BuyTrails" then
-					setBuyTrails(item, on)
-				elseif item.Controller == "EquipBestTrail" then
-					setEquipBestTrail(item, on)
-				elseif item.Controller == "AutoBatAttack" then
-					setAutoBatAttack(item, on)
-				elseif item.Controller == "EquipBat" then
-					setEquipBat(item, on)
-				end
+			if animate then
+				tween(ToggleButton, 0.16, {BackgroundColor3 = targetColor})
+				tween(Knob, 0.16, {Position = targetPosition})
+			else
+				ToggleButton.BackgroundColor3 = targetColor
+				Knob.Position = targetPosition
 			end
+		end
+
+		-- Initial rendering is applied instantly, so changing tabs, opening/closing
+		-- the menu, or opening/closing categories never makes the switch appear OFF
+		-- for a frame before returning to its saved state.
+		updateToggle(false)
+
+		ToggleButton.Activated:Connect(function()
+			setToggleState(item, not (toggleStates[item] == true))
+			updateToggle(true)
 		end)
-	elseif item.Action then
+		return Row
+	end
+
+	local Right = make("ImageButton", {
+		AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.fromScale(0.95, 0.5),
+		Size = UDim2.fromScale(0.09, 0.48), BackgroundTransparency = 1, AutoButtonColor = false,
+		Image = item.Icon or IMAGE_CLICK, ImageColor3 = COLORS.SoftWhite, ScaleType = Enum.ScaleType.Fit,
+		Visible = item.Icon ~= nil, Active = item.Icon ~= nil, ZIndex = 6,
+	}, Row)
+	make("UIAspectRatioConstraint", {AspectRatio = 1}, Right)
+
+	local Hit = make("TextButton", {
+		Name = "ClickSurface", Position = UDim2.fromScale(0, 0), Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 4,
+	}, Row)
+	Hit.MouseEnter:Connect(function() tween(Row, 0.10, {BackgroundColor3 = COLORS.DarkGray}) end)
+	Hit.MouseLeave:Connect(function() tween(Row, 0.10, {BackgroundColor3 = COLORS.Black2}) end)
+	if item.Action then
 		Hit.Activated:Connect(item.Action)
+		Right.Activated:Connect(item.Action)
 	end
-
 	return Row
 end
 
-local ResultsScroll = make("ScrollingFrame", {
-	Name = "Results",
-	Position = UDim2.fromScale(0.22, 0.065),
-	Size = UDim2.fromScale(0.78, 0.935),
-	BackgroundTransparency = 1,
-	BorderSizePixel = 0,
-	ScrollBarThickness = 3,
-	ScrollBarImageColor3 = COLORS.White,
-	ScrollBarImageTransparency = 0.05,
-	CanvasSize = UDim2.fromScale(1, 0),
-	AutomaticCanvasSize = Enum.AutomaticSize.Y,
-	ScrollingDirection = Enum.ScrollingDirection.Y,
-	ScrollingEnabled = true,
-	Active = true,
-	Selectable = false,
-	ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-	ZIndex = 4,
-}, Content)
-
-make("UIListLayout", {
-	Padding = UDim.new(0, 7),
-	SortOrder = Enum.SortOrder.LayoutOrder,
-	HorizontalAlignment = Enum.HorizontalAlignment.Center,
-}, ResultsScroll)
-
-local ResultsPadding = make("UIPadding", {
-	PaddingTop = UDim.new(0, 2),
-	PaddingBottom = UDim.new(0, 8),
-	PaddingRight = UDim.new(0, 40),
-}, ResultsScroll)
-
-local resultsScrollWheelConnection
-local resultsScrollTouchStart = nil
-local resultsScrollTouchCanvasY = nil
-local resultsScrollInputConnection
-
-local function isResultsScrollingAllowed()
-	return currentTab ~= "Credits" and ResultsScroll.Visible and ResultsScroll.ScrollingEnabled and not visualPanelOpen
-end
-
-local function getResultsMaxScrollY()
-	return math.max(0, ResultsScroll.AbsoluteCanvasSize.Y - ResultsScroll.AbsoluteSize.Y)
-end
-
-local function setResultsScrollY(y)
-	local maxY = getResultsMaxScrollY()
-	ResultsScroll.CanvasPosition = Vector2.new(0, math.clamp(y or 0, 0, maxY))
-end
-
-local function isPointInsideResults(point)
-	if not ResultsScroll.Visible then
-		return false
-	end
-	local position = ResultsScroll.AbsolutePosition
-	local size = ResultsScroll.AbsoluteSize
-	return point.X >= position.X
-		and point.X <= position.X + size.X
-		and point.Y >= position.Y
-		and point.Y <= position.Y + size.Y
-end
-
-local function updateResultsScrollMode()
-	local enabled = currentTab ~= "Credits"
-	ResultsScroll.ScrollingEnabled = enabled
-	ResultsScroll.Active = enabled
-	ResultsScroll.ScrollBarThickness = enabled and 3 or 0
-	ResultsScroll.CanvasPosition = Vector2.new(0, 0)
-end
-
-resultsScrollWheelConnection = ResultsScroll.InputChanged:Connect(function(input)
-	if not isResultsScrollingAllowed() then
-		return
-	end
-
-	if input.UserInputType == Enum.UserInputType.MouseWheel then
-		local delta = input.Position.Z
-		if delta ~= 0 then
-			setResultsScrollY(ResultsScroll.CanvasPosition.Y - (delta * ResultsScroll.AbsoluteSize.Y * 0.16))
-		end
-	elseif input.UserInputType == Enum.UserInputType.Touch then
-		resultsScrollTouchStart = input.Position
-		resultsScrollTouchCanvasY = ResultsScroll.CanvasPosition.Y
-	end
-end)
-
-resultsScrollInputConnection = UserInputService.InputChanged:Connect(function(input)
-	if not isResultsScrollingAllowed() then
-		return
-	end
-
-	if input.UserInputType == Enum.UserInputType.Touch and resultsScrollTouchStart and resultsScrollTouchCanvasY then
-		local deltaY = input.Position.Y - resultsScrollTouchStart.Y
-		if math.abs(deltaY) >= 1 then
-			setResultsScrollY(resultsScrollTouchCanvasY - deltaY)
-		end
-	elseif input.UserInputType == Enum.UserInputType.MouseWheel and isPointInsideResults(input.Position) then
-		local delta = input.Position.Z
-		if delta ~= 0 then
-			setResultsScrollY(ResultsScroll.CanvasPosition.Y - (delta * ResultsScroll.AbsoluteSize.Y * 0.16))
-		end
-	end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.Touch then
-		resultsScrollTouchStart = nil
-		resultsScrollTouchCanvasY = nil
-	end
-end)
-
-local NotificationContainer = make("Frame", {
-	Name = "NotificationContainer",
-	AnchorPoint = Vector2.new(1, 1),
-	Position = UDim2.fromScale(0.98, 0.96),
-	Size = UDim2.fromScale(0.30, 0.42),
-	BackgroundTransparency = 1,
-	BorderSizePixel = 0,
-	Active = false,
-	ZIndex = 2000,
-}, ScreenGui)
-
-make("UIListLayout", {
-	Padding = UDim.new(0.012, 0),
-	HorizontalAlignment = Enum.HorizontalAlignment.Right,
-	VerticalAlignment = Enum.VerticalAlignment.Bottom,
-	SortOrder = Enum.SortOrder.LayoutOrder,
-}, NotificationContainer)
-
-local notificationSerial = 0
-
-local function copyDiscordLink()
-	if typeof(setclipboard) == "function" then
-		local ok = pcall(setclipboard, DISCORD_LINK)
-		if ok then
-			return true
-		end
-	end
-	if typeof(toclipboard) == "function" then
-		local ok = pcall(toclipboard, DISCORD_LINK)
-		if ok then
-			return true
-		end
-	end
-	return false
-end
-
-local function copyText(text)
-	if typeof(setclipboard) == "function" then
-		local ok = pcall(setclipboard, text)
-		if ok then return true end
-	end
-	if typeof(toclipboard) == "function" then
-		local ok = pcall(toclipboard, text)
-		if ok then return true end
-	end
-	return false
-end
-
-local function copyGameId()
-	return copyText(tostring(game.PlaceId))
-end
-
-local function copyServerId()
-	return copyText(tostring(game.JobId))
-end
-
-local function requestServerRejoin()
-	local success, err = pcall(function()
-		TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
-	end)
-	if not success then
-		warn("Phantom Hub Rejoin error:", err)
-	end
-end
-
-local function showCopiedNotification(message, iconImage)
-	if cleanedUp or not ScreenGui.Parent then
-		return
-	end
-
-	notificationSerial += 1
-	local serial = notificationSerial
-
-	local Notice = make("Frame", {
-		Name = "CopiedNotification",
-		AnchorPoint = Vector2.new(1, 0),
-		Size = UDim2.fromScale(1, 0.20),
-		BackgroundColor3 = COLORS.Black2,
-		BackgroundTransparency = 0.04,
-		BorderSizePixel = 0,
-		ClipsDescendants = true,
-		LayoutOrder = -serial,
-		ZIndex = 2001,
-	}, NotificationContainer)
-	make("UIAspectRatioConstraint", {
-		AspectRatio = 4.9,
-		DominantAxis = Enum.DominantAxis.Width,
-	}, Notice)
-	make("UIStroke", {
-		Thickness = 1.2,
-		Color = COLORS.Gray3,
-		Transparency = 0.10,
-	}, Notice)
-
-	local Icon = make("ImageLabel", {
-		Name = "Icon",
-		Position = UDim2.fromScale(0.045, 0.18),
-		Size = UDim2.fromScale(0.16, 0.64),
-		BackgroundTransparency = 1,
-		Image = iconImage or IMAGE_DISCORD_COPIED,
-		ImageColor3 = COLORS.White,
-		ScaleType = Enum.ScaleType.Fit,
-		ZIndex = 2002,
-	}, Notice)
-
-	local Label = make("TextLabel", {
-		Name = "Label",
-		Position = UDim2.fromScale(0.25, 0.08),
-		Size = UDim2.fromScale(0.68, 0.78),
-		BackgroundTransparency = 1,
-		Text = message or "Discord link copied!",
-		TextColor3 = COLORS.White,
-		Font = Enum.Font.GothamSemibold,
-		TextSize = 12,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Center,
-		ZIndex = 2002,
-	}, Notice)
-
-	local Progress = make("Frame", {
-		Name = "Progress",
-		AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.fromScale(0, 1),
-		Size = UDim2.fromScale(1, 0.055),
-		BackgroundColor3 = COLORS.White,
-		BorderSizePixel = 0,
-		ZIndex = 2003,
-	}, Notice)
-
-	Notice.Position = UDim2.fromScale(1.06, 0)
-	Progress.Size = UDim2.fromScale(0, 0.055)
-
-	tween(Notice, 0.24, {
-		Position = UDim2.fromScale(1, 0),
-	})
-	tween(Progress, 1.8, {
-		Size = UDim2.fromScale(1, 0.055),
-	}, Enum.EasingStyle.Linear)
-
-	task.delay(1.82, function()
-		if not Notice.Parent or cleanedUp or serial > notificationSerial then
-			if Notice.Parent then
-				Notice:Destroy()
-			end
+renderResults = function()
+	local previousScrollY = ResultsScroll.CanvasPosition.Y
+	clearResults()
+	local query = SearchBox.Text
+	local items = getVisibleItems(currentTab, query)
+	if #items == 0 then
+		if currentTab == "Main" and query == "" then
+			setResultsScrollPositionY(0)
 			return
+		elseif query ~= "" then
+			showEmptyState("No matching options found.")
+		elseif currentTab == "Auto Buy" then
+			setResultsScrollPositionY(0)
+			return
+		elseif currentTab == "Config" then
+			showEmptyState("No options are available in Config.")
+		elseif currentTab == "Credits" then
+			showEmptyState("No options are available in Credits.")
+		else
+			showEmptyState("This tab has no options yet.")
 		end
-		tween(Notice, 0.22, {
-			Position = UDim2.fromScale(1.06, 0),
-		})
-		task.delay(0.24, function()
-			if Notice.Parent then
-				Notice:Destroy()
-			end
+		setResultsScrollPositionY(0)
+		return
+	end
+
+	local layoutIndex = 0
+	if query ~= "" then
+		-- Global search results are option-only; categories are never rendered.
+		for _, item in ipairs(items) do
+			layoutIndex += 1
+			createStandardRow(item, layoutIndex)
+		end
+		task.defer(function()
+			setResultsScrollPositionY(previousScrollY)
 		end)
-	end)
-end
-
-local openConfirm
-
-local function requestServerHop()
-	local success, err = pcall(function()
-		TeleportService:Teleport(game.PlaceId, LocalPlayer)
-	end)
-	if not success then
-		warn("Phantom Hub Auto Rejoin error:", err)
+		return
 	end
-end
 
-local visualSelectionState = {
-	Name = false,
-	Mutation = false,
-	Distance = false,
-	Rarity = false,
-}
-local VisualEggInfoModal
-local VisualEggInfoOverlay
-local VisualEggInfoPanel
-local VisualPanelSearchQuery = ""
-
-local function setVisualSelection(name, value)
-	visualSelectionState[name] = value == true
-end
-
-local function updateVisualSelectionButton(button, knob, name)
-	local on = visualSelectionState[name] == true
-	local targetColor = on and COLORS.Gray3 or COLORS.Gray
-	local targetPosition = UDim2.fromScale(on and 0.77 or 0.23, 0.5)
-	tween(button, 0.14, {BackgroundColor3 = targetColor})
-	tween(knob, 0.14, {Position = targetPosition})
-end
-
-local function createVisualSelectionRow(parent, name, text, order)
-	local Row = make("Frame", {
-		Name = name .. "Row",
-		Size = UDim2.new(1, -18, 0, 62),
-		BackgroundColor3 = COLORS.Black2,
-		BorderSizePixel = 0,
-		LayoutOrder = order,
-		ZIndex = 1002,
-	}, parent)
-	make("UIStroke", {Thickness = 1.15, Color = COLORS.Gray3, Transparency = 0.16, ApplyStrokeMode = Enum.ApplyStrokeMode.Border}, Row)
-
-	make("TextLabel", {
-		Position = UDim2.new(0, 14, 0, 0),
-		Size = UDim2.new(1, -90, 1, 0),
-		BackgroundTransparency = 1,
-		Text = text,
-		TextColor3 = COLORS.White,
-		Font = Enum.Font.GothamSemibold,
-		TextSize = 13,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Center,
-		ZIndex = 1002,
-	}, Row)
-
-	local ToggleButton = make("TextButton", {
-		Name = "Toggle",
-		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -14, 0.5, 0),
-		Size = UDim2.fromOffset(52, 24),
-		BackgroundColor3 = COLORS.Gray,
-		BorderSizePixel = 0,
-		AutoButtonColor = false,
-		Text = "",
-		ZIndex = 1002,
-	}, Row)
-	make("UICorner", {CornerRadius = UDim.new(1, 0)}, ToggleButton)
-
-	local Knob = make("Frame", {
-		Name = "Knob",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.23, 0.5),
-		Size = UDim2.fromOffset(19, 19),
-		BackgroundColor3 = COLORS.White,
-		BorderSizePixel = 0,
-		ZIndex = 1002,
-	}, ToggleButton)
-	make("UICorner", {CornerRadius = UDim.new(1, 0)}, Knob)
-
-	updateVisualSelectionButton(ToggleButton, Knob, name)
-	ToggleButton.Activated:Connect(function()
-		setVisualSelection(name, not visualSelectionState[name])
-		updateVisualSelectionButton(ToggleButton, Knob, name)
-	end)
-	return Row
-end
-
-local function closeVisualEggInfoPanel()
-	visualPanelOpen = false
-	if VisualEggInfoModal then
-		VisualEggInfoModal.Visible = false
-	end
-	if VisualEggInfoPanel then
-		VisualEggInfoPanel.Visible = false
-	end
-end
-
-local function updateVisualPanelSearch()
-	local Scroll = VisualEggInfoPanel:FindFirstChild("Options")
-	if not Scroll then return end
-	
-	local query = string.lower(VisualPanelSearchQuery)
-	
-	for _, child in ipairs(Scroll:GetChildren()) do
-		if child:IsA("GuiObject") and child.Name ~= "UIListLayout" and child.Name ~= "UIPadding" then
-			local titleLabel = child:FindFirstChild("TitleLabel")
-			if titleLabel then
-				local title = string.lower(titleLabel.Text)
-				child.Visible = query == "" or string.find(title, query, 1, true)
+	for _, item in ipairs(items) do
+		layoutIndex += 1
+		if item.Type == "Category" then
+			createCategoryRow(item, layoutIndex, query)
+			if item.Expanded then
+				layoutIndex += #(item.Items or {})
 			end
+		else
+			createStandardRow(item, layoutIndex)
 		end
 	end
-	
+
+	task.defer(function()
+		setResultsScrollPositionY(previousScrollY)
+		applyEnglishOnly(ResultsScroll)
+	end)
+	applyEnglishOnly(ResultsScroll)
+	-- Garantir que o canvas size seja recalculado corretamente para melhor scrolling
 	task.wait()
-	local listLayout = Scroll:FindFirstChildOfClass("UIListLayout")
+	local listLayout = ResultsScroll:FindFirstChildOfClass("UIListLayout")
 	if listLayout then
 		local canvasYSize = listLayout.AbsoluteContentSize.Y
 		if canvasYSize > 0 then
-			Scroll.CanvasSize = UDim2.fromScale(1, math.max(1, (canvasYSize + 10) / Scroll.AbsoluteSize.Y))
+			ResultsScroll.CanvasSize = UDim2.fromScale(1, math.max(1, (canvasYSize + 10) / ResultsScroll.AbsoluteSize.Y))
 		end
 	end
 end
 
-local function openVisualEggInfoPanel()
-	if cleanedUp or not ScreenGui.Parent then
+local function setTab(name)
+	-- The Visual panel temporarily locks tab switching.
+	-- Existing options/automation remain untouched.
+	if visualPanelOpen then
 		return
 	end
-	if not VisualEggInfoOverlay then
-		VisualEggInfoModal = make("Frame", {
-			Name = "VisualEggInfoModal",
-			Position = UDim2.fromScale(0, 0),
-			Size = UDim2.fromScale(1, 1),
-			BackgroundColor3 = COLORS.Black,
-			BackgroundTransparency = 0.42,
-			BorderSizePixel = 0,
-			Visible = false,
-			Active = true,
-			ZIndex = 999,
-		}, ScreenGui)
-
-		VisualEggInfoOverlay = make("Frame", {
-			Name = "VisualEggInfoOverlay",
-			Position = UDim2.fromScale(0.50, 0.11),
-			Size = UDim2.fromScale(0.40, 0.78),
-			BackgroundColor3 = COLORS.Black,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			Visible = false,
-			Active = false,
-			ClipsDescendants = true,
-			ZIndex = 1001,
-		}, ScreenGui)
-		VisualEggInfoPanel = make("Frame", {
-			Name = "VisualEggInfoPanel",
-			Position = UDim2.fromScale(0.50, 0.5),
-			Size = UDim2.fromScale(0.40, 0.78),
-			BackgroundColor3 = COLORS.Black,
-			BorderSizePixel = 0,
-			Active = true,
-			ClipsDescendants = true,
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			ZIndex = 1000,
-		}, ScreenGui)
-		make("UIStroke", {Thickness = 1.2, Color = COLORS.Gray2, Transparency = 0.10}, VisualEggInfoPanel)
-
-		make("TextLabel", {
-			Position = UDim2.fromScale(0.055, 0.035),
-			Size = UDim2.fromScale(0.69, 0.11),
-			BackgroundTransparency = 1,
-			Text = "Egg ESP Settings",
-			TextColor3 = COLORS.White,
-			Font = Enum.Font.GothamBold,
-			TextSize = 15,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextYAlignment = Enum.TextYAlignment.Center,
-			ZIndex = 1001,
-		}, VisualEggInfoPanel)
-
-		local Close = make("TextButton", {
-			Name = "Close",
-			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.fromScale(0.955, 0.035),
-			Size = UDim2.fromScale(0.095, 0.105),
-			BackgroundColor3 = COLORS.Gray,
-			BackgroundTransparency = 0.18,
-			BorderSizePixel = 0,
-			AutoButtonColor = false,
-			Text = "X",
-			TextColor3 = COLORS.White,
-			Font = Enum.Font.GothamBold,
-			TextSize = 13,
-			ZIndex = 1003,
-		}, VisualEggInfoPanel)
-		make("UIAspectRatioConstraint", {AspectRatio = 1}, Close)
-		Close.MouseEnter:Connect(function() tween(Close, 0.10, {BackgroundColor3 = COLORS.Gray3, BackgroundTransparency = 0}) end)
-		Close.MouseLeave:Connect(function() tween(Close, 0.10, {BackgroundColor3 = COLORS.Gray, BackgroundTransparency = 0.18}) end)
-		Close.Activated:Connect(closeVisualEggInfoPanel)
-
-		local SearchContainer = make("Frame", {
-			Name = "SearchContainer",
-			Position = UDim2.fromScale(0.045, 0.13),
-			Size = UDim2.fromScale(0.91, 0.050),
-			BackgroundColor3 = COLORS.Black2,
-			BorderSizePixel = 0,
-			ZIndex = 1001,
-		}, VisualEggInfoPanel)
-		make("UIStroke", {Thickness = 1.2, Color = COLORS.Gray2, Transparency = 0.10}, SearchContainer)
-
-		local SearchIcon = make("ImageLabel", {
-			Name = "Icon",
-			Position = UDim2.fromScale(0.035, 0.15),
-			Size = UDim2.fromScale(0.12, 0.70),
-			BackgroundTransparency = 1,
-			Image = IMAGE_SEARCH,
-			ImageColor3 = COLORS.SoftWhite,
-			ScaleType = Enum.ScaleType.Fit,
-			ZIndex = 1002,
-		}, SearchContainer)
-
-		local SearchBox = make("TextBox", {
-			Name = "SearchBox",
-			Position = UDim2.fromScale(0.17, 0.15),
-			Size = UDim2.fromScale(0.72, 0.70),
-			BackgroundTransparency = 1,
-			Text = "",
-			PlaceholderText = "Search...",
-			PlaceholderColor3 = COLORS.Muted,
-			TextColor3 = COLORS.White,
-			Font = Enum.Font.Gotham,
-			TextSize = 11,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextYAlignment = Enum.TextYAlignment.Center,
-			CursorPosition = -1,
-			SelectionStart = -1,
-			ZIndex = 1002,
-		}, SearchContainer)
-
-		local SearchHint = make("TextLabel", {
-			Name = "SearchHint",
-			Position = UDim2.fromScale(0.17, 0.15),
-			Size = UDim2.fromScale(0.72, 0.70),
-			BackgroundTransparency = 1,
-			Text = "Search...",
-			TextColor3 = COLORS.Muted,
-			Font = Enum.Font.Gotham,
-			TextSize = 11,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextYAlignment = Enum.TextYAlignment.Center,
-			ZIndex = 1001,
-		}, SearchContainer)
-
-		local SearchClear = make("TextButton", {
-			Name = "Clear",
-			AnchorPoint = Vector2.new(1, 0.5),
-			Position = UDim2.fromScale(0.968, 0.5),
-			Size = UDim2.fromScale(0.065, 0.70),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			Text = "×",
-			TextColor3 = COLORS.White,
-			Font = Enum.Font.GothamBold,
-			TextSize = 14,
-			Visible = false,
-			ZIndex = 1002,
-		}, SearchContainer)
-
-		SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
-			VisualPanelSearchQuery = SearchBox.Text
-			local hasText = SearchBox.Text ~= ""
-			SearchHint.Visible = not hasText
-			SearchClear.Visible = hasText
-			updateVisualPanelSearch()
-		end)
-
-		SearchClear.Activated:Connect(function()
-			SearchBox.Text = ""
-			SearchBox:CaptureFocus()
-		end)
-
-		local ButtonContainer = make("Frame", {
-			Name = "ButtonContainer",
-			Position = UDim2.fromScale(0.045, 0.195),
-			Size = UDim2.fromScale(0.91, 0.055),
-			BackgroundColor3 = COLORS.Black2,
-			BorderSizePixel = 0,
-			ZIndex = 1001,
-		}, VisualEggInfoPanel)
-		make("UIStroke", {Thickness = 1.2, Color = COLORS.Gray2, Transparency = 0.10}, ButtonContainer)
-
-		local EnableAllButton = make("TextButton", {
-			Name = "EnableAll",
-			Position = UDim2.fromScale(0.08, 0.15),
-			Size = UDim2.fromScale(0.38, 0.70),
-			BackgroundColor3 = COLORS.Gray,
-			BorderSizePixel = 0,
-			AutoButtonColor = false,
-			Text = "Enable All",
-			TextColor3 = COLORS.White,
-			Font = Enum.Font.GothamSemibold,
-			TextSize = 11,
-			ZIndex = 1002,
-		}, ButtonContainer)
-		make("UICorner", {CornerRadius = UDim.new(0, 4)}, EnableAllButton)
-
-		local DisableAllButton = make("TextButton", {
-			Name = "DisableAll",
-			Position = UDim2.fromScale(0.54, 0.15),
-			Size = UDim2.fromScale(0.38, 0.70),
-			BackgroundColor3 = COLORS.Gray,
-			BorderSizePixel = 0,
-			AutoButtonColor = false,
-			Text = "Disable All",
-			TextColor3 = COLORS.White,
-			Font = Enum.Font.GothamSemibold,
-			TextSize = 11,
-			ZIndex = 1002,
-		}, ButtonContainer)
-		make("UICorner", {CornerRadius = UDim.new(0, 4)}, DisableAllButton)
-
-		EnableAllButton.MouseEnter:Connect(function()
-			tween(EnableAllButton, 0.10, {BackgroundColor3 = COLORS.Gray3})
-		end)
-		EnableAllButton.MouseLeave:Connect(function()
-			tween(EnableAllButton, 0.10, {BackgroundColor3 = COLORS.Gray})
-		end)
-
-		DisableAllButton.MouseEnter:Connect(function()
-			tween(DisableAllButton, 0.10, {BackgroundColor3 = COLORS.Gray3})
-		end)
-		DisableAllButton.MouseLeave:Connect(function()
-			tween(DisableAllButton, 0.10, {BackgroundColor3 = COLORS.Gray})
-		end)
-
-		EnableAllButton.Activated:Connect(function()
-			setVisualSelection("Name", true)
-			setVisualSelection("Mutation", true)
-			setVisualSelection("Distance", true)
-			setVisualSelection("Rarity", true)
-			
-			local Scroll = VisualEggInfoPanel:FindFirstChild("Options")
-			if Scroll then
-				for _, child in ipairs(Scroll:GetChildren()) do
-					if child:IsA("GuiObject") and string.find(child.Name, "Row") then
-						local toggleButton = child:FindFirstChild("Toggle")
-						local knob = toggleButton and toggleButton:FindFirstChild("Knob")
-						if toggleButton and knob then
-							local buttonName = child.Name:gsub("Row", "")
-							updateVisualSelectionButton(toggleButton, knob, buttonName)
-						end
-					end
-				end
-			end
-		end)
-
-		DisableAllButton.Activated:Connect(function()
-			setVisualSelection("Name", false)
-			setVisualSelection("Mutation", false)
-			setVisualSelection("Distance", false)
-			setVisualSelection("Rarity", false)
-			
-			local Scroll = VisualEggInfoPanel:FindFirstChild("Options")
-			if Scroll then
-				for _, child in ipairs(Scroll:GetChildren()) do
-					if child:IsA("GuiObject") and string.find(child.Name, "Row") then
-						local toggleButton = child:FindFirstChild("Toggle")
-						local knob = toggleButton and toggleButton:FindFirstChild("Knob")
-						if toggleButton and knob then
-							local buttonName = child.Name:gsub("Row", "")
-							updateVisualSelectionButton(toggleButton, knob, buttonName)
-						end
-					end
-				end
-			end
-		end)
-
-		local Scroll = make("ScrollingFrame", {
-			Name = "Options",
-			Position = UDim2.fromScale(0.045, 0.265),
-			Size = UDim2.fromScale(0.91, 0.695),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ScrollBarThickness = 3,
-			ScrollBarImageColor3 = COLORS.White,
-			ScrollBarImageTransparency = 0.05,
-			ScrollingDirection = Enum.ScrollingDirection.Y,
-			ScrollingEnabled = true,
-			Active = true,
-			AutomaticCanvasSize = Enum.AutomaticSize.Y,
-			CanvasSize = UDim2.fromScale(0, 0),
-			ZIndex = 1001,
-		}, VisualEggInfoPanel)
-		make("UIListLayout", {Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder}, Scroll)
-		make("UIPadding", {
-			PaddingBottom = UDim.new(0, 10),
-			PaddingLeft = UDim.new(0, 10),
-			PaddingRight = UDim.new(0, 0),
-			PaddingTop = UDim.new(0, 8),
-		}, Scroll)
-
-		local nameRow = createVisualSelectionRow(Scroll, "Name", "Name", 1)
-		local titleLabel = make("TextLabel", {Name = "TitleLabel", Text = "Name", BackgroundTransparency = 1}, nameRow)
-		titleLabel.Visible = false
-		
-		local mutationRow = createVisualSelectionRow(Scroll, "Mutation", "Mutation", 2)
-		titleLabel = make("TextLabel", {Name = "TitleLabel", Text = "Mutation", BackgroundTransparency = 1}, mutationRow)
-		titleLabel.Visible = false
-		
-		local distanceRow = createVisualSelectionRow(Scroll, "Distance", "Distance", 3)
-		titleLabel = make("TextLabel", {Name = "TitleLabel", Text = "Distance", BackgroundTransparency = 1}, distanceRow)
-		titleLabel.Visible = false
-		
-		local rarityRow = createVisualSelectionRow(Scroll, "Rarity", "Rarity", 4)
-		titleLabel = make("TextLabel", {Name = "TitleLabel", Text = "Rarity", BackgroundTransparency = 1}, rarityRow)
-		titleLabel.Visible = false
-
-		installEnglishGuard(VisualEggInfoPanel)
-		registerCleanup(function()
-			if VisualEggInfoModal and VisualEggInfoModal.Parent then
-				VisualEggInfoModal:Destroy()
-			end
-			if VisualEggInfoPanel and VisualEggInfoPanel.Parent then
-				VisualEggInfoPanel:Destroy()
-			end
-		end)
-	end
-	visualPanelOpen = true
-	VisualEggInfoModal.Visible = true
-	VisualEggInfoPanel.Visible = true
-end
-
-local datasets = {
-	Main = {
-		{
-			Type = "Category",
-			Title = "Plot",
-			Icon = "rbxassetid://72377406954512",
-			Expanded = false,
-			Items = {
-				{
-					Title = "Auto Open Eggs",
-					Description = "Automatically opens eggs in your plot when they are ready.",
-					Toggle = true,
-					Enabled = false,
-					Compact = true,
-					Controller = "OpenEggs",
-				},
-				{
-					Title = "Auto Equip Eggs",
-					Description = "Automatically equips an available egg whenever no egg is currently in your hand.",
-					Toggle = true,
-					Enabled = false,
-					Compact = true,
-					Controller = "EquipEgg",
-				},
-				{
-					Title = "Equip Best Pets",
-					Description = "Automatically equips your best available pets every 5 seconds.",
-					Toggle = true,
-					Enabled = false,
-					Compact = true,
-					Controller = "EquipBestPets",
-				},
-				{
-					Title = "Auto Place Eggs",
-					Description = "Automatically places available eggs while you are inside your own plot.",
-					Toggle = true,
-					Enabled = false,
-					Compact = true,
-					Controller = "PlaceEggs",
-				},
-				{
-					Title = "Auto Go To Base",
-					Description = "Automatically moves you to your base before placing eggs when both options are enabled.",
-					Toggle = true,
-					Enabled = false,
-					Compact = true,
-					Controller = "AutoGoToBase",
-				},
-			},
-		},
-		{
-			Type = "Category",
-			Title = "Collect",
-			Icon = "rbxassetid://84487893427781",
-			Expanded = false,
-			Items = {
-				{
-					Title = "Auto Redeem Codex",
-					Description = "Automatically redeems all available Codex rewards every second.",
-					Toggle = true,
-					Enabled = false,
-					Compact = true,
-					Controller = "AutoRedeemCodex",
-				},
-				{
-					Title = "Auto Collect Offline Earnings",
-					Description = "Automatically collects your available offline earnings every second.",
-					Toggle = true,
-					Enabled = false,
-					Compact = true,
-					Controller = "CollectOfflineEarnings",
-				},
-			},
-		},
-	},
-	["Auto Buy"] = {
-		{
-			Type = "Category",
-			Title = "Upgrades",
-			Icon = "rbxassetid://99024336494762",
-			Expanded = false,
-			Items = {
-				{
-					Title = "Auto Buy Treadmill Upgrades",
-					Description = "Automatically purchases the next Treadmill upgrade whenever you meet its requirements.",
-					Toggle = true,
-					Enabled = false,
-					Compact = true,
-					Controller = "TreadmillUpgrade",
-				},
-				{
-					Title = "Auto Buy Plot Upgrades",
-					Description = "Automatically purchases the next Plot upgrade whenever you meet its requirements.",
-					Toggle = true,
-					Enabled = false,
-					Compact = true,
-					Controller = "PlotUpgrade",
-				},
-			},
-		},
-		{
-			Type = "Category",
-			Title = "Trail",
-			Icon = "rbxassetid://129977800846764",
-			Expanded = false,
-			Items = {
-				{
-					Title = "Auto Buy Trails",
-					Description = "Automatically buys the best affordable trails you do not own, prioritizing higher speed multipliers.",
-					Toggle = true,
-					Enabled = false,
-					Compact = true,
-					Controller = "BuyTrails",
-				},
-				{
-					Title = "Equip Best Trail",
-					Description = "Automatically equips the best trail you currently own.",
-					Toggle = true,
-					Enabled = false,
-					Compact = true,
-					Controller = "EquipBestTrail",
-				},
-			},
-		},
-	},
-	Farm = {},
-	Config = {
-		{
-			Type = "Category",
-			Title = "Player",
-			Icon = "rbxassetid://102791662357524",
-			Expanded = false,
-			Items = {
-				{
-					Title = "Auto Rejoin",
-					Description = "Are you sure you want to switch servers?",
-					Icon = IMAGE_CLICK,
-					Compact = true,
-					Action = function()
-						openConfirm("Are you sure you want to switch servers?", requestServerHop)
-					end,
-				},
-				{
-					Title = "Quick Rejoin",
-					Description = "Are you sure you want to quickly rejoin this same server?",
-					Icon = IMAGE_CLICK,
-					Compact = true,
-					Action = function()
-						openConfirm("Are you sure you want to quickly rejoin the same server you are currently in?", requestServerRejoin)
-					end,
-				},
-				{
-					Title = "Copy Game ID",
-					Description = "Copy the current game ID to your clipboard.",
-					Icon = IMAGE_CLICK,
-					Compact = true,
-					Action = function()
-						if copyGameId() then
-							showCopiedNotification("Game ID copied!", IMAGE_GAME_ID)
-						end
-					end,
-				},
-				{
-					Title = "Copy Server ID",
-					Description = "Copy the current server ID to your clipboard.",
-					Icon = IMAGE_CLICK,
-					Compact = true,
-					Action = function()
-						if copyServerId() then
-							showCopiedNotification("Server ID copied!", IMAGE_GAME_ID)
-						end
-					end,
-				},
-				{
-					Title = "Anti AFK",
-					Description = "Simulate a short movement every minute while enabled.",
-					Toggle = true,
-					Enabled = false,
-					Compact = true,
-				},
-					{
-						Title = "Infinity Jump",
-						Description = "Allows you to jump infinitely without any restrictions.",
-						Toggle = true,
-						Enabled = false,
-						Compact = true,
-					},
-					{
-						Title = "Auto Bat Attack",
-						Description = "Automatically attacks with the bat whenever a bat is equipped.",
-						Toggle = true,
-						Enabled = false,
-						Compact = true,
-						Controller = "AutoBatAttack",
-					},
-					{
-						Title = "Auto Equip Bat",
-						Description = "Automatically equips a bat whenever one is available in your inventory.",
-						Toggle = true,
-						Enabled = false,
-						Compact = true,
-						Controller = "EquipBat",
-					},
-			},
-		},
-		{
-			Type = "Category",
-			Title = "Visual",
-			Icon = "rbxassetid://74492590812457",
-			Expanded = false,
-			Items = {
-				{
-					Title = "Guardian ESP",
-					Description = "Shows the names of the guards above their heads.",
-					Toggle = true,
-					Enabled = false,
-					Compact = true,
-				},
-				{
-					Title = "Egg ESP Settings",
-					Description = "Choose which egg information should be displayed.",
-					Selector = true,
-					Icon = IMAGE_CLICK,
-					Action = openVisualEggInfoPanel,
-					Compact = true,
-				},
-				{
-					Title = "Egg ESP",
-					Description = "Enables the selected egg information on screen.",
-					Toggle = true,
-					Enabled = false,
-					Compact = true,
-				},
-			},
-		},
-	},
-
-	Credits = {
-		{
-			Title = "By: Cleiton10HDx",
-			Description = "Owner of Phantom Hub.",
-			Compact = true,
-		},
-		{
-			Title = "Discord",
-			Description = "Copy the official Phantom Hub Discord server link.",
-			Icon = IMAGE_CLICK,
-			Compact = true,
-			Action = function()
-				if copyDiscordLink() then
-					showCopiedNotification("Discord link copied!")
-				end
-			end,
-		},
-	},
-}
-
-local currentTab = "Main"
-local currentCategories = {}
-local visualPanelOpen = false
-
-local function setTab(name)
 	currentTab = name
 	updateResultsScrollMode()
 	for tabName, button in pairs(tabButtons) do
@@ -2616,20 +2839,8 @@ local function setTab(name)
 	SearchBox.Text = ""
 	SearchHint.Visible = true
 	SearchClear.Visible = false
-	searchQuery = ""
-	currentCategories = datasets[name] or {}
 	renderResults()
 end
-
-local tabs = {
-	{Name = "Main", Icon = IMAGE_MAIN},
-	{Name = "Auto Buy", Icon = IMAGE_AUTOBUY},
-	{Name = "Farm", Icon = IMAGE_FARM},
-	{Name = "Config", Icon = IMAGE_CONFIG},
-	{Name = "Credits", Icon = IMAGE_CREDITS},
-}
-
-local tabButtons = {}
 
 for index, tabInfo in ipairs(tabs) do
 	local Tab = make("TextButton", {
@@ -2685,6 +2896,7 @@ for index, tabInfo in ipairs(tabs) do
 		end
 	end)
 	Tab.Activated:Connect(function()
+		-- Do not allow changing tabs while the Visual settings panel is open.
 		if visualPanelOpen then
 			return
 		end
@@ -3176,7 +3388,6 @@ local function updateSearchVisual()
 end
 
 local searchTextConnection = SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
-	searchQuery = SearchBox.Text
 	updateSearchVisual()
 	renderResults()
 end)
