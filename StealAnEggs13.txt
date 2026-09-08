@@ -21,7 +21,7 @@ local IMAGE_GAME_ID = "rbxassetid://88704800286791"
 local DISCORD_LINK = "https://discord.gg/72P6NhC5Pf"
 
 local COLORS = {
-	Black = Color3.fromRGB(7, 7, 10),
+	Black = Color3.fromRGB(11, 11, 13),
 	Black2 = Color3.fromRGB(16, 16, 18),
 	DarkGray = Color3.fromRGB(24, 24, 27),
 	Gray = Color3.fromRGB(43, 43, 47),
@@ -1067,7 +1067,7 @@ local function createVisualSelectionRow(parent, name, text, order)
 		BackgroundColor3 = COLORS.Black2,
 		BorderSizePixel = 0,
 		LayoutOrder = order,
-		ZIndex = 1002,
+		ZIndex = 1004,
 	}, parent)
 	make("UIStroke", {Thickness = 1.15, Color = COLORS.Gray3, Transparency = 0.16, ApplyStrokeMode = Enum.ApplyStrokeMode.Border}, Row)
 
@@ -1081,7 +1081,7 @@ local function createVisualSelectionRow(parent, name, text, order)
 		TextSize = 13,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Center,
-		ZIndex = 1002,
+		ZIndex = 1005,
 	}, Row)
 
 	local ToggleButton = make("TextButton", {
@@ -1093,7 +1093,7 @@ local function createVisualSelectionRow(parent, name, text, order)
 		BorderSizePixel = 0,
 		AutoButtonColor = false,
 		Text = "",
-		ZIndex = 1002,
+		ZIndex = 1006,
 	}, Row)
 	make("UICorner", {CornerRadius = UDim.new(1, 0)}, ToggleButton)
 
@@ -1104,7 +1104,7 @@ local function createVisualSelectionRow(parent, name, text, order)
 		Size = UDim2.fromOffset(19, 19),
 		BackgroundColor3 = COLORS.White,
 		BorderSizePixel = 0,
-		ZIndex = 1002,
+		ZIndex = 1007,
 	}, ToggleButton)
 	make("UICorner", {CornerRadius = UDim.new(1, 0)}, Knob)
 
@@ -1118,11 +1118,11 @@ end
 
 local function closeVisualEggInfoPanel()
 	visualPanelOpen = false
+	if VisualEggInfoOverlay then
+		VisualEggInfoOverlay.Visible = false
+	end
 	if VisualEggInfoModal then
 		VisualEggInfoModal.Visible = false
-	end
-	if VisualEggInfoPanel then
-		VisualEggInfoPanel.Visible = false
 	end
 end
 
@@ -1138,38 +1138,39 @@ local function openVisualEggInfoPanel()
 			Position = UDim2.fromScale(0, 0),
 			Size = UDim2.fromScale(1, 1),
 			BackgroundColor3 = COLORS.Black,
-			BackgroundTransparency = 0.42,
+			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Visible = false,
-			Active = true,
-			ZIndex = 999,
+			Active = false,
+			ZIndex = 1000,
 		}, ScreenGui)
 
 		-- Keep the existing panel width and bottom edge; extend only upward
 		-- so its top covers the search-bar area.
 		VisualEggInfoOverlay = make("Frame", {
 			Name = "VisualEggInfoOverlay",
-			Position = UDim2.fromScale(0.50, 0.11),
-			Size = UDim2.fromScale(0.40, 0.78),
+			Position = UDim2.fromScale(0.50, 0.035),
+			Size = UDim2.fromScale(0.465, 0.935),
 			BackgroundColor3 = COLORS.Black,
-			BackgroundTransparency = 1,
+			BackgroundTransparency = 0.10,
 			BorderSizePixel = 0,
 			Visible = false,
-			Active = false,
+			Active = true,
 			ClipsDescendants = true,
-			ZIndex = 1001,
-		}, ScreenGui)
+			ZIndex = 100,
+		}, Content)
+		make("UIStroke", {Thickness = 1.4, Color = COLORS.Gray3, Transparency = 0.05}, VisualEggInfoOverlay)
+
 		VisualEggInfoPanel = make("Frame", {
 			Name = "VisualEggInfoPanel",
-			Position = UDim2.fromScale(0.50, 0.5),
-			Size = UDim2.fromScale(0.40, 0.78),
-			BackgroundColor3 = COLORS.Black,
+			Position = UDim2.fromScale(0.025, 0.020),
+			Size = UDim2.fromScale(0.95, 0.96),
+			BackgroundColor3 = COLORS.Black2,
 			BorderSizePixel = 0,
 			Active = true,
 			ClipsDescendants = true,
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			ZIndex = 1000,
-		}, ScreenGui)
+			ZIndex = 101,
+		}, VisualEggInfoOverlay)
 		make("UIStroke", {Thickness = 1.2, Color = COLORS.Gray2, Transparency = 0.10}, VisualEggInfoPanel)
 
 		make("TextLabel", {
@@ -1182,7 +1183,7 @@ local function openVisualEggInfoPanel()
 			TextSize = 15,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextYAlignment = Enum.TextYAlignment.Center,
-			ZIndex = 1001,
+			ZIndex = 102,
 		}, VisualEggInfoPanel)
 
 		local Close = make("TextButton", {
@@ -1198,7 +1199,7 @@ local function openVisualEggInfoPanel()
 			TextColor3 = COLORS.White,
 			Font = Enum.Font.GothamBold,
 			TextSize = 13,
-			ZIndex = 1003,
+			ZIndex = 105,
 		}, VisualEggInfoPanel)
 		make("UIAspectRatioConstraint", {AspectRatio = 1}, Close)
 		Close.MouseEnter:Connect(function() tween(Close, 0.10, {BackgroundColor3 = COLORS.Gray3, BackgroundTransparency = 0}) end)
@@ -1219,7 +1220,7 @@ local function openVisualEggInfoPanel()
 			Active = true,
 			AutomaticCanvasSize = Enum.AutomaticSize.Y,
 			CanvasSize = UDim2.fromScale(0, 0),
-			ZIndex = 1001,
+			ZIndex = 103,
 		}, VisualEggInfoPanel)
 		make("UIListLayout", {Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder}, Scroll)
 		make("UIPadding", {
@@ -1232,19 +1233,16 @@ local function openVisualEggInfoPanel()
 		createVisualSelectionRow(Scroll, "Mutation", "Mutation", 2)
 		createVisualSelectionRow(Scroll, "Distance", "Distance", 3)
 		createVisualSelectionRow(Scroll, "Rarity", "Rarity", 4)
-		installEnglishGuard(VisualEggInfoPanel)
+		installEnglishGuard(VisualEggInfoOverlay)
 		registerCleanup(function()
-			if VisualEggInfoModal and VisualEggInfoModal.Parent then
-				VisualEggInfoModal:Destroy()
-			end
-			if VisualEggInfoPanel and VisualEggInfoPanel.Parent then
-				VisualEggInfoPanel:Destroy()
+			if VisualEggInfoOverlay and VisualEggInfoOverlay.Parent then
+				VisualEggInfoOverlay:Destroy()
 			end
 		end)
 	end
 	visualPanelOpen = true
 	VisualEggInfoModal.Visible = true
-	VisualEggInfoPanel.Visible = true
+	VisualEggInfoOverlay.Visible = true
 	-- The modal blocks the menu and launcher visually/input-wise while leaving
 	-- the Visual settings panel itself interactive until its X button is used.
 end
@@ -1659,6 +1657,8 @@ local function createCategoryRow(category, layoutOrder, searchQuery)
 	end)
 
 	Hit.Activated:Connect(function()
+		-- While the Visual settings panel is open, category expand/collapse
+		-- controls are temporarily disabled. Existing option states remain untouched.
 		if visualPanelOpen then
 			return
 		end
@@ -2811,6 +2811,11 @@ renderResults = function()
 end
 
 local function setTab(name)
+	-- The Visual panel temporarily locks tab switching.
+	-- Existing options/automation remain untouched.
+	if visualPanelOpen then
+		return
+	end
 	currentTab = name
 	updateResultsScrollMode()
 	for tabName, button in pairs(tabButtons) do
@@ -2888,6 +2893,7 @@ for index, tabInfo in ipairs(tabs) do
 		end
 	end)
 	Tab.Activated:Connect(function()
+		-- Do not allow changing tabs while the Visual settings panel is open.
 		if visualPanelOpen then
 			return
 		end
