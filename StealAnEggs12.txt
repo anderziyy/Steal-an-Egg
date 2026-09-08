@@ -1110,9 +1110,6 @@ local function createVisualSelectionRow(parent, name, text, order)
 
 	updateVisualSelectionButton(ToggleButton, Knob, name)
 	ToggleButton.Activated:Connect(function()
-		if not visualPanelOpen then
-			return
-		end
 		setVisualSelection(name, not visualSelectionState[name])
 		updateVisualSelectionButton(ToggleButton, Knob, name)
 	end)
@@ -1121,10 +1118,6 @@ end
 
 local function closeVisualEggInfoPanel()
 	visualPanelOpen = false
-	if ResultsScroll then
-		ResultsScroll.ScrollingEnabled = currentTab ~= "Credits"
-		ResultsScroll.Active = currentTab ~= "Credits"
-	end
 	if VisualEggInfoOverlay then
 		VisualEggInfoOverlay.Visible = false
 	end
@@ -1148,11 +1141,8 @@ local function openVisualEggInfoPanel()
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Visible = false,
-			-- Transparent input shield: blocks every GUI underneath the modal,
-			-- but stays below the actual Visual settings panel (ZIndex 101+).
-			Active = true,
-			Selectable = false,
-			ZIndex = 90,
+			Active = false,
+			ZIndex = 1000,
 		}, ScreenGui)
 
 		-- Keep the existing panel width and bottom edge; extend only upward
@@ -1228,10 +1218,8 @@ local function openVisualEggInfoPanel()
 			ScrollingDirection = Enum.ScrollingDirection.Y,
 			ScrollingEnabled = true,
 			Active = true,
-			Selectable = false,
-			ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
 			AutomaticCanvasSize = Enum.AutomaticSize.Y,
-			CanvasSize = UDim2.fromScale(1, 0),
+			CanvasSize = UDim2.fromScale(0, 0),
 			ZIndex = 103,
 		}, VisualEggInfoPanel)
 		make("UIListLayout", {Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder}, Scroll)
@@ -1245,71 +1233,6 @@ local function openVisualEggInfoPanel()
 		createVisualSelectionRow(Scroll, "Mutation", "Mutation", 2)
 		createVisualSelectionRow(Scroll, "Distance", "Distance", 3)
 		createVisualSelectionRow(Scroll, "Rarity", "Rarity", 4)
-
-		-- Fallback wheel/touch scrolling mirrors the main ResultsScroll input behavior.
-		local visualScrollTouchStart = nil
-		local visualScrollTouchCanvasY = nil
-		local visualScrollWheelConnection
-		local visualScrollInputConnection
-
-		local function isVisualScrollAllowed()
-			return visualPanelOpen and VisualEggInfoOverlay.Visible and Scroll.Visible and Scroll.ScrollingEnabled
-		end
-
-		local function getVisualScrollMaxY()
-			return math.max(0, Scroll.AbsoluteCanvasSize.Y - Scroll.AbsoluteSize.Y)
-		end
-
-		local function setVisualScrollY(y)
-			local maxY = getVisualScrollMaxY()
-			Scroll.CanvasPosition = Vector2.new(0, math.clamp(y or 0, 0, maxY))
-		end
-
-		visualScrollWheelConnection = Scroll.InputChanged:Connect(function(input)
-			if not isVisualScrollAllowed() then
-				return
-			end
-
-			if input.UserInputType == Enum.UserInputType.MouseWheel then
-				local delta = input.Position.Z
-				if delta ~= 0 then
-					setVisualScrollY(Scroll.CanvasPosition.Y - (delta * Scroll.AbsoluteSize.Y * 0.16))
-				end
-			elseif input.UserInputType == Enum.UserInputType.Touch then
-				visualScrollTouchStart = input.Position
-				visualScrollTouchCanvasY = Scroll.CanvasPosition.Y
-			end
-		end)
-
-		visualScrollInputConnection = UserInputService.InputChanged:Connect(function(input)
-			if not isVisualScrollAllowed() then
-				return
-			end
-
-			if input.UserInputType == Enum.UserInputType.Touch and visualScrollTouchStart and visualScrollTouchCanvasY then
-				local deltaY = input.Position.Y - visualScrollTouchStart.Y
-				if math.abs(deltaY) >= 1 then
-					setVisualScrollY(visualScrollTouchCanvasY - deltaY)
-				end
-			end
-		end)
-
-		UserInputService.InputEnded:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.Touch then
-				visualScrollTouchStart = nil
-				visualScrollTouchCanvasY = nil
-			end
-		end)
-
-		registerCleanup(function()
-			if visualScrollWheelConnection then
-				visualScrollWheelConnection:Disconnect()
-			end
-			if visualScrollInputConnection then
-				visualScrollInputConnection:Disconnect()
-			end
-		end)
-
 		installEnglishGuard(VisualEggInfoOverlay)
 		registerCleanup(function()
 			if VisualEggInfoOverlay and VisualEggInfoOverlay.Parent then
@@ -1318,10 +1241,6 @@ local function openVisualEggInfoPanel()
 		end)
 	end
 	visualPanelOpen = true
-	pcall(function() SearchBox:ReleaseFocus() end)
-	if ResultsScroll then
-		ResultsScroll.ScrollingEnabled = false
-	end
 	VisualEggInfoModal.Visible = true
 	VisualEggInfoOverlay.Visible = true
 	-- The modal blocks the menu and launcher visually/input-wise while leaving
@@ -1738,9 +1657,6 @@ local function createCategoryRow(category, layoutOrder, searchQuery)
 	end)
 
 	Hit.Activated:Connect(function()
-		if visualPanelOpen then
-			return
-		end
 		if searchQuery ~= "" then
 			category.Expanded = true
 		else
@@ -2754,9 +2670,6 @@ createStandardRow = function(item, layoutOrder)
 		Right.MouseEnter:Connect(function() tween(Right, 0.10, {BackgroundColor3 = COLORS.Gray3}) end)
 		Right.MouseLeave:Connect(function() tween(Right, 0.10, {BackgroundColor3 = COLORS.Gray}) end)
 		Right.Activated:Connect(function()
-			if visualPanelOpen then
-				return
-			end
 			if item.Action then item.Action() end
 		end)
 		return Row
@@ -2799,9 +2712,6 @@ createStandardRow = function(item, layoutOrder)
 		updateToggle(false)
 
 		ToggleButton.Activated:Connect(function()
-			if visualPanelOpen then
-				return
-			end
 			setToggleState(item, not (toggleStates[item] == true))
 			updateToggle(true)
 		end)
@@ -2823,18 +2733,8 @@ createStandardRow = function(item, layoutOrder)
 	Hit.MouseEnter:Connect(function() tween(Row, 0.10, {BackgroundColor3 = COLORS.DarkGray}) end)
 	Hit.MouseLeave:Connect(function() tween(Row, 0.10, {BackgroundColor3 = COLORS.Black2}) end)
 	if item.Action then
-		Hit.Activated:Connect(function()
-			if visualPanelOpen then
-				return
-			end
-			item.Action()
-		end)
-		Right.Activated:Connect(function()
-			if visualPanelOpen then
-				return
-			end
-			item.Action()
-		end)
+		Hit.Activated:Connect(item.Action)
+		Right.Activated:Connect(item.Action)
 	end
 	return Row
 end
@@ -2906,6 +2806,11 @@ renderResults = function()
 end
 
 local function setTab(name)
+	-- The Visual panel temporarily locks tab switching.
+	-- Existing options/automation remain untouched.
+	if visualPanelOpen then
+		return
+	end
 	currentTab = name
 	updateResultsScrollMode()
 	for tabName, button in pairs(tabButtons) do
@@ -2983,6 +2888,7 @@ for index, tabInfo in ipairs(tabs) do
 		end
 	end)
 	Tab.Activated:Connect(function()
+		-- Do not allow changing tabs while the Visual settings panel is open.
 		if visualPanelOpen then
 			return
 		end
@@ -3475,16 +3381,10 @@ end
 
 local searchTextConnection = SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
 	updateSearchVisual()
-	if visualPanelOpen then
-		return
-	end
 	renderResults()
 end)
 
 SearchClear.Activated:Connect(function()
-	if visualPanelOpen then
-		return
-	end
 	SearchBox.Text = ""
 	SearchBox:CaptureFocus()
 end)
