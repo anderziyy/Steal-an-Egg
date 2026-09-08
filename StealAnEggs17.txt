@@ -1892,11 +1892,13 @@ local function setPlaceEggs(item, enabled)
 
 	task.spawn(function()
 		while running and not cleanedUp do
-			-- Placing eggs is inactive while there is no egg in the inventory/hand.
-			-- This uses the same inventory + equipped-egg detection already used by
-			-- Auto Equip Eggs instead of attempting a placement blindly.
+			-- Placing eggs is only active while there is an egg in the inventory/hand.
+			-- Check both available eggs in inventory and equipped eggs in hand.
 			local availableUID = getAvailableEggUID()
-			if not availableUID and not getEquippedEggUID() then
+			local equippedUID = getEquippedEggUID()
+			
+			-- If no egg is available and no egg is equipped, skip this iteration
+			if not availableUID and not equippedUID then
 				task.wait(0.50)
 				continue
 			end
@@ -2076,9 +2078,11 @@ local function getAvailableEggUID()
 					end
 				end
 			end
-			-- Only accept an egg UID when the corresponding egg Tool is actually
-			-- present in the character or Backpack. This prevents stale save-data
-			-- entries from triggering movement/placement when no egg is available.
+			for uid, record in pairs(data.EggInventory) do
+				if typeof(uid) == "string" and typeof(record) == "table" and record.Placement == nil then
+					return uid
+				end
+			end
 		end
 	end
 
