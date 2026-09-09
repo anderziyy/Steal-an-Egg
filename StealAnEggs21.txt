@@ -2704,8 +2704,7 @@ end
 
 
 local function getEggDisplayName(record, model)
-	-- Kept for compatibility with the existing Visual selector data.
-	-- Name selection is intentionally not used by the current Egg ESP stage.
+	-- Prefer the game's shared asset configuration for the actual egg name.
 	local shared = game:GetService("ReplicatedStorage")
 	local assetsModule = shared:FindFirstChild("Data") and shared.Data:FindFirstChild("Assets")
 	local assets = safeRequire(assetsModule)
@@ -2750,49 +2749,99 @@ local function getEggDisplayName(record, model)
 	return "Egg"
 end
 
-local function getEggRarityInfo(record)
-	if not record or type(record.AssetCategory) ~= "string" then
-		return nil, Color3.fromRGB(255, 255, 255)
-	end
-
-	local shared = game:GetService("ReplicatedStorage")
-	local assetsModule = shared:FindFirstChild("Data") and shared.Data:FindFirstChild("Assets")
-	local assets = safeRequire(assetsModule)
-
-	if assets and type(assets) == "table" and type(assets.Directory) == "table" then
-		local asset = assets.Directory[record.AssetCategory]
-		if type(asset) == "table" and type(asset.Rarity) == "table" then
-			local rarity = asset.Rarity
-			local rarityName = rarity.Name or rarity.DisplayName or rarity.Title
-
-			if type(rarityName) ~= "string" or rarityName == "" then
-				rarityName = record.AssetCategory
-			end
-
-			local rarityColor = rarity.Color
-			if typeof(rarityColor) ~= "Color3" then
-				rarityColor = Color3.fromRGB(255, 255, 255)
-			end
-
-			return rarityName, rarityColor
-		end
-	end
-
-	return record.AssetCategory, Color3.fromRGB(255, 255, 255)
-end
-
 local function getEggESPStateModule()
 	local shared = game:GetService("ReplicatedStorage")
 	return safeRequire(shared:FindFirstChild("Client") and shared.Client:FindFirstChild("EggState"))
 end
 
-local function getLocalRootPart()
-	local character = LocalPlayer.Character
-	if not character then
+local function getEggRarityInfo(record)
+	local shared = game:GetService("ReplicatedStorage")
+	local assetsModule = shared:FindFirstChild("Data") and shared.Data:FindFirstChild("Assets")
+	local assets = safeRequire(assetsModule)
+
+	if not assets or type(assets) ~= "table" or type(assets.Directory) ~= "table" or not record then
+		return nil, Color3.fromRGB(255, 255, 255)
+	end
+
+	local asset = assets.Directory[record.AssetCategory]
+	if type(asset) ~= "table" or type(asset.Rarity) ~= "table" then
+		return nil, Color3.fromRGB(255, 255, 255)
+	end
+
+	local rarity = asset.Rarity
+	local rarityName = rarity.DisplayName or rarity.Name or rarity.Title
+	if type(rarityName) ~= "string" or rarityName == "" then
+		rarityName = record.Rarity or record.RarityName
+	end
+
+	if type(rarityName) ~= "string" or rarityName == "" then
+		rarityName = "Unknown"
+	end
+
+	local rarityColor = rarity.Color
+	if typeof(rarityColor) ~= "Color3" then
+		rarityColor = Color3.fromRGB(255, 255, 255)
+	end
+
+	return rarityName, rarityColor
+end
+
+local function getEggMutationName(record)
+	if not record then
 		return nil
 	end
 
-	return character:FindFirstChild("HumanoidRootPart")
+	local function extractMutation(value)
+		if type(value) == "string" then
+			if value ~= "" then
+				return value
+			end
+			return nil
+		end
+
+		if type(value) == "table" then
+			local directCandidates = {
+				value.DisplayName,
+				value.Name,
+				value.Title,
+				value.Mutation,
+				value.Type,
+				value.Id,
+			}
+
+			for _, candidate in ipairs(directCandidates) do
+				if type(candidate) == "string" and candidate ~= "" then
+					return candidate
+				end
+			end
+
+			for key, candidate in pairs(value) do
+				if type(candidate) == "string" and candidate ~= "" then
+					if key == "Name" or key == "DisplayName" or key == "Title" or key == "Mutation" or key == "Type" or key == "Id" then
+						return candidate
+					end
+				elseif candidate == true and type(key) == "string" and key ~= "" then
+					return key
+				end
+			end
+
+			for _, candidate in ipairs(value) do
+				local extracted = extractMutation(candidate)
+				if extracted then
+					return extracted
+				end
+			end
+		end
+
+		return nil
+	end
+
+	local mutation = extractMutation(record.Mutations)
+	if mutation then
+		return mutation
+	end
+
+	return extractMutation(record.BaseMutation)
 end
 
 local function setEggESP(item, enabled)
@@ -2828,9 +2877,40 @@ local function setEggESP(item, enabled)
 		end
 	end
 
-	local function hasAnySupportedSelection()
-		return visualSelectionState.Distance == true
-			or visualSelectionState.Rarity == true
+	local function getEggAdornee(model)
+		return model.PrimaryPart
+			or model:FindFirstChild("HumanoidRootPart")
+			or model:FindFirstChildWhichIsA("BasePart")
+	end
+
+	local function clearInfoLabels(label)
+		for _, child in ipairs(label:GetChildren()) do
+			if child:IsA("TextLabel") then
+				child:Destroy()
+			end
+		end
+	end
+
+	local function addInfoLine(label, name, text, textColor, order)
+		local line = Instance.new("TextLabel")
+		line.Name = name
+		line.Size = UDim2.fromScale(1, 0)
+		line.AutomaticSize = Enum.AutomaticSize.Y
+		line.BackgroundTransparency = 1
+		line.BorderSizePixel = 0
+		line.Text = text
+		line.TextColor3 = textColor or Color3.fromRGB(255, 255, 255)
+		line.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+		line.TextStrokeTransparency = 0.30
+		line.Font = Enum.Font.GothamSemibold
+		line.TextSize = 10
+		line.TextScaled = false
+		line.TextWrapped = false
+		line.TextXAlignment = Enum.TextXAlignment.Center
+		line.TextYAlignment = Enum.TextYAlignment.Center
+		line.LayoutOrder = order
+		line.ZIndex = 2
+		line.Parent = label
 	end
 
 	local function createOrUpdateLabel(model, record)
@@ -2838,19 +2918,19 @@ local function setEggESP(item, enabled)
 			return
 		end
 
-		-- In this stage only Distance and Rarity are functional.
-		-- Name and Mutation remain present in the selector UI but do not
-		-- affect the displayed Egg ESP yet.
-		if not hasAnySupportedSelection() then
+		local hasAnySelection = visualSelectionState.Name
+			or visualSelectionState.Distance
+			or visualSelectionState.Mutation
+			or visualSelectionState.Rarity
+
+		if not hasAnySelection then
 			destroyLabel(model)
 			return
 		end
 
-		local adornee = model.PrimaryPart
-			or model:FindFirstChild("HumanoidRootPart")
-			or model:FindFirstChildWhichIsA("BasePart")
-
+		local adornee = getEggAdornee(model)
 		if not adornee or not adornee:IsA("BasePart") then
+			destroyLabel(model)
 			return
 		end
 
@@ -2862,109 +2942,80 @@ local function setEggESP(item, enabled)
 			label.AlwaysOnTop = true
 			label.LightInfluence = 0
 			label.MaxDistance = 1000
-			label.Size = UDim2.fromOffset(130, 42)
+			label.Size = UDim2.fromOffset(150, 80)
 			label.StudsOffsetWorldSpace = Vector3.new(0, 2.05, 0)
 			label.ResetOnSpawn = false
 
-			local distanceLabel = Instance.new("TextLabel")
-			distanceLabel.Name = "Distance"
-			distanceLabel.Position = UDim2.fromScale(0, 0)
-			distanceLabel.Size = UDim2.fromScale(1, 0.5)
-			distanceLabel.BackgroundTransparency = 1
-			distanceLabel.BorderSizePixel = 0
-			distanceLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-			distanceLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-			distanceLabel.TextStrokeTransparency = 0.30
-			distanceLabel.Font = Enum.Font.GothamSemibold
-			distanceLabel.TextSize = 10
-			distanceLabel.TextScaled = false
-			distanceLabel.TextWrapped = false
-			distanceLabel.TextXAlignment = Enum.TextXAlignment.Center
-			distanceLabel.TextYAlignment = Enum.TextYAlignment.Center
-			distanceLabel.Visible = false
-			distanceLabel.Parent = label
-
-			local rarityLabel = Instance.new("TextLabel")
-			rarityLabel.Name = "Rarity"
-			rarityLabel.Position = UDim2.fromScale(0, 0.5)
-			rarityLabel.Size = UDim2.fromScale(1, 0.5)
-			rarityLabel.BackgroundTransparency = 1
-			rarityLabel.BorderSizePixel = 0
-			rarityLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-			rarityLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-			rarityLabel.TextStrokeTransparency = 0.30
-			rarityLabel.Font = Enum.Font.GothamSemibold
-			rarityLabel.TextSize = 10
-			rarityLabel.TextScaled = false
-			rarityLabel.TextWrapped = false
-			rarityLabel.TextXAlignment = Enum.TextXAlignment.Center
-			rarityLabel.TextYAlignment = Enum.TextYAlignment.Center
-			rarityLabel.Visible = false
-			rarityLabel.Parent = label
+			local layout = Instance.new("UIListLayout")
+			layout.Name = "InfoLayout"
+			layout.FillDirection = Enum.FillDirection.Vertical
+			layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+			layout.VerticalAlignment = Enum.VerticalAlignment.Center
+			layout.SortOrder = Enum.SortOrder.LayoutOrder
+			layout.Padding = UDim.new(0, 0)
+			layout.Parent = label
 
 			label.Parent = PlayerGui
 			labels[model] = label
 		end
 
 		label.Adornee = adornee
+		clearInfoLabels(label)
 
-		local distanceLabel = label:FindFirstChild("Distance")
-		local rarityLabel = label:FindFirstChild("Rarity")
-		local playerRoot = getLocalRootPart()
+		local order = 1
 
-		local showDistance = visualSelectionState.Distance == true
-		local showRarity = visualSelectionState.Rarity == true
+		if visualSelectionState.Name then
+			addInfoLine(label, "Name", getEggDisplayName(record, model), Color3.fromRGB(255, 255, 255), order)
+			order += 1
+		end
 
-		if distanceLabel and distanceLabel:IsA("TextLabel") then
-			distanceLabel.Visible = showDistance
+		if visualSelectionState.Distance then
+			local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+			local rootPart = root and root:IsA("BasePart") and root or nil
+			if not rootPart then
+				local character = LocalPlayer.Character
+				if character then
+					rootPart = character:FindFirstChildWhichIsA("BasePart")
+				end
+			end
 
-			if showDistance and playerRoot then
-				local distance = (playerRoot.Position - adornee.Position).Magnitude
-				distanceLabel.Text = string.format("%.0f studs", distance)
-			elseif showDistance then
-				distanceLabel.Text = "-- studs"
+			if rootPart then
+				local distance = (rootPart.Position - adornee.Position).Magnitude
+				local roundedDistance = math.floor(distance + 0.5)
+				addInfoLine(label, "Distance", tostring(roundedDistance) .. " studs", Color3.fromRGB(255, 255, 255), order)
 			else
-				distanceLabel.Text = ""
+				addInfoLine(label, "Distance", "-- studs", Color3.fromRGB(255, 255, 255), order)
+			end
+			order += 1
+		end
+
+		if visualSelectionState.Mutation then
+			local mutationName = getEggMutationName(record)
+			if mutationName then
+				addInfoLine(label, "Mutation", mutationName, Color3.fromRGB(255, 255, 255), order)
+				order += 1
 			end
 		end
 
-		if rarityLabel and rarityLabel:IsA("TextLabel") then
-			rarityLabel.Visible = showRarity
-
-			if showRarity then
-				local rarityName, rarityColor = getEggRarityInfo(record)
-				rarityLabel.Text = rarityName or "Unknown"
-				rarityLabel.TextColor3 = rarityColor or Color3.fromRGB(255, 255, 255)
-			else
-				rarityLabel.Text = ""
-			end
-		end
-
-		local visibleRows = (showDistance and 1 or 0) + (showRarity and 1 or 0)
-		if visibleRows == 1 then
-			label.Size = UDim2.fromOffset(130, 20)
-			if showDistance and distanceLabel then
-				distanceLabel.Position = UDim2.fromScale(0, 0)
-				distanceLabel.Size = UDim2.fromScale(1, 1)
-			elseif showRarity and rarityLabel then
-				rarityLabel.Position = UDim2.fromScale(0, 0)
-				rarityLabel.Size = UDim2.fromScale(1, 1)
-			end
-		else
-			label.Size = UDim2.fromOffset(130, 42)
-			if distanceLabel then
-				distanceLabel.Position = UDim2.fromScale(0, 0)
-				distanceLabel.Size = UDim2.fromScale(1, 0.5)
-			end
-			if rarityLabel then
-				rarityLabel.Position = UDim2.fromScale(0, 0.5)
-				rarityLabel.Size = UDim2.fromScale(1, 0.5)
-			end
+		if visualSelectionState.Rarity then
+			local rarityName, rarityColor = getEggRarityInfo(record)
+			addInfoLine(label, "Rarity", rarityName or "Unknown", rarityColor, order)
+			order += 1
 		end
 	end
 
 	local function refresh(forceDestroy)
-		if forceDestroy or not hasAnySupportedSelection() then
+		if forceDestroy then
+			destroyAllLabels()
+			return
+		end
+
+		local hasAnySelection = visualSelectionState.Name
+			or visualSelectionState.Distance
+			or visualSelectionState.Mutation
+			or visualSelectionState.Rarity
+
+		if not hasAnySelection then
 			destroyAllLabels()
 			return
 		end
@@ -2976,9 +3027,11 @@ local function setEggESP(item, enabled)
 		end
 
 		local seen = {}
+
 		for _, model in ipairs(folder:GetChildren()) do
 			if model:IsA("Model") then
 				local record = nil
+
 				if eggState and eggState.ReadFieldEgg then
 					pcall(function()
 						record = eggState.ReadFieldEgg(model.Name)
@@ -3027,7 +3080,6 @@ local function setEggESP(item, enabled)
 		destroyAllLabels()
 	end)
 end
-
 
 local function setToggleState(item, enabled)
 	toggleStates[item] = enabled == true
