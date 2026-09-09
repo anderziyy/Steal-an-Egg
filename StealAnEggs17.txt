@@ -1302,14 +1302,6 @@ local datasets = {
 					Compact = true,
 					Controller = "PlaceEggs",
 				},
-				{
-					Title = "Auto Go To Base",
-					Description = "Automatically moves you to your base before placing eggs when both options are enabled.",
-					Toggle = true,
-					Enabled = false,
-					Compact = true,
-					Controller = "AutoGoToBase",
-				},
 			},
 		},
 		{
@@ -1744,78 +1736,6 @@ local function findEggTools(eggToolDisplay)
 	return tools
 end
 
-local autoGoToBaseEnabled = false
-local baseMovementRunning = false
-
-local function resolveMyBaseCenterPoint()
-	local shared = game:GetService("ReplicatedStorage")
-	local plotState = safeRequire(shared.Client:FindFirstChild("PlotState"))
-	if not plotState or not plotState.ResolvePlot then
-		return nil
-	end
-
-	local ok, plot = pcall(plotState.ResolvePlot)
-	if not ok or not plot or not plot.PlotFolder then
-		return nil
-	end
-
-	local centerPoint = plot.PlotFolder:FindFirstChild("CenterPoint")
-	return centerPoint and centerPoint:IsA("BasePart") and centerPoint or nil
-end
-
-local function moveToMyBase()
-	local centerPoint = resolveMyBaseCenterPoint()
-	local character = LocalPlayer.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	local hrp = character and character:FindFirstChild("HumanoidRootPart")
-	if not centerPoint or not humanoid or not hrp or humanoid.Health <= 0 then
-		return false
-	end
-
-	local distance = (hrp.Position - centerPoint.Position).Magnitude
-	if distance <= 4 then
-		baseMovementRunning = false
-		return true
-	end
-
-	baseMovementRunning = true
-	humanoid:MoveTo(centerPoint.Position)
-	return false
-end
-
-local function setAutoGoToBase(item, enabled)
-	disconnectToggle(item)
-	autoGoToBaseEnabled = enabled == true
-	baseMovementRunning = false
-
-	if not enabled then
-		return
-	end
-
-	local running = true
-	toggleConnections[item] = {
-		Disconnect = function()
-			running = false
-			baseMovementRunning = false
-		end,
-	}
-
-	-- This option intentionally does not move the player by itself.
-	-- Auto Place Eggs consumes this state and only enforces the move when both toggles are ON.
-	task.spawn(function()
-		while running and not cleanedUp do
-			if not autoGoToBaseEnabled then
-				break
-			end
-			if toggleStates[item] ~= true then
-				break
-			end
-			task.wait(0.50)
-		end
-		baseMovementRunning = false
-	end)
-end
-
 local function getOwnPlotPlacement()
 	local shared = game:GetService("ReplicatedStorage")
 	local plotState = safeRequire(shared.Client:FindFirstChild("PlotState"))
@@ -1892,27 +1812,9 @@ local function setPlaceEggs(item, enabled)
 
 	task.spawn(function()
 		while running and not cleanedUp do
-			-- Placing eggs is only active while there is an egg in the inventory/hand.
-			-- Check both available eggs in inventory and equipped eggs in hand.
-			local availableUID = getAvailableEggUID()
-			local equippedUID = getEquippedEggUID()
-			
-			-- If no egg is available and no egg is equipped, skip this iteration
-			if not availableUID and not equippedUID then
-				task.wait(0.50)
-				continue
-			end
-
-			-- When both options are enabled, reaching the base is always the first step.
-			if autoGoToBaseEnabled then
-				local atBase = moveToMyBase()
-				if not atBase then
-					-- Do not attempt to place an egg until the player reaches CenterPoint.
-					task.wait(0.15)
-					continue
-				end
-			end
-
+			-- Auto Place Eggs now runs the placement routine directly while enabled.
+			-- The previous separate inventory/hand availability gate and base-movement
+			-- dependency have been removed.
 			local placed = placeOneEgg()
 			if placed then
 				task.wait(0.35)
@@ -2630,8 +2532,6 @@ local function setToggleState(item, enabled)
 		setOpenEggs(item, toggleStates[item])
 	elseif item.Controller == "PlaceEggs" then
 		setPlaceEggs(item, toggleStates[item])
-	elseif item.Controller == "AutoGoToBase" then
-		setAutoGoToBase(item, toggleStates[item])
 	elseif item.Controller == "EquipBestPets" then
 		setEquipBestPets(item, toggleStates[item])
 	elseif item.Controller == "EquipEgg" then
