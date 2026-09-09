@@ -1055,18 +1055,12 @@ local visualSelectionState = {
 	Rarity = false,
 }
 
--- Selected rarities used by the optional Egg Rarity Filter.
--- When this table is empty, Egg ESP shows every rarity.
-local raritySelectionState = {}
-
--- Forward references used by the Visual selectors so changing either the
--- selected egg information or rarity filter immediately refreshes Egg ESP.
+-- Forward reference used by the Visual selector so changing the selected egg
+-- information immediately refreshes the currently enabled Egg ESP.
 local refreshEggESP = nil
-local refreshRarityFilterPanel = nil
 local VisualEggInfoModal
 local VisualEggInfoOverlay
 local VisualEggInfoPanel
-local RarityFilterPanel
 
 local function setVisualSelection(name, value)
 	visualSelectionState[name] = value == true
@@ -1141,9 +1135,6 @@ end
 
 local function closeVisualEggInfoPanel()
 	visualPanelOpen = false
-	if RarityFilterPanel then
-		RarityFilterPanel.Visible = false
-	end
 	if VisualEggInfoOverlay then
 		VisualEggInfoOverlay.Visible = false
 	end
@@ -1272,331 +1263,13 @@ local function openVisualEggInfoPanel()
 	visualPanelOpen = true
 	updateResultsScrollMode()
 	updateTabListScrollMode()
-	if RarityFilterPanel then
-		RarityFilterPanel.Visible = false
-	end
 	VisualEggInfoModal.Visible = true
 	VisualEggInfoOverlay.Visible = true
 	-- The modal blocks the menu and launcher visually/input-wise while leaving
 	-- the Visual settings panel itself interactive until its X button is used.
 end
 
--- Builds the selectable rarity list directly from the game's own Data.Rarity module.
--- RarityNumber controls the order from the lowest rarity to the highest.
-local function getAvailableRarityEntries()
-	local shared = game:GetService("ReplicatedStorage")
-	local rarityModule = shared:FindFirstChild("Data") and shared.Data:FindFirstChild("Rarity")
-	local rarityData = safeRequire(rarityModule)
-	local rarities = rarityData and rarityData.Rarities
-	if type(rarities) ~= "table" then
-		return {}
-	end
-
-	local entries = {}
-	for key, rarity in pairs(rarities) do
-		if type(rarity) == "table" then
-			local rarityNumber = tonumber(rarity.RarityNumber) or math.huge
-			local displayName = rarity.DisplayName or rarity.Name or rarity.Title or key
-			if type(displayName) ~= "string" or displayName == "" then
-				displayName = tostring(key)
-			end
-
-			table.insert(entries, {
-				Key = tostring(key),
-				DisplayName = displayName,
-				RarityNumber = rarityNumber,
-			})
-		end
-	end
-
-	table.sort(entries, function(a, b)
-		if a.RarityNumber == b.RarityNumber then
-			return a.DisplayName:lower() < b.DisplayName:lower()
-		end
-		return a.RarityNumber < b.RarityNumber
-	end)
-
-	return entries
-end
-
-local function getRaritySelectionKey(record)
-	if not record then
-		return nil
-	end
-
-	local shared = game:GetService("ReplicatedStorage")
-	local rarityModule = shared:FindFirstChild("Data") and shared.Data:FindFirstChild("Rarity")
-	local rarityData = safeRequire(rarityModule)
-	local rarities = rarityData and rarityData.Rarities
-	if type(rarities) ~= "table" then
-		return nil
-	end
-
-	local assetRarityName = nil
-	local assetsModule = shared:FindFirstChild("Data") and shared.Data:FindFirstChild("Assets")
-	local assets = safeRequire(assetsModule)
-
-	if assets and type(assets) == "table" and type(assets.Directory) == "table" then
-		local asset = assets.Directory[record.AssetCategory]
-		if type(asset) == "table" and type(asset.Rarity) == "table" then
-			assetRarityName = asset.Rarity.Name or asset.Rarity.DisplayName or asset.Rarity.Title
-		end
-	end
-
-	local candidates = {
-		assetRarityName,
-		type(record.Rarity) == "string" and record.Rarity or nil,
-		type(record.RarityName) == "string" and record.RarityName or nil,
-	}
-
-	for _, candidate in ipairs(candidates) do
-		if candidate and candidate ~= "" then
-			for key, rarity in pairs(rarities) do
-				if type(rarity) == "table" then
-					local names = {
-						tostring(key),
-						type(rarity.Name) == "string" and rarity.Name or nil,
-						type(rarity.DisplayName) == "string" and rarity.DisplayName or nil,
-						type(rarity.Title) == "string" and rarity.Title or nil,
-					}
-
-					for _, name in ipairs(names) do
-						if name and name:lower() == candidate:lower() then
-							return tostring(key)
-						end
-					end
-				end
-			end
-		end
-	end
-
-	return nil
-end
-
-local function isRarityFilterActive()
-	for _, selected in pairs(raritySelectionState) do
-		if selected == true then
-			return true
-		end
-	end
-	return false
-end
-
-local function isRarityAllowed(record)
-	if not isRarityFilterActive() then
-		return true
-	end
-
-	local key = getRaritySelectionKey(record)
-	return key ~= nil and raritySelectionState[key] == true
-end
-
-local function updateRarityFilterButton(button, knob, key)
-	local on = raritySelectionState[key] == true
-	local targetColor = on and COLORS.Gray3 or COLORS.Gray
-	local targetPosition = UDim2.fromScale(on and 0.77 or 0.23, 0.5)
-	tween(button, 0.14, {BackgroundColor3 = targetColor})
-	tween(knob, 0.14, {Position = targetPosition})
-end
-
-local function createRarityFilterRow(parent, key, text, order)
-	local Row = make("Frame", {
-		Name = "Rarity_" .. tostring(key),
-		Size = UDim2.new(1, -18, 0, 62),
-		BackgroundColor3 = COLORS.Black2,
-		BorderSizePixel = 0,
-		LayoutOrder = order,
-		ZIndex = 1004,
-	}, parent)
-	make("UIStroke", {
-		Thickness = 1.15,
-		Color = COLORS.Gray3,
-		Transparency = 0.16,
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-	}, Row)
-
-	make("TextLabel", {
-		Position = UDim2.new(0, 14, 0, 0),
-		Size = UDim2.new(1, -90, 1, 0),
-		BackgroundTransparency = 1,
-		Text = text,
-		TextColor3 = COLORS.White,
-		Font = Enum.Font.GothamSemibold,
-		TextSize = 13,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Center,
-		ZIndex = 1005,
-	}, Row)
-
-	local ToggleButton = make("TextButton", {
-		Name = "Toggle",
-		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -14, 0.5, 0),
-		Size = UDim2.fromOffset(52, 24),
-		BackgroundColor3 = COLORS.Gray,
-		BorderSizePixel = 0,
-		AutoButtonColor = false,
-		Text = "",
-		ZIndex = 1006,
-	}, Row)
-	make("UICorner", {CornerRadius = UDim.new(1, 0)}, ToggleButton)
-
-	local Knob = make("Frame", {
-		Name = "Knob",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.23, 0.5),
-		Size = UDim2.fromOffset(19, 19),
-		BackgroundColor3 = COLORS.White,
-		BorderSizePixel = 0,
-		ZIndex = 1007,
-	}, ToggleButton)
-	make("UICorner", {CornerRadius = UDim.new(1, 0)}, Knob)
-
-	updateRarityFilterButton(ToggleButton, Knob, key)
-	ToggleButton.Activated:Connect(function()
-		raritySelectionState[key] = not raritySelectionState[key]
-		updateRarityFilterButton(ToggleButton, Knob, key)
-		if refreshEggESP then
-			pcall(refreshEggESP)
-		end
-	end)
-
-	return Row
-end
-
-local function closeRarityFilterPanel()
-	visualPanelOpen = false
-	if RarityFilterPanel then
-		RarityFilterPanel.Visible = false
-	end
-	updateResultsScrollMode()
-	updateTabListScrollMode()
-end
-
-local function openRarityFilterPanel()
-	if cleanedUp or not ScreenGui.Parent then
-		return
-	end
-
-	if not RarityFilterPanel then
-		RarityFilterPanel = make("Frame", {
-			Name = "RarityFilterPanel",
-			Position = UDim2.fromScale(0.50, 0.035),
-			Size = UDim2.fromScale(0.465, 0.935),
-			BackgroundColor3 = COLORS.Black,
-			BackgroundTransparency = 0.10,
-			BorderSizePixel = 0,
-			Visible = false,
-			Active = true,
-			ClipsDescendants = true,
-			ZIndex = 100,
-		}, Content)
-		make("UIStroke", {Thickness = 1.4, Color = COLORS.Gray3, Transparency = 0.05}, RarityFilterPanel)
-
-		local Panel = make("Frame", {
-			Name = "Panel",
-			Position = UDim2.fromScale(0.025, 0.020),
-			Size = UDim2.fromScale(0.95, 0.96),
-			BackgroundColor3 = COLORS.Black2,
-			BorderSizePixel = 0,
-			Active = true,
-			ClipsDescendants = true,
-			ZIndex = 101,
-		}, RarityFilterPanel)
-		make("UIStroke", {Thickness = 1.2, Color = COLORS.Gray2, Transparency = 0.10}, Panel)
-
-		make("TextLabel", {
-			Position = UDim2.fromScale(0.055, 0.035),
-			Size = UDim2.fromScale(0.69, 0.11),
-			BackgroundTransparency = 1,
-			Text = "Egg Rarity Filter",
-			TextColor3 = COLORS.White,
-			Font = Enum.Font.GothamBold,
-			TextSize = 15,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextYAlignment = Enum.TextYAlignment.Center,
-			ZIndex = 102,
-		}, Panel)
-
-		local Close = make("TextButton", {
-			Name = "Close",
-			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.fromScale(0.955, 0.035),
-			Size = UDim2.fromScale(0.095, 0.105),
-			BackgroundColor3 = COLORS.Gray,
-			BackgroundTransparency = 0.18,
-			BorderSizePixel = 0,
-			AutoButtonColor = false,
-			Text = "X",
-			TextColor3 = COLORS.White,
-			Font = Enum.Font.GothamBold,
-			TextSize = 13,
-			ZIndex = 105,
-		}, Panel)
-		make("UIAspectRatioConstraint", {AspectRatio = 1}, Close)
-		Close.MouseEnter:Connect(function()
-			tween(Close, 0.10, {BackgroundColor3 = COLORS.Gray3, BackgroundTransparency = 0})
-		end)
-		Close.MouseLeave:Connect(function()
-			tween(Close, 0.10, {BackgroundColor3 = COLORS.Gray, BackgroundTransparency = 0.18})
-		end)
-		Close.Activated:Connect(closeRarityFilterPanel)
-
-		local Scroll = make("ScrollingFrame", {
-			Name = "Options",
-			Position = UDim2.fromScale(0.045, 0.17),
-			Size = UDim2.fromScale(0.91, 0.77),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ScrollBarThickness = 3,
-			ScrollBarImageColor3 = COLORS.White,
-			ScrollBarImageTransparency = 0.05,
-			ScrollingDirection = Enum.ScrollingDirection.Y,
-			ScrollingEnabled = true,
-			Active = true,
-			AutomaticCanvasSize = Enum.AutomaticSize.Y,
-			CanvasSize = UDim2.fromScale(0, 1.2),
-			ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-			ZIndex = 103,
-		}, Panel)
-		make("UIListLayout", {Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder}, Scroll)
-		make("UIPadding", {
-			PaddingBottom = UDim.new(0, 10),
-			PaddingLeft = UDim.new(0, 25),
-			PaddingRight = UDim.new(0, 0),
-			PaddingTop = UDim.new(0, 15),
-		}, Scroll)
-
-		local entries = getAvailableRarityEntries()
-		for index, entry in ipairs(entries) do
-			if raritySelectionState[entry.Key] == nil then
-				raritySelectionState[entry.Key] = false
-			end
-			createRarityFilterRow(Scroll, entry.Key, entry.DisplayName, index)
-		end
-
-		installEnglishGuard(RarityFilterPanel)
-		registerCleanup(function()
-			if RarityFilterPanel and RarityFilterPanel.Parent then
-				RarityFilterPanel:Destroy()
-			end
-		end)
-	end
-
-	visualPanelOpen = true
-	updateResultsScrollMode()
-	updateTabListScrollMode()
-	if VisualEggInfoModal then
-		VisualEggInfoModal.Visible = false
-	end
-	if VisualEggInfoOverlay then
-		VisualEggInfoOverlay.Visible = false
-	end
-	RarityFilterPanel.Visible = true
-end
-
 local datasets = {
-
 	Main = {
 		{
 			Type = "Category",
@@ -1822,14 +1495,6 @@ local datasets = {
 					Enabled = false,
 					Compact = true,
 					Controller = "EggESP",
-				},
-				{
-					Title = "Egg Rarity Filter",
-					Description = "Choose which egg rarities are allowed to appear in Egg ESP.",
-					Selector = true,
-					Icon = IMAGE_CLICK,
-					Action = openRarityFilterPanel,
-					Compact = true,
 				},
 			},
 		},
@@ -3233,7 +2898,7 @@ local function setEggESP(item, enabled)
 		line.AutomaticSize = Enum.AutomaticSize.Y
 		line.BackgroundTransparency = 1
 		line.BorderSizePixel = 0
-		line.Text = text
+		line.Text = name .. ": " .. text
 		line.TextColor3 = textColor or Color3.fromRGB(255, 255, 255)
 		line.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 		line.TextStrokeTransparency = 0.30
@@ -3300,7 +2965,7 @@ local function setEggESP(item, enabled)
 		local order = 1
 
 		if visualSelectionState.Name then
-			addInfoLine(label, "Name", "Name: " .. getEggDisplayName(record, model), Color3.fromRGB(255, 255, 255), order)
+			addInfoLine(label, "Name", getEggDisplayName(record, model), Color3.fromRGB(255, 255, 255), order)
 			order += 1
 		end
 
@@ -3317,9 +2982,9 @@ local function setEggESP(item, enabled)
 			if rootPart then
 				local distance = (rootPart.Position - adornee.Position).Magnitude
 				local roundedDistance = math.floor(distance + 0.5)
-				addInfoLine(label, "Distance", "Distance: " .. tostring(roundedDistance) .. " studs", Color3.fromRGB(255, 255, 255), order)
+				addInfoLine(label, "Distance", tostring(roundedDistance) .. " studs", Color3.fromRGB(255, 255, 255), order)
 			else
-				addInfoLine(label, "Distance", "Distance: -- studs", Color3.fromRGB(255, 255, 255), order)
+				addInfoLine(label, "Distance", "-- studs", Color3.fromRGB(255, 255, 255), order)
 			end
 			order += 1
 		end
@@ -3327,17 +2992,15 @@ local function setEggESP(item, enabled)
 		if visualSelectionState.Mutation then
 			local mutationName = getEggMutationName(record)
 			if mutationName then
-				addInfoLine(label, "Mutation", "Mutation: " .. mutationName, Color3.fromRGB(255, 255, 255), order)
+				addInfoLine(label, "Mutation", mutationName, Color3.fromRGB(255, 255, 255), order)
 				order += 1
 			end
 		end
 
 		if visualSelectionState.Rarity then
 			local rarityName, rarityColor = getEggRarityInfo(record)
-			if isRarityAllowed(record) then
-				addInfoLine(label, "Rarity", "Rarity: " .. (rarityName or "Unknown"), rarityColor, order)
-				order += 1
-			end
+			addInfoLine(label, "Rarity", rarityName or "Unknown", rarityColor, order)
+			order += 1
 		end
 	end
 
