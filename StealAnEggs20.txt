@@ -1054,16 +1054,18 @@ local visualSelectionState = {
 	Distance = false,
 	Rarity = false,
 }
+
+-- Forward reference used by the Visual selector so changing the selected egg
+-- information immediately refreshes the currently enabled Egg ESP.
+local refreshEggESP = nil
 local VisualEggInfoModal
 local VisualEggInfoOverlay
 local VisualEggInfoPanel
 
-local refreshEggESPVisuals
-
 local function setVisualSelection(name, value)
 	visualSelectionState[name] = value == true
-	if refreshEggESPVisuals then
-		refreshEggESPVisuals()
+	if refreshEggESP then
+		pcall(refreshEggESP)
 	end
 end
 
@@ -2700,366 +2702,212 @@ local function setGuardianESP(item, enabled)
 	end)
 end
 
-local eggESPRefreshRunning = false
-local eggESPLabels = {}
-local eggESPToken = 0
 
-local function getEggESPAssetData(record)
+local function getEggDisplayName(record, model)
+	-- Prefer the game's shared asset configuration for the actual egg name.
 	local shared = game:GetService("ReplicatedStorage")
-	local dataFolder = shared:FindFirstChild("Data")
-	local assetsModule = dataFolder and dataFolder:FindFirstChild("Assets")
+	local assetsModule = shared:FindFirstChild("Data") and shared.Data:FindFirstChild("Assets")
 	local assets = safeRequire(assetsModule)
-	local entry = assets and assets.Directory and assets.Directory[record.AssetCategory]
-	return entry
-end
+	local asset = nil
 
-local function getEggESPName(record)
-	local asset = getEggESPAssetData(record)
-	if asset then
-		local name = asset.DisplayName or asset.DisplayNameText or asset.Name or asset.AssetName
-		if type(name) == "string" and name ~= "" then
-			return name
+	if assets and type(assets) == "table" and type(assets.Directory) == "table" and record then
+		asset = assets.Directory[record.AssetCategory]
+	end
+
+	if type(asset) == "table" then
+		local candidates = {
+			asset.DisplayName,
+			asset.Name,
+			asset.Title,
+			asset.Display,
+			asset.AssetName,
+		}
+		for _, value in ipairs(candidates) do
+			if type(value) == "string" and value ~= "" then
+				return value
+			end
 		end
 	end
 
-	if type(record.AssetName) == "string" and record.AssetName ~= "" then
-		return record.AssetName
+	if model then
+		local candidates = {
+			model:GetAttribute("DisplayName"),
+			model:GetAttribute("Name"),
+			model:GetAttribute("EggName"),
+		}
+		for _, value in ipairs(candidates) do
+			if type(value) == "string" and value ~= "" then
+				return value
+			end
+		end
 	end
 
-	if type(record.AssetCategory) == "string" and record.AssetCategory ~= "" then
+	if record and type(record.AssetCategory) == "string" and record.AssetCategory ~= "" then
 		return record.AssetCategory
 	end
 
 	return "Egg"
 end
 
-local function getEggESPRarity(record)
-	local asset = getEggESPAssetData(record)
-	local rarity = asset and asset.Rarity
-
-	if type(rarity) == "table" then
-		local name = rarity.Name or rarity.DisplayName or rarity.Id or rarity.Category
-		local color = rarity.Color
-
-		if type(name) ~= "string" or name == "" then
-			name = "Unknown"
-		end
-
-		if typeof(color) ~= "Color3" then
-			color = COLORS.White
-		end
-
-		return name, color
-	end
-
-	if type(record.Rarity) == "string" and record.Rarity ~= "" then
-		return record.Rarity, COLORS.White
-	end
-
-	return nil, COLORS.White
-end
-
-local function collectMutationNames(record)
-	local names = {}
-	local seen = {}
-
-	local function add(value)
-		if type(value) == "string" and value ~= "" and not seen[value] then
-			seen[value] = true
-			table.insert(names, value)
-		end
-	end
-
-	add(record.BaseMutation)
-
-	if type(record.Mutations) == "string" then
-		add(record.Mutations)
-	elseif type(record.Mutations) == "table" then
-		for key, value in pairs(record.Mutations) do
-			if type(value) == "string" and value ~= "" then
-				add(value)
-			elseif type(key) == "string" and key ~= "" and value == true then
-				add(key)
-			end
-		end
-	end
-
-	if #names == 0 then
-		return nil
-	end
-
-	return table.concat(names, ", ")
-end
-
-local function getEggESPRecords()
-	local records = {}
-
-	local eggState = getEggStateModule()
-	if not eggState then
-		return records
-	end
-
-	if type(eggState.ReadFieldEggs) == "function" then
-		local ok, snapshot = pcall(eggState.ReadFieldEggs)
-		if ok and type(snapshot) == "table" and type(snapshot.Records) == "table" then
-			for _, record in ipairs(snapshot.Records) do
-				if type(record) == "table" and type(record.Uid) == "string" and record.Uid ~= "" then
-					records[record.Uid] = record
-				end
-			end
-		end
-	end
-
-	if type(eggState.ReadOwnerEggs) == "function" then
-		local ok, ownerEggs = pcall(eggState.ReadOwnerEggs, LocalPlayer.UserId)
-		if ok and type(ownerEggs) == "table" then
-			for uid, record in pairs(ownerEggs) do
-				if type(uid) == "string" and type(record) == "table" then
-					record.Uid = record.Uid or uid
-					records[uid] = record
-				end
-			end
-		end
-	end
-
-	return records
-end
-
-local function findEggESPAdornee(model)
-	if not model or not model:IsA("Model") then
-		return nil
-	end
-
-	if model.PrimaryPart and model.PrimaryPart:IsA("BasePart") then
-		return model.PrimaryPart
-	end
-
-	local preferred = model:FindFirstChild("Egg", true)
-	if preferred and preferred:IsA("BasePart") then
-		return preferred
-	end
-
-	local basePart = model:FindFirstChildWhichIsA("BasePart", true)
-	return basePart
-end
-
-local function getEggESPModel(uid)
-	if type(uid) ~= "string" or uid == "" then
-		return nil
-	end
-
-	local direct = workspace:FindFirstChild(uid)
-	if direct and direct:IsA("Model") then
-		return direct
-	end
-
-	for _, descendant in ipairs(workspace:GetDescendants()) do
-		if descendant:IsA("Model") and descendant.Name == uid then
-			return descendant
-		end
-	end
-
-	return nil
-end
-
-local function destroyEggESPLabel(uid)
-	local gui = eggESPLabels[uid]
-	if gui then
-		eggESPLabels[uid] = nil
-		pcall(function()
-			gui:Destroy()
-		end)
-	end
-end
-
-local function destroyAllEggESPLabels()
-	for uid, gui in pairs(eggESPLabels) do
-		eggESPLabels[uid] = nil
-		pcall(function()
-			gui:Destroy()
-		end)
-	end
-end
-
-local function updateEggESPLabel(uid, record, model)
-	if not model or not model.Parent then
-		return
-	end
-
-	local adornee = findEggESPAdornee(model)
-	if not adornee then
-		return
-	end
-
-	local gui = eggESPLabels[uid]
-	if gui and gui.Parent then
-		gui.Adornee = adornee
-	else
-		gui = Instance.new("BillboardGui")
-		gui.Name = "PhantomHub_EggESP"
-		gui.Adornee = adornee
-		gui.AlwaysOnTop = true
-		gui.LightInfluence = 0
-		gui.MaxDistance = 2000
-		gui.Size = UDim2.fromOffset(150, 64)
-		gui.StudsOffsetWorldSpace = Vector3.new(0, 2.35, 0)
-		gui.ResetOnSpawn = false
-		gui.Parent = PlayerGui
-
-		local text = Instance.new("TextLabel")
-		text.Name = "Info"
-		text.Size = UDim2.fromScale(1, 1)
-		text.BackgroundTransparency = 1
-		text.BorderSizePixel = 0
-		text.TextColor3 = COLORS.White
-		text.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-		text.TextStrokeTransparency = 0.35
-		text.Font = Enum.Font.GothamSemibold
-		text.TextSize = 10
-		text.TextScaled = false
-		text.TextWrapped = false
-		text.TextXAlignment = Enum.TextXAlignment.Center
-		text.TextYAlignment = Enum.TextYAlignment.Center
-		text.RichText = true
-		text.Parent = gui
-
-		eggESPLabels[uid] = gui
-	end
-
-	local info = gui:FindFirstChild("Info")
-	if not info or not info:IsA("TextLabel") then
-		return
-	end
-
-	local lines = {}
-
-	local function escapeRichText(value)
-		value = tostring(value or "")
-		return value
-			:gsub("&", "&amp;")
-			:gsub("<", "&lt;")
-			:gsub(">", "&gt;")
-			:gsub('"', "&quot;")
-			:gsub("'", "&apos;")
-	end
-
-	if visualSelectionState.Name then
-		table.insert(lines, escapeRichText(getEggESPName(record)))
-	end
-
-	if visualSelectionState.Mutation then
-		local mutation = collectMutationNames(record)
-		if mutation then
-			table.insert(lines, escapeRichText(mutation))
-		end
-	end
-
-	if visualSelectionState.Distance then
-		local character = LocalPlayer.Character
-		local root = character and character:FindFirstChild("HumanoidRootPart")
-		local referencePosition = root and root.Position or nil
-		local distance
-
-		if referencePosition then
-			distance = math.floor((adornee.Position - referencePosition).Magnitude + 0.5)
-		end
-
-		if distance then
-			table.insert(lines, tostring(distance) .. "m")
-		end
-	end
-
-	if visualSelectionState.Rarity then
-		local rarityName, rarityColor = getEggESPRarity(record)
-		if rarityName then
-			local rarityHex = rarityColor:ToHex()
-			table.insert(lines, '<font color="#' .. rarityHex .. '">' .. escapeRichText(rarityName) .. "</font>")
-		end
-	end
-
-	info.Text = table.concat(lines, "\n")
-	info.Visible = #lines > 0
-end
-
-local function refreshEggESP()
-	if not eggESPRefreshRunning or cleanedUp then
-		return
-	end
-
-	if not visualSelectionState.Name
-		and not visualSelectionState.Mutation
-		and not visualSelectionState.Distance
-		and not visualSelectionState.Rarity then
-		destroyAllEggESPLabels()
-		return
-	end
-
-	local records = getEggESPRecords()
-	local seen = {}
-
-	for uid, record in pairs(records) do
-		local model = getEggESPModel(uid)
-		if model then
-			seen[uid] = true
-			updateEggESPLabel(uid, record, model)
-		end
-	end
-
-	for uid in pairs(eggESPLabels) do
-		if not seen[uid] then
-			destroyEggESPLabel(uid)
-		end
-	end
-end
-
-refreshEggESPVisuals = function()
-	if eggESPRefreshRunning and not cleanedUp then
-		refreshEggESP()
-	end
+local function getEggESPStateModule()
+	local shared = game:GetService("ReplicatedStorage")
+	return safeRequire(shared:FindFirstChild("Client") and shared.Client:FindFirstChild("EggState"))
 end
 
 local function setEggESP(item, enabled)
 	disconnectToggle(item)
-	eggESPToken += 1
-	local token = eggESPToken
 
 	if not enabled then
-		eggESPRefreshRunning = false
-		destroyAllEggESPLabels()
+		if refreshEggESP then
+			pcall(refreshEggESP, true)
+		end
 		return
 	end
 
-	eggESPRefreshRunning = true
+	local running = true
+	local labels = {}
+	local eggState = getEggESPStateModule()
+
+	local function destroyLabel(model)
+		local label = labels[model]
+		if label then
+			labels[model] = nil
+			pcall(function()
+				label:Destroy()
+			end)
+		end
+	end
+
+	local function destroyAllLabels()
+		for model, label in pairs(labels) do
+			labels[model] = nil
+			pcall(function()
+				label:Destroy()
+			end)
+		end
+	end
+
+	local function createOrUpdateLabel(model, record)
+		if not model or not model.Parent then
+			return
+		end
+
+		if not visualSelectionState.Name then
+			destroyLabel(model)
+			return
+		end
+
+		local adornee = model.PrimaryPart
+			or model:FindFirstChild("HumanoidRootPart")
+			or model:FindFirstChildWhichIsA("BasePart")
+
+		if not adornee or not adornee:IsA("BasePart") then
+			return
+		end
+
+		local label = labels[model]
+		if not label or not label.Parent then
+			label = Instance.new("BillboardGui")
+			label.Name = "PhantomHub_EggESP"
+			label.Adornee = adornee
+			label.AlwaysOnTop = true
+			label.LightInfluence = 0
+			label.MaxDistance = 1000
+			label.Size = UDim2.fromOffset(120, 18)
+			label.StudsOffsetWorldSpace = Vector3.new(0, 2.05, 0)
+			label.ResetOnSpawn = false
+
+			local textLabel = Instance.new("TextLabel")
+			textLabel.Name = "Name"
+			textLabel.Size = UDim2.fromScale(1, 1)
+			textLabel.BackgroundTransparency = 1
+			textLabel.BorderSizePixel = 0
+			textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+			textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+			textLabel.TextStrokeTransparency = 0.30
+			textLabel.Font = Enum.Font.GothamSemibold
+			textLabel.TextSize = 10
+			textLabel.TextScaled = false
+			textLabel.TextWrapped = false
+			textLabel.TextXAlignment = Enum.TextXAlignment.Center
+			textLabel.TextYAlignment = Enum.TextYAlignment.Center
+			textLabel.Parent = label
+
+			label.Parent = PlayerGui
+			labels[model] = label
+		end
+
+		label.Adornee = adornee
+		local textLabel = label:FindFirstChild("Name")
+		if textLabel and textLabel:IsA("TextLabel") then
+			textLabel.Text = getEggDisplayName(record, model)
+		end
+	end
+
+	local function refresh(forceDestroy)
+		if forceDestroy or not visualSelectionState.Name then
+			destroyAllLabels()
+			return
+		end
+
+		local folder = workspace:FindFirstChild("AreaEggSlotsClient")
+		if not folder then
+			destroyAllLabels()
+			return
+		end
+
+		local seen = {}
+		for _, model in ipairs(folder:GetChildren()) do
+			if model:IsA("Model") then
+				local record = nil
+				if eggState and eggState.ReadFieldEgg then
+					pcall(function()
+						record = eggState.ReadFieldEgg(model.Name)
+					end)
+				end
+
+				if record then
+					seen[model] = true
+					createOrUpdateLabel(model, record)
+				end
+			end
+		end
+
+		for model in pairs(labels) do
+			if not seen[model] or not model.Parent then
+				destroyLabel(model)
+			end
+		end
+	end
+
+	refreshEggESP = function(forceDestroy)
+		if not running then
+			return
+		end
+		refresh(forceDestroy)
+	end
 
 	toggleConnections[item] = {
 		Disconnect = function()
-			eggESPRefreshRunning = false
-			eggESPToken += 1
-			destroyAllEggESPLabels()
+			running = false
+			if refreshEggESP then
+				refreshEggESP = nil
+			end
+			destroyAllLabels()
 		end,
 	}
 
 	task.spawn(function()
-		refreshEggESP()
-
-		while eggESPRefreshRunning and not cleanedUp and token == eggESPToken do
-			task.wait(0.30)
-			if eggESPRefreshRunning and not cleanedUp and token == eggESPToken then
-				refreshEggESP()
+		refresh()
+		while running and not cleanedUp do
+			task.wait(0.25)
+			if running and not cleanedUp then
+				refresh()
 			end
 		end
-
-		if token == eggESPToken then
-			destroyAllEggESPLabels()
-		end
+		destroyAllLabels()
 	end)
 end
-
-registerCleanup(function()
-	eggESPRefreshRunning = false
-	eggESPToken += 1
-	destroyAllEggESPLabels()
-end)
 
 local function setToggleState(item, enabled)
 	toggleStates[item] = enabled == true
