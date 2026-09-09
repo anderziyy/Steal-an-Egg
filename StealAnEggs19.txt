@@ -2554,155 +2554,16 @@ local function getGuardianModelFromArea(area)
 	return nil
 end
 
-local GuardianData = nil
-do
-	local replicatedStorage = game:GetService("ReplicatedStorage")
-	local dataFolder = replicatedStorage:FindFirstChild("Data")
-	local guardsModule = dataFolder and dataFolder:FindFirstChild("Guards")
-	if guardsModule and guardsModule:IsA("ModuleScript") then
-		pcall(function()
-			GuardianData = require(guardsModule)
-		end)
-	end
-end
-
-local function isUsableGuardianName(value, areaName)
-	if type(value) ~= "string" or value == "" then
-		return false
+local function getGuardianDisplayName(guardModel, area)
+	if not area then
+		return "Guardian"
 	end
 
-	local normalized = string.lower(value)
-	if normalized == "guard" or normalized == "guardian" or normalized == "humanoid" then
-		return false
-	end
-	if areaName and normalized == string.lower(areaName) then
-		return false
-	end
-
-	return true
-end
-
-local function extractGuardianName(data, areaName, visited, depth)
-	if type(data) ~= "table" then
-		return nil
-	end
-	if depth > 8 then
-		return nil
-	end
-
-	visited = visited or {}
-	if visited[data] then
-		return nil
-	end
-	visited[data] = true
-
-	if areaName then
-		local exact = data[areaName]
-		if type(exact) == "table" then
-			local resolved = extractGuardianName(exact, areaName, visited, depth + 1)
-			if resolved then
-				return resolved
-			end
-		elseif isUsableGuardianName(exact, areaName) then
-			return exact
-		end
-	end
-
-	local directCandidates = {
-		data.DisplayName,
-		data.GuardName,
-		data.Name,
-		data.Title,
-		data.Label,
-	}
-	for _, candidate in ipairs(directCandidates) do
-		if isUsableGuardianName(candidate, areaName) then
-			return candidate
-		end
-	end
-
-	for key, value in pairs(data) do
-		if type(key) == "string" and areaName and string.lower(key) == string.lower(areaName) then
-			if type(value) == "table" then
-				local resolved = extractGuardianName(value, areaName, visited, depth + 1)
-				if resolved then
-					return resolved
-				end
-			elseif isUsableGuardianName(value, areaName) then
-				return value
-			end
-		end
-
-		if type(value) == "table" then
-			local areaId = value.AreaId or value.Area or value.GuardArea
-			if type(areaId) == "string" and areaName and string.lower(areaId) == string.lower(areaName) then
-				local resolved = extractGuardianName(value, areaName, visited, depth + 1)
-				if resolved then
-					return resolved
-				end
-			end
-		end
-	end
-
-	return nil
-end
-
-local function getGuardianDisplayName(area, guardModel)
-	local areaName = area and area.Name or nil
-
-	if guardModel then
-		local attributeNames = {
-			"DisplayName",
-			"GuardName",
-			"Name",
-			"Title",
-		}
-		for _, attributeName in ipairs(attributeNames) do
-			local value = guardModel:GetAttribute(attributeName)
-			if isUsableGuardianName(value, areaName) then
-				return value
-			end
-		end
-
-		local humanoid = guardModel:FindFirstChildOfClass("Humanoid")
-		if humanoid and isUsableGuardianName(humanoid.DisplayName, areaName) then
-			return humanoid.DisplayName
-		end
-
-		for _, descendant in ipairs(guardModel:GetDescendants()) do
-			if descendant:IsA("StringValue") then
-				local valueName = string.lower(descendant.Name)
-				if valueName == "displayname" or valueName == "guardname" or valueName == "title" or valueName == "name" then
-					if isUsableGuardianName(descendant.Value, areaName) then
-						return descendant.Value
-					end
-				end
-			end
-		end
-	end
-
-	if area then
-		local areaAttributeNames = {
-			"DisplayName",
-			"GuardName",
-			"Name",
-			"Title",
-		}
-		for _, attributeName in ipairs(areaAttributeNames) do
-			local value = area:GetAttribute(attributeName)
-			if isUsableGuardianName(value, areaName) then
-				return value
-			end
-		end
-	end
-
-	local configuredName = extractGuardianName(GuardianData, areaName, {}, 0)
-	if configuredName then
-		return configuredName
-	end
-
-	if guardModel and isUsableGuardianName(guardModel.Name, areaName) then
-		return guardModel.Name
+	-- Use the guard-area model name supplied by the game's GuardAreas system
+	-- instead of the humanoid/model name. Example: Forest -> "Guardian of the Forest".
+	local areaName = area.Name
+	if type(areaName) == "string" and areaName ~= "" then
+		return "Guardian of the " .. areaName
 	end
 
 	return "Guardian"
@@ -2736,7 +2597,7 @@ local function setGuardianESP(item, enabled)
 		end
 	end
 
-	local function createOrUpdateLabel(area, guardModel)
+	local function createOrUpdateLabel(guardModel, area)
 		if not guardModel or not guardModel.Parent then
 			return
 		end
@@ -2750,7 +2611,7 @@ local function setGuardianESP(item, enabled)
 		if label and label.Parent then
 			local textLabel = label:FindFirstChild("Name")
 			if textLabel and textLabel:IsA("TextLabel") then
-				textLabel.Text = getGuardianDisplayName(area, guardModel)
+				textLabel.Text = getGuardianDisplayName(guardModel, area)
 				label.Adornee = adornee
 			end
 			return
@@ -2771,7 +2632,7 @@ local function setGuardianESP(item, enabled)
 		textLabel.Size = UDim2.fromScale(1, 1)
 		textLabel.BackgroundTransparency = 1
 		textLabel.BorderSizePixel = 0
-		textLabel.Text = getGuardianDisplayName(area, guardModel)
+		textLabel.Text = getGuardianDisplayName(guardModel, area)
 		textLabel.TextColor3 = Color3.fromRGB(255, 45, 45)
 		textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 		textLabel.TextStrokeTransparency = 0.25
@@ -2802,7 +2663,7 @@ local function setGuardianESP(item, enabled)
 				local guardModel = getGuardianModelFromArea(area)
 				if guardModel then
 					seen[guardModel] = true
-					createOrUpdateLabel(area, guardModel)
+					createOrUpdateLabel(guardModel, area)
 				end
 			end
 		end
