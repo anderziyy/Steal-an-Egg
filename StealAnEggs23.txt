@@ -16,6 +16,7 @@ local IMAGE_FARM = "rbxassetid://102352181267949"
 local IMAGE_CONFIG = "rbxassetid://114794077382466"
 local IMAGE_CREDITS = "rbxassetid://99243311837005"
 local IMAGE_CLICK = "rbxassetid://97594499544606"
+local IMAGE_SELL_PETS = "rbxassetid://73980046048142"
 local IMAGE_DISCORD_COPIED = "rbxassetid://132744109593099"
 local IMAGE_GAME_ID = "rbxassetid://88704800286791"
 local DISCORD_LINK = "https://discord.gg/72P6NhC5Pf"
@@ -799,7 +800,7 @@ local resultsScrollTouchCanvasY = nil
 local resultsScrollInputConnection
 
 local function isResultsScrollingAllowed()
-	return currentTab ~= "Credits" and ResultsScroll.Visible and ResultsScroll.ScrollingEnabled and not visualPanelOpen
+	return currentTab ~= "Credits" and ResultsScroll.Visible and ResultsScroll.ScrollingEnabled and not visualPanelOpen and not sellPetsPanelOpen
 end
 
 local function getResultsMaxScrollY()
@@ -824,7 +825,7 @@ local function isPointInsideResults(point)
 end
 
 local function updateResultsScrollMode()
-	local enabled = currentTab ~= "Credits" and not visualPanelOpen
+	local enabled = currentTab ~= "Credits" and not visualPanelOpen and not sellPetsPanelOpen
 	ResultsScroll.ScrollingEnabled = enabled
 	ResultsScroll.Active = enabled
 	ResultsScroll.ScrollBarThickness = enabled and 3 or 0
@@ -832,7 +833,7 @@ local function updateResultsScrollMode()
 end
 
 local function updateTabListScrollMode()
-	local enabled = not visualPanelOpen
+	local enabled = not visualPanelOpen and not sellPetsPanelOpen
 	TabList.ScrollingEnabled = enabled
 	TabList.Active = enabled
 	TabList.ScrollBarThickness = enabled and 3 or 0
@@ -1055,20 +1056,12 @@ local visualSelectionState = {
 	Rarity = false,
 }
 
--- Rarity filter for displaying only eggs of a specific rarity
-local selectedRarityFilter = nil
-
 -- Forward reference used by the Visual selector so changing the selected egg
 -- information immediately refreshes the currently enabled Egg ESP.
 local refreshEggESP = nil
 local VisualEggInfoModal
 local VisualEggInfoOverlay
 local VisualEggInfoPanel
-
--- Rarity filter panel UI elements
-local RarityFilterModal
-local RarityFilterOverlay
-local RarityFilterPanel
 
 local function setVisualSelection(name, value)
 	visualSelectionState[name] = value == true
@@ -1277,242 +1270,854 @@ local function openVisualEggInfoPanel()
 	-- the Visual settings panel itself interactive until its X button is used.
 end
 
-local function closeRarityFilterPanel()
-	visualPanelOpen = false
-	if RarityFilterOverlay then
-		RarityFilterOverlay.Visible = false
+
+-- ============================================================
+-- Sell Pets
+-- Uses the game's existing SellPrompt UI for the transaction.
+-- ============================================================
+
+local sellPetsState = {
+	AutoSell = false,
+	ValueLimit = 0,
+	SelectedMutations = {},
+	SelectedRarities = {},
+}
+
+local sellPetsPanelOpen = false
+local SellPetsMutationOverlay
+local SellPetsRarityOverlay
+
+local function normalizeSellKey(value)
+	if value == nil then
+		return ""
 	end
-	if RarityFilterModal then
-		RarityFilterModal.Visible = false
-	end
-	updateResultsScrollMode()
-	updateTabListScrollMode()
+	local s = string.lower(tostring(value))
+	s = s:gsub("[%s_%-]+", "")
+	s = s:gsub("[^%w]", "")
+	return s
 end
 
-local function getAllRarities()
-	local rarities = {}
-	local rarityOrder = {}
+local function getSellGameModules()
 	local shared = game:GetService("ReplicatedStorage")
-	local assetsModule = shared:FindFirstChild("Data") and shared.Data:FindFirstChild("Assets")
-	local assets = safeRequire(assetsModule)
+	local save = safeRequire(shared.Shared and shared.Shared:FindFirstChild("Save"))
+	local assetItems = safeRequire(shared.Shared
+		and shared.Shared.Util
+		and shared.Shared.Util:FindFirstChild("AssetItems"))
+	local assets = safeRequire(shared.Data and shared.Data:FindFirstChild("Assets"))
+	return save, assetItems, assets
+end
 
-	if not assets or type(assets) ~= "table" or type(assets.Directory) ~= "table" then
-		return rarities
+local function getSellPetInventory()
+	local save, assetItems, assets = getSellGameModules()
+	if not save or not save.Get or not assetItems or not assetItems.Decode then
+		return {}
 	end
 
-	-- Collect all unique rarities from asset categories
-	for category, assetData in pairs(assets.Directory) do
-		if type(assetData) == "table" and type(assetData.Rarity) == "table" then
-			local rarity = assetData.Rarity
-			local rarityName = rarity.DisplayName or rarity.Name or rarity.Title
-			if type(rarityName) == "string" and rarityName ~= "" then
-				if not rarityOrder[rarityName] then
-					table.insert(rarities, rarityName)
-					rarityOrder[rarityName] = true
+	local ok, data = pcall(save.Get)
+	if not ok or typeof(data) ~= "table" or typeof(data.Inventory) ~= "table" then
+		return {}
+	end
+
+	local result = {}
+
+	for uid, rawRecord in pairs(data.Inventory) do
+		local okDecode, itemData = pcall(assetItems.Decode, rawRecord)
+		if okDecode and typeof(itemData) == "table" then
+			local equipped = typeof(data.EquippedAssets) == "table"
+				and table.find(data.EquippedAssets, uid) ~= nil
+
+			if not equipped and itemData.IsFavorite ~= true and itemData.InFuse ~= true then
+				local value = 0
+
+				if assetItems.SalePrice then
+					local okValue, calculated = pcall(assetItems.SalePrice, itemData)
+					if okValue and typeof(calculated) == "number" then
+						value = calculated
+					end
+				end
+
+				if LocalPlayer:GetAttribute("VIP") then
+					value *= 2
+				end
+
+				local categoryDirectory = nil
+				if assets and assets.Directory and itemData.Category then
+					categoryDirectory = assets.Directory[itemData.Category]
+				end
+
+				table.insert(result, {
+					UID = uid,
+					ItemData = itemData,
+					Value = value,
+					Directory = categoryDirectory,
+				})
+			end
+		end
+	end
+
+	return result
+end
+
+local function recursivelyFindField(value, wantedKeys, depth, visited)
+	if depth <= 0 or typeof(value) ~= "table" then
+		return nil
+	end
+
+	visited = visited or {}
+	if visited[value] then
+		return nil
+	end
+	visited[value] = true
+
+	for key, child in pairs(value) do
+		if wantedKeys[normalizeSellKey(key)] then
+			if typeof(child) == "string" or typeof(child) == "number" then
+				return child
+			elseif typeof(child) == "table" then
+				local nested = recursivelyFindField(child, {
+					name = true,
+					displayname = true,
+					id = true,
+					value = true,
+				}, depth - 1, visited)
+				if nested ~= nil then
+					return nested
 				end
 			end
 		end
 	end
 
-	-- Sort rarities by a predefined order (common rarity tiers)
-	local rarityPriority = {
-		["Common"] = 1,
-		["Uncommon"] = 2,
-		["Rare"] = 3,
-		["Epic"] = 4,
-		["Legendary"] = 5,
-		["Mythic"] = 6,
-	}
-
-	table.sort(rarities, function(a, b)
-		local priorityA = rarityPriority[a] or 999
-		local priorityB = rarityPriority[b] or 999
-		if priorityA == priorityB then
-			return a < b
+	for _, child in pairs(value) do
+		if typeof(child) == "table" then
+			local found = recursivelyFindField(child, wantedKeys, depth - 1, visited)
+			if found ~= nil then
+				return found
+			end
 		end
-		return priorityA < priorityB
-	end)
+	end
 
-	return rarities
+	return nil
 end
 
-local function openRarityFilterPanel()
+local function getSellPetMutation(pet)
+	local itemData = pet and pet.ItemData
+	local directory = pet and pet.Directory
+
+	local value = recursivelyFindField(itemData, {
+		mutation = true,
+		mutationname = true,
+		mut = true,
+		mutname = true,
+	}, 5)
+
+	if value == nil then
+		value = recursivelyFindField(directory, {
+			mutation = true,
+			mutationname = true,
+			mut = true,
+			mutname = true,
+		}, 5)
+	end
+
+	if value == nil or tostring(value) == "" then
+		return "Normal"
+	end
+
+	return tostring(value)
+end
+
+local function getSellPetRarity(pet)
+	local itemData = pet and pet.ItemData
+	local directory = pet and pet.Directory
+
+	local value = recursivelyFindField(itemData, {
+		rarity = true,
+		rarityname = true,
+	}, 5)
+
+	if value == nil then
+		value = recursivelyFindField(directory, {
+			rarity = true,
+			rarityname = true,
+		}, 5)
+	end
+
+	if value == nil or tostring(value) == "" then
+		return "Unknown"
+	end
+
+	return tostring(value)
+end
+
+local function collectAvailableSellFilters()
+	local pets = getSellPetInventory()
+	local mutations = {}
+	local rarities = {}
+
+	for _, pet in ipairs(pets) do
+		mutations[getSellPetMutation(pet)] = true
+		rarities[getSellPetRarity(pet)] = true
+	end
+
+	mutations.Normal = true
+
+	local mutationList = {}
+	for name in pairs(mutations) do
+		table.insert(mutationList, name)
+	end
+	table.sort(mutationList, function(a, b)
+		return string.lower(tostring(a)) < string.lower(tostring(b))
+	end)
+
+	local rarityOrder = {
+		Common = 1,
+		Uncommon = 2,
+		Rare = 3,
+		Epic = 4,
+		Legendary = 5,
+		Mythic = 6,
+		Divine = 7,
+		Secret = 8,
+		Unknown = 99,
+	}
+
+	local rarityList = {}
+	for name in pairs(rarities) do
+		table.insert(rarityList, name)
+	end
+	table.sort(rarityList, function(a, b)
+		local oa = rarityOrder[a] or 50
+		local ob = rarityOrder[b] or 50
+		if oa == ob then
+			return string.lower(tostring(a)) < string.lower(tostring(b))
+		end
+		return oa < ob
+	end)
+
+	return pets, mutationList, rarityList
+end
+
+local function hasSelectedEntries(selection)
+	for _, selected in pairs(selection or {}) do
+		if selected then
+			return true
+		end
+	end
+	return false
+end
+
+local function petPassesSellFilters(pet)
+	if not pet then
+		return false
+	end
+
+	-- Pets priced at the limit itself are kept. Only values strictly below it sell.
+	if sellPetsState.ValueLimit > 0 and pet.Value >= sellPetsState.ValueLimit then
+		return false
+	end
+
+	if hasSelectedEntries(sellPetsState.SelectedMutations) then
+		local mutation = normalizeSellKey(getSellPetMutation(pet))
+		local matched = false
+		for selectedName, selected in pairs(sellPetsState.SelectedMutations) do
+			if selected and normalizeSellKey(selectedName) == mutation then
+				matched = true
+				break
+			end
+		end
+		if not matched then
+			return false
+		end
+	end
+
+	if hasSelectedEntries(sellPetsState.SelectedRarities) then
+		local rarity = normalizeSellKey(getSellPetRarity(pet))
+		local matched = false
+		for selectedName, selected in pairs(sellPetsState.SelectedRarities) do
+			if selected and normalizeSellKey(selectedName) == rarity then
+				matched = true
+				break
+			end
+		end
+		if not matched then
+			return false
+		end
+	end
+
+	return true
+end
+
+local function findSellPromptGui()
+	local shared = game:GetService("ReplicatedStorage")
+	local guiModule = safeRequire(shared.Client and shared.Client:FindFirstChild("GUI"))
+
+	if guiModule and guiModule.SellPrompt then
+		local ok, result = pcall(guiModule.SellPrompt)
+		if ok and typeof(result) == "Instance" then
+			return result
+		end
+	end
+
+	local direct = PlayerGui:FindFirstChild("SellPrompt")
+	if direct then
+		return direct
+	end
+
+	for _, descendant in ipairs(PlayerGui:GetDescendants()) do
+		if descendant.Name == "SellPrompt" then
+			return descendant
+		end
+	end
+
+	return nil
+end
+
+local function openSellPrompt()
+	local prompt = findSellPromptGui()
+	if not prompt then
+		return nil
+	end
+
+	pcall(function()
+		if prompt:IsA("ScreenGui") then
+			prompt.Enabled = true
+		end
+	end)
+
+	local frame = prompt:FindFirstChild("Frame")
+	if frame and frame:IsA("GuiObject") then
+		frame.Visible = true
+	end
+
+	return prompt
+end
+
+local function getSellPromptParts()
+	local prompt = openSellPrompt()
+	if not prompt then
+		return nil
+	end
+
+	local frame = prompt:FindFirstChild("Frame")
+	if not frame then
+		return nil
+	end
+
+	local scrollingFrame = frame:FindFirstChild("ScrollingFrame")
+	local tabButtonHolder = frame:FindFirstChild("TabButtonHolder")
+	local sortByHolder = frame:FindFirstChild("SortByHolder")
+	local sellInfoHolder = frame:FindFirstChild("SellInfoHolder")
+
+	return {
+		ScrollingFrame = scrollingFrame,
+		PetsTab = tabButtonHolder and tabButtonHolder:FindFirstChild("PetsTab"),
+		SelectAll = sortByHolder and sortByHolder:FindFirstChild("SelectAll"),
+		Clear = sortByHolder and sortByHolder:FindFirstChild("Clear"),
+		Sell = sellInfoHolder and sellInfoHolder:FindFirstChild("Sell"),
+	}
+end
+
+local function activateSellGuiButton(button)
+	if not button or not button:IsA("GuiButton") then
+		return false
+	end
+
+	return pcall(function()
+		button:Activate()
+	end)
+end
+
+local function sellAllPetsNow()
+	local parts = getSellPromptParts()
+	if not parts or not parts.PetsTab or not parts.SelectAll or not parts.Sell then
+		return false
+	end
+
+	activateSellGuiButton(parts.PetsTab)
+	task.wait(0.06)
+	activateSellGuiButton(parts.SelectAll)
+	task.wait(0.06)
+	activateSellGuiButton(parts.Sell)
+	return true
+end
+
+local function findGuiCardByUID(scrollingFrame, uid)
+	if not scrollingFrame then
+		return nil
+	end
+
+	local wanted = tostring(uid)
+	local direct = scrollingFrame:FindFirstChild(wanted)
+	if direct then
+		return direct
+	end
+
+	for _, child in ipairs(scrollingFrame:GetChildren()) do
+		if child.Name == "TemplateHolder" or child:IsA("UIGridLayout") then
+			continue
+		end
+
+		local attr = child:GetAttribute("UID") or child:GetAttribute("Uid") or child:GetAttribute("uid")
+		if attr ~= nil and tostring(attr) == wanted then
+			return child
+		end
+
+		for _, descendant in ipairs(child:GetDescendants()) do
+			local descendantAttr = descendant:GetAttribute("UID")
+				or descendant:GetAttribute("Uid")
+				or descendant:GetAttribute("uid")
+
+			if descendantAttr ~= nil and tostring(descendantAttr) == wanted then
+				return child
+			end
+		end
+	end
+
+	return nil
+end
+
+local function findCardActivateButton(card)
+	if not card then
+		return nil
+	end
+
+	for _, preferredName in ipairs({
+		"ClickSurface",
+		"Hit",
+		"Hitbox",
+		"Button",
+		"Select",
+		"Click",
+	}) do
+		local candidate = card:FindFirstChild(preferredName, true)
+		if candidate and candidate:IsA("GuiButton") then
+			return candidate
+		end
+	end
+
+	for _, descendant in ipairs(card:GetDescendants()) do
+		if descendant:IsA("GuiButton") then
+			return descendant
+		end
+	end
+
+	if card:IsA("GuiButton") then
+		return card
+	end
+
+	return nil
+end
+
+local function sellFilteredPetsNow()
+	local parts = getSellPromptParts()
+	if not parts or not parts.PetsTab or not parts.ScrollingFrame or not parts.Sell then
+		return false, 0
+	end
+
+	activateSellGuiButton(parts.PetsTab)
+	task.wait(0.08)
+
+	if parts.Clear then
+		activateSellGuiButton(parts.Clear)
+		task.wait(0.04)
+	end
+
+	local pets = getSellPetInventory()
+	local selectedCount = 0
+
+	for _, pet in ipairs(pets) do
+		if petPassesSellFilters(pet) then
+			local card = findGuiCardByUID(parts.ScrollingFrame, pet.UID)
+			local button = findCardActivateButton(card)
+
+			if button and activateSellGuiButton(button) then
+				selectedCount += 1
+				task.wait(0.01)
+			end
+		end
+	end
+
+	if selectedCount > 0 then
+		activateSellGuiButton(parts.Sell)
+	end
+
+	return selectedCount > 0, selectedCount
+end
+
+local function createSellSelectionPanel(title, kind)
+	local overlay = make("Frame", {
+		Name = "SellPets_" .. kind .. "Overlay",
+		Position = UDim2.fromScale(0.50, 0.035),
+		Size = UDim2.fromScale(0.465, 0.935),
+		BackgroundColor3 = COLORS.Black,
+		BackgroundTransparency = 0.10,
+		BorderSizePixel = 0,
+		Visible = false,
+		Active = true,
+		ClipsDescendants = true,
+		ZIndex = 100,
+	}, Content)
+
+	make("UIStroke", {
+		Thickness = 1.4,
+		Color = COLORS.Gray3,
+		Transparency = 0.05,
+	}, overlay)
+
+	local panel = make("Frame", {
+		Name = "Panel",
+		Position = UDim2.fromScale(0.025, 0.020),
+		Size = UDim2.fromScale(0.95, 0.96),
+		BackgroundColor3 = COLORS.Black2,
+		BorderSizePixel = 0,
+		Active = true,
+		ClipsDescendants = true,
+		ZIndex = 101,
+	}, overlay)
+
+	make("UIStroke", {
+		Thickness = 1.2,
+		Color = COLORS.Gray2,
+		Transparency = 0.10,
+	}, panel)
+
+	make("TextLabel", {
+		Position = UDim2.fromScale(0.055, 0.035),
+		Size = UDim2.fromScale(0.69, 0.11),
+		BackgroundTransparency = 1,
+		Text = title,
+		TextColor3 = COLORS.White,
+		Font = Enum.Font.GothamBold,
+		TextSize = 15,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		ZIndex = 102,
+	}, panel)
+
+	local close = make("TextButton", {
+		Name = "Close",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.fromScale(0.955, 0.035),
+		Size = UDim2.fromScale(0.095, 0.105),
+		BackgroundColor3 = COLORS.Gray,
+		BackgroundTransparency = 0.18,
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		Text = "X",
+		TextColor3 = COLORS.White,
+		Font = Enum.Font.GothamBold,
+		TextSize = 13,
+		ZIndex = 105,
+	}, panel)
+
+	make("UIAspectRatioConstraint", {AspectRatio = 1}, close)
+
+	local scroll = make("ScrollingFrame", {
+		Name = "Options",
+		Position = UDim2.fromScale(0.045, 0.17),
+		Size = UDim2.fromScale(0.91, 0.77),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 3,
+		ScrollBarImageColor3 = COLORS.White,
+		ScrollBarImageTransparency = 0.05,
+		ScrollingDirection = Enum.ScrollingDirection.Y,
+		ScrollingEnabled = true,
+		Active = true,
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		CanvasSize = UDim2.fromScale(0, 1.2),
+		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
+		ZIndex = 103,
+	}, panel)
+
+	make("UIListLayout", {
+		Padding = UDim.new(0, 7),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}, scroll)
+
+	make("UIPadding", {
+		PaddingBottom = UDim.new(0, 10),
+		PaddingLeft = UDim.new(0, 25),
+		PaddingRight = UDim.new(0, 0),
+		PaddingTop = UDim.new(0, 15),
+	}, scroll)
+
+	local state = kind == "Mutation" and sellPetsState.SelectedMutations or sellPetsState.SelectedRarities
+
+	local function rebuild()
+		for _, child in ipairs(scroll:GetChildren()) do
+			if not child:IsA("UIListLayout") and not child:IsA("UIPadding") then
+				child:Destroy()
+			end
+		end
+
+		local _, mutations, rarities = collectAvailableSellFilters()
+		local options = kind == "Mutation" and mutations or rarities
+
+		local order = 1
+
+		for _, optionName in ipairs(options) do
+			local row = make("Frame", {
+				Name = normalizeSellKey(optionName) .. "Row",
+				Size = UDim2.new(1, -18, 0, 62),
+				BackgroundColor3 = COLORS.Black2,
+				BorderSizePixel = 0,
+				LayoutOrder = order,
+				ZIndex = 104,
+			}, scroll)
+
+			make("UIStroke", {
+				Thickness = 1.15,
+				Color = COLORS.Gray3,
+				Transparency = 0.16,
+				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+			}, row)
+
+			make("TextLabel", {
+				Position = UDim2.new(0, 14, 0, 0),
+				Size = UDim2.new(1, -90, 1, 0),
+				BackgroundTransparency = 1,
+				Text = tostring(optionName),
+				TextColor3 = COLORS.White,
+				Font = Enum.Font.GothamSemibold,
+				TextSize = 13,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				TextYAlignment = Enum.TextYAlignment.Center,
+				ZIndex = 105,
+			}, row)
+
+			local toggle = make("TextButton", {
+				Name = "Toggle",
+				AnchorPoint = Vector2.new(1, 0.5),
+				Position = UDim2.new(1, -14, 0.5, 0),
+				Size = UDim2.fromOffset(52, 24),
+				BackgroundColor3 = COLORS.Gray,
+				BorderSizePixel = 0,
+				AutoButtonColor = false,
+				Text = "",
+				ZIndex = 106,
+			}, row)
+
+			make("UICorner", {CornerRadius = UDim.new(1, 0)}, toggle)
+
+			local knob = make("Frame", {
+				Name = "Knob",
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.23, 0.5),
+				Size = UDim2.fromOffset(19, 19),
+				BackgroundColor3 = COLORS.White,
+				BorderSizePixel = 0,
+				ZIndex = 107,
+			}, toggle)
+
+			make("UICorner", {CornerRadius = UDim.new(1, 0)}, knob)
+
+			local function update()
+				local on = state[optionName] == true
+				toggle.BackgroundColor3 = on and COLORS.Gray3 or COLORS.Gray
+				knob.Position = UDim2.fromScale(on and 0.77 or 0.23, 0.5)
+			end
+
+			update()
+
+			toggle.Activated:Connect(function()
+				state[optionName] = not (state[optionName] == true)
+				update()
+			end)
+
+			order += 1
+		end
+
+		if order == 1 then
+			make("TextLabel", {
+				Size = UDim2.new(1, -18, 0, 50),
+				BackgroundTransparency = 1,
+				Text = "No matching options were found in the current inventory.",
+				TextColor3 = COLORS.Muted,
+				Font = Enum.Font.Gotham,
+				TextSize = 12,
+				TextWrapped = true,
+				TextXAlignment = Enum.TextXAlignment.Center,
+				TextYAlignment = Enum.TextYAlignment.Center,
+				ZIndex = 105,
+			}, scroll)
+		end
+	end
+
+	rebuild()
+
+	close.MouseEnter:Connect(function()
+		tween(close, 0.10, {BackgroundColor3 = COLORS.Gray3, BackgroundTransparency = 0})
+	end)
+
+	close.MouseLeave:Connect(function()
+		tween(close, 0.10, {BackgroundColor3 = COLORS.Gray, BackgroundTransparency = 0.18})
+	end)
+
+	close.Activated:Connect(function()
+		overlay.Visible = false
+		sellPetsPanelOpen = false
+		updateResultsScrollMode()
+		updateTabListScrollMode()
+	end)
+
+	installEnglishGuard(overlay)
+
+	registerCleanup(function()
+		if overlay and overlay.Parent then
+			overlay:Destroy()
+		end
+	end)
+
+	return overlay
+end
+
+local function openSellSelectionPanel(kind)
 	if cleanedUp or not ScreenGui.Parent then
 		return
 	end
-	if not RarityFilterOverlay then
-		-- Full-screen input blocker for rarity filter panel
-		RarityFilterModal = make("Frame", {
-			Name = "RarityFilterModal",
-			Position = UDim2.fromScale(0, 0),
-			Size = UDim2.fromScale(1, 1),
-			BackgroundColor3 = COLORS.Black,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			Visible = false,
-			Active = false,
-			ZIndex = 1000,
-		}, ScreenGui)
 
-		RarityFilterOverlay = make("Frame", {
-			Name = "RarityFilterOverlay",
-			Position = UDim2.fromScale(0.50, 0.035),
-			Size = UDim2.fromScale(0.465, 0.935),
-			BackgroundColor3 = COLORS.Black,
-			BackgroundTransparency = 0.10,
-			BorderSizePixel = 0,
-			Visible = false,
-			Active = true,
-			ClipsDescendants = true,
-			ZIndex = 100,
-		}, Content)
-		make("UIStroke", {Thickness = 1.4, Color = COLORS.Gray3, Transparency = 0.05}, RarityFilterOverlay)
-
-		RarityFilterPanel = make("Frame", {
-			Name = "RarityFilterPanel",
-			Position = UDim2.fromScale(0.025, 0.020),
-			Size = UDim2.fromScale(0.95, 0.96),
-			BackgroundColor3 = COLORS.Black2,
-			BorderSizePixel = 0,
-			Active = true,
-			ClipsDescendants = true,
-			ZIndex = 101,
-		}, RarityFilterOverlay)
-		make("UIStroke", {Thickness = 1.2, Color = COLORS.Gray2, Transparency = 0.10}, RarityFilterPanel)
-
-		make("TextLabel", {
-			Position = UDim2.fromScale(0.055, 0.035),
-			Size = UDim2.fromScale(0.69, 0.11),
-			BackgroundTransparency = 1,
-			Text = "Rarity Filter",
-			TextColor3 = COLORS.White,
-			Font = Enum.Font.GothamBold,
-			TextSize = 15,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextYAlignment = Enum.TextYAlignment.Center,
-			ZIndex = 102,
-		}, RarityFilterPanel)
-
-		local Close = make("TextButton", {
-			Name = "Close",
-			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.fromScale(0.955, 0.035),
-			Size = UDim2.fromScale(0.095, 0.105),
-			BackgroundColor3 = COLORS.Gray,
-			BackgroundTransparency = 0.18,
-			BorderSizePixel = 0,
-			AutoButtonColor = false,
-			Text = "X",
-			TextColor3 = COLORS.White,
-			Font = Enum.Font.GothamBold,
-			TextSize = 13,
-			ZIndex = 105,
-		}, RarityFilterPanel)
-		make("UIAspectRatioConstraint", {AspectRatio = 1}, Close)
-		Close.MouseEnter:Connect(function() tween(Close, 0.10, {BackgroundColor3 = COLORS.Gray3, BackgroundTransparency = 0}) end)
-		Close.MouseLeave:Connect(function() tween(Close, 0.10, {BackgroundColor3 = COLORS.Gray, BackgroundTransparency = 0.18}) end)
-		Close.Activated:Connect(closeRarityFilterPanel)
-
-		local Scroll = make("ScrollingFrame", {
-			Name = "Options",
-			Position = UDim2.fromScale(0.045, 0.17),
-			Size = UDim2.fromScale(0.91, 0.77),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ScrollBarThickness = 3,
-			ScrollBarImageColor3 = COLORS.White,
-			ScrollBarImageTransparency = 0.05,
-			ScrollingDirection = Enum.ScrollingDirection.Y,
-			ScrollingEnabled = true,
-			Active = true,
-			AutomaticCanvasSize = Enum.AutomaticSize.Y,
-			CanvasSize = UDim2.fromScale(0, 1.2),
-			ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-			ZIndex = 103,
-		}, RarityFilterPanel)
-		make("UIListLayout", {Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder}, Scroll)
-		make("UIPadding", {
-			PaddingBottom = UDim.new(0, 10),
-			PaddingLeft = UDim.new(0, 25),
-			PaddingRight = UDim.new(0, 0),
-			PaddingTop = UDim.new(0, 15),
-		}, Scroll)
-
-		-- Add "None" option to clear rarity filter
-		local noneButton = make("TextButton", {
-			Name = "None",
-			Size = UDim2.fromScale(1, 0.10),
-			BackgroundColor3 = COLORS.Gray,
-			BackgroundTransparency = selectedRarityFilter == nil and 0 or 0.18,
-			BorderSizePixel = 0,
-			Text = "None (Show All)",
-			TextColor3 = COLORS.White,
-			Font = Enum.Font.Gotham,
-			TextSize = 13,
-			ZIndex = 104,
-		}, Scroll)
-		make("UICorner", {CornerRadius = UDim.new(0, 4)}, noneButton)
-		noneButton.MouseEnter:Connect(function()
-			tween(noneButton, 0.10, {BackgroundColor3 = COLORS.Gray3, BackgroundTransparency = 0})
-		end)
-		noneButton.MouseLeave:Connect(function()
-			local targetTransparency = selectedRarityFilter == nil and 0 or 0.18
-			tween(noneButton, 0.10, {BackgroundColor3 = COLORS.Gray, BackgroundTransparency = targetTransparency})
-		end)
-		noneButton.Activated:Connect(function()
-			selectedRarityFilter = nil
-			closeRarityFilterPanel()
-			if refreshEggESP then
-				pcall(refreshEggESP)
-			end
-		end)
-
-		-- Add rarity options
-		local rarities = getAllRarities()
-		for index, rarityName in ipairs(rarities) do
-			local rarityButton = make("TextButton", {
-				Name = rarityName,
-				Size = UDim2.fromScale(1, 0.10),
-				BackgroundColor3 = COLORS.Gray,
-				BackgroundTransparency = selectedRarityFilter == rarityName and 0 or 0.18,
-				BorderSizePixel = 0,
-				Text = rarityName,
-				TextColor3 = COLORS.White,
-				Font = Enum.Font.Gotham,
-				TextSize = 13,
-				ZIndex = 104,
-			}, Scroll)
-			make("UICorner", {CornerRadius = UDim.new(0, 4)}, rarityButton)
-			
-			rarityButton.MouseEnter:Connect(function()
-				tween(rarityButton, 0.10, {BackgroundColor3 = COLORS.Gray3, BackgroundTransparency = 0})
-			end)
-			rarityButton.MouseLeave:Connect(function()
-				local targetTransparency = selectedRarityFilter == rarityName and 0 or 0.18
-				tween(rarityButton, 0.10, {BackgroundColor3 = COLORS.Gray, BackgroundTransparency = targetTransparency})
-			end)
-			rarityButton.Activated:Connect(function()
-				selectedRarityFilter = rarityName
-				closeRarityFilterPanel()
-				if refreshEggESP then
-					pcall(refreshEggESP)
-				end
-			end)
-		end
-
-		installEnglishGuard(RarityFilterOverlay)
-		registerCleanup(function()
-			if RarityFilterOverlay and RarityFilterOverlay.Parent then
-				RarityFilterOverlay:Destroy()
-			end
-		end)
+	if SellPetsMutationOverlay then
+		SellPetsMutationOverlay.Visible = false
 	end
-	visualPanelOpen = true
+	if SellPetsRarityOverlay then
+		SellPetsRarityOverlay.Visible = false
+	end
+
+	if kind == "Mutation" then
+		if not SellPetsMutationOverlay then
+			SellPetsMutationOverlay = createSellSelectionPanel("Pet Mutation Settings", "Mutation")
+		end
+		SellPetsMutationOverlay.Visible = true
+	else
+		if not SellPetsRarityOverlay then
+			SellPetsRarityOverlay = createSellSelectionPanel("Pet Rarity Settings", "Rarity")
+		end
+		SellPetsRarityOverlay.Visible = true
+	end
+
+	sellPetsPanelOpen = true
 	updateResultsScrollMode()
 	updateTabListScrollMode()
-	RarityFilterModal.Visible = true
-	RarityFilterOverlay.Visible = true
 end
+
+local function openSellMutationSettings()
+	openSellSelectionPanel("Mutation")
+end
+
+local function openSellRaritySettings()
+	openSellSelectionPanel("Rarity")
+end
+
+local function sellFilteredWithNotification()
+	local ok, count = sellFilteredPetsNow()
+	if ok then
+		showCopiedNotification(
+			"Sell request sent for " .. tostring(count) .. " pet(s).",
+			IMAGE_SELL_PETS
+		)
+	end
+end
+
+local function setAutoSellPets(item, enabled)
+	disconnectToggle(item)
+
+	if not enabled then
+		return
+	end
+
+	local running = true
+	toggleConnections[item] = {
+		Disconnect = function()
+			running = false
+			sellPetsState.AutoSell = false
+		end,
+	}
+	sellPetsState.AutoSell = true
+
+	task.spawn(function()
+		while running and not cleanedUp do
+			pcall(sellFilteredPetsNow)
+			task.wait(0.75)
+		end
+	end)
+end
+
+local function setSellValueLimit(textBox)
+	if not textBox or not textBox:IsA("TextBox") then
+		return
+	end
+
+	local cleaned = tostring(textBox.Text or ""):gsub("%D", "")
+
+	if cleaned ~= textBox.Text then
+		textBox.Text = cleaned
+	end
+
+	local number = tonumber(cleaned) or 0
+	if number > 999999999999 then
+		number = 999999999999
+		textBox.Text = tostring(number)
+	end
+
+	sellPetsState.ValueLimit = number
+end
+
+local function createSellValueInput(parent)
+	local input = make("TextBox", {
+		Name = "ValueInput",
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.fromScale(0.95, 0.5),
+		Size = UDim2.fromScale(0.20, 0.52),
+		BackgroundColor3 = COLORS.Black,
+		BorderSizePixel = 0,
+		ClearTextOnFocus = false,
+		PlaceholderText = "0",
+		Text = sellPetsState.ValueLimit > 0 and tostring(sellPetsState.ValueLimit) or "",
+		TextColor3 = COLORS.White,
+		PlaceholderColor3 = COLORS.Muted,
+		Font = Enum.Font.GothamSemibold,
+		TextSize = 12,
+		TextXAlignment = Enum.TextXAlignment.Center,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		ZIndex = 7,
+	}, parent)
+
+	make("UICorner", {CornerRadius = UDim.new(0, 7)}, input)
+
+	make("UIStroke", {
+		Thickness = 1.1,
+		Color = COLORS.Gray3,
+		Transparency = 0.08,
+	}, input)
+
+	input.Focused:Connect(function()
+		tween(input, 0.10, {BackgroundColor3 = COLORS.DarkGray})
+	end)
+
+	input.FocusLost:Connect(function()
+		setSellValueLimit(input)
+		tween(input, 0.10, {BackgroundColor3 = COLORS.Black})
+	end)
+
+	input:GetPropertyChangedSignal("Text"):Connect(function()
+		setSellValueLimit(input)
+	end)
+
+	input.Activated:Connect(function()
+		task.defer(function()
+			if input.Parent then
+				pcall(function()
+					input:CaptureFocus()
+				end)
+			end
+		end)
+	end)
+
+	setSellValueLimit(input)
+	return input
+end
+
 
 local datasets = {
 	Main = {
@@ -1577,6 +2182,58 @@ local datasets = {
 					Enabled = false,
 					Compact = true,
 					Controller = "CollectOfflineEarnings",
+				},
+			},
+		},
+		{
+			Type = "Category",
+			Title = "Sell Pets",
+			Icon = IMAGE_SELL_PETS,
+			Expanded = false,
+			Items = {
+				{
+					Title = "Sell All Pets",
+					Description = "Selects and sells every eligible pet through the game's own sell window.",
+					Icon = IMAGE_CLICK,
+					Compact = true,
+					Action = sellAllPetsNow,
+				},
+				{
+					Title = "Pet Value Limit",
+					Description = "Only pets with a sale value strictly below this number are eligible for filtered selling.",
+					NumberInput = true,
+					Compact = true,
+				},
+				{
+					Title = "Pet Mutation Settings",
+					Description = "Choose which pet mutations are allowed by the filtered selling system.",
+					Selector = true,
+					Icon = IMAGE_CLICK,
+					Action = openSellMutationSettings,
+					Compact = true,
+				},
+				{
+					Title = "Pet Rarity Settings",
+					Description = "Choose which pet rarities are allowed by the filtered selling system.",
+					Selector = true,
+					Icon = IMAGE_CLICK,
+					Action = openSellRaritySettings,
+					Compact = true,
+				},
+				{
+					Title = "Auto Sell Filtered Pets",
+					Description = "Automatically sells pets below the value limit that match every active mutation and rarity filter.",
+					Toggle = true,
+					Enabled = false,
+					Compact = true,
+					Controller = "AutoSellPets",
+				},
+				{
+					Title = "Sell Filtered Pets Now",
+					Description = "Immediately sells pets matching the current value, mutation, and rarity filters.",
+					Icon = IMAGE_CLICK,
+					Compact = true,
+					Action = sellFilteredWithNotification,
 				},
 			},
 		},
@@ -1740,14 +2397,6 @@ local datasets = {
 					Enabled = false,
 					Compact = true,
 					Controller = "EggESP",
-				},
-				{
-					Title = "Rarity Filter",
-					Description = "Filter eggs to show only a specific rarity.",
-					Selector = true,
-					Icon = IMAGE_CLICK,
-					Action = openRarityFilterPanel,
-					Compact = true,
 				},
 			},
 		},
@@ -1928,7 +2577,7 @@ local function createCategoryRow(category, layoutOrder, searchQuery)
 	Hit.Activated:Connect(function()
 		-- While the Visual settings panel is open, category expand/collapse
 		-- controls are temporarily disabled. Existing option states remain untouched.
-		if visualPanelOpen then
+		if visualPanelOpen or sellPetsPanelOpen then
 			return
 		end
 		if searchQuery ~= "" then
@@ -3181,15 +3830,6 @@ local function setEggESP(item, enabled)
 			return
 		end
 
-		-- Apply rarity filter if one is selected
-		if selectedRarityFilter ~= nil then
-			local eggRarityName, _ = getEggRarityInfo(record)
-			if eggRarityName ~= selectedRarityFilter then
-				destroyLabel(model)
-				return
-			end
-		end
-
 		local adornee = getEggAdornee(model)
 		if not adornee or not adornee:IsA("BasePart") then
 			destroyLabel(model)
@@ -3378,6 +4018,8 @@ local function setToggleState(item, enabled)
 		setGuardianESP(item, toggleStates[item])
 	elseif item.Controller == "EggESP" then
 		setEggESP(item, toggleStates[item])
+	elseif item.Controller == "AutoSellPets" then
+		setAutoSellPets(item, toggleStates[item])
 	end
 end
 
@@ -3406,6 +4048,11 @@ createStandardRow = function(item, layoutOrder)
 		Font = Enum.Font.Gotham, TextSize = 11, TextWrapped = true,
 		TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 5,
 	}, Row)
+
+	if item.NumberInput then
+		createSellValueInput(Row)
+		return Row
+	end
 
 	if item.Selector then
 		local Right = make("TextButton", {
@@ -3564,7 +4211,7 @@ end
 local function setTab(name)
 	-- The Visual panel temporarily locks tab switching.
 	-- Existing options/automation remain untouched.
-	if visualPanelOpen then
+	if visualPanelOpen or sellPetsPanelOpen then
 		return
 	end
 	currentTab = name
@@ -3818,6 +4465,15 @@ local function hideMenu()
 	ConfirmOverlay.Visible = false
 	LockOverlay.Visible = false
 	closeVisualEggInfoPanel()
+	if SellPetsMutationOverlay then
+		SellPetsMutationOverlay.Visible = false
+	end
+	if SellPetsRarityOverlay then
+		SellPetsRarityOverlay.Visible = false
+	end
+	sellPetsPanelOpen = false
+	updateResultsScrollMode()
+	updateTabListScrollMode()
 end
 
 local function showMenu()
