@@ -1335,6 +1335,13 @@ local datasets = {
 				},
 			},
 		},
+		{
+			Type = "Category",
+			Title = "Sell Pets",
+			Icon = "rbxassetid://73980046048142",
+			Expanded = false,
+			Items = {},
+		},
 	},
 	["Auto Buy"] = {
 		{
@@ -1500,41 +1507,6 @@ local datasets = {
 		},
 	},
 
-	{
-		Type = "Category",
-		Title = "Sell Pets",
-		Icon = "rbxassetid://73980046048142",
-		Expanded = false,
-		Items = {
-			{
-				Title = "Sell All Pets",
-				Description = "Instantly sell all pets in your inventory.",
-				Click = true,
-				Icon = IMAGE_CLICK,
-				Action = function()
-					-- Functionality to be added
-				end,
-				Compact = true,
-			},
-			{
-				Title = "Minimum Value",
-				Description = "Only sell pets with value below this threshold.",
-				Input = true,
-				InputType = "number",
-				InputPlaceholder = "Enter value",
-				Value = 0,
-				Compact = true,
-			},
-			{
-				Title = "Auto Sell Pets",
-				Description = "Automatically sell pets that meet your criteria.",
-				Toggle = true,
-				Enabled = false,
-				Compact = true,
-				Controller = "AutoSellPets",
-			},
-		},
-	},
 	Credits = {
 		{
 			Title = "By: Cleiton10HDx",
