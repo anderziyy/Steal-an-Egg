@@ -1269,298 +1269,6 @@ local function openVisualEggInfoPanel()
 	-- the Visual settings panel itself interactive until its X button is used.
 end
 
--- Pet selling filters and input state.
-local petFilterSelectionState = {
-	Name = false,
-	Mutation = false,
-	Distance = false,
-	Rarity = false,
-}
-
-local petFilterPanelOpen = false
-local PetFilterInfoModal
-local PetFilterInfoOverlay
-local PetFilterInfoPanel
-local activePetFilterPanelMode = "Rarity"
-
-local petSellPrice = ""
-
-local function setNumericSellPrice(text)
-	local filtered = tostring(text or ""):gsub("%D", "")
-	petSellPrice = filtered
-	return filtered
-end
-
-local function createPetFilterSelectionRow(parent, name, text, order)
-	local on = petFilterSelectionState[name] == true
-
-	local Row = make("Frame", {
-		Name = name .. "Row",
-		Size = UDim2.new(1, -18, 0, 62),
-		BackgroundColor3 = COLORS.Black2,
-		BorderSizePixel = 0,
-		LayoutOrder = order,
-		ZIndex = 1004,
-	}, parent)
-
-	make("UIStroke", {
-		Thickness = 1.15,
-		Color = COLORS.Gray3,
-		Transparency = 0.16,
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-	}, Row)
-
-	make("TextLabel", {
-		Position = UDim2.new(0, 14, 0, 0),
-		Size = UDim2.new(1, -90, 1, 0),
-		BackgroundTransparency = 1,
-		Text = text,
-		TextColor3 = COLORS.White,
-		Font = Enum.Font.GothamSemibold,
-		TextSize = 13,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Center,
-		ZIndex = 1005,
-	}, Row)
-
-	local ToggleButton = make("TextButton", {
-		Name = "Toggle",
-		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -14, 0.5, 0),
-		Size = UDim2.fromOffset(52, 24),
-		BackgroundColor3 = on and COLORS.Gray3 or COLORS.Gray,
-		BorderSizePixel = 0,
-		AutoButtonColor = false,
-		Text = "",
-		ZIndex = 1006,
-	}, Row)
-
-	make("UICorner", {CornerRadius = UDim.new(1, 0)}, ToggleButton)
-
-	local Knob = make("Frame", {
-		Name = "Knob",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(on and 0.77 or 0.23, 0.5),
-		Size = UDim2.fromOffset(19, 19),
-		BackgroundColor3 = COLORS.White,
-		BorderSizePixel = 0,
-		ZIndex = 1007,
-	}, ToggleButton)
-
-	make("UICorner", {CornerRadius = UDim.new(1, 0)}, Knob)
-
-	ToggleButton.Activated:Connect(function()
-		petFilterSelectionState[name] = not (petFilterSelectionState[name] == true)
-		local enabled = petFilterSelectionState[name] == true
-
-		tween(ToggleButton, 0.14, {
-			BackgroundColor3 = enabled and COLORS.Gray3 or COLORS.Gray,
-		})
-		tween(Knob, 0.14, {
-			Position = UDim2.fromScale(enabled and 0.77 or 0.23, 0.5),
-		})
-	end)
-
-	return Row
-end
-
-local function closePetFilterPanel()
-	petFilterPanelOpen = false
-	visualPanelOpen = false
-
-	if PetFilterInfoOverlay then
-		PetFilterInfoOverlay.Visible = false
-	end
-
-	if PetFilterInfoModal then
-		PetFilterInfoModal.Visible = false
-	end
-
-	updateResultsScrollMode()
-	updateTabListScrollMode()
-end
-
-local function openPetFilterPanel(mode)
-	if cleanedUp or not ScreenGui.Parent then
-		return
-	end
-
-	activePetFilterPanelMode = mode == "Mutation" and "Mutation" or "Rarity"
-
-	if not PetFilterInfoOverlay then
-		PetFilterInfoModal = make("Frame", {
-			Name = "PetFilterInfoModal",
-			Position = UDim2.fromScale(0, 0),
-			Size = UDim2.fromScale(1, 1),
-			BackgroundColor3 = COLORS.Black,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			Visible = false,
-			Active = false,
-			ZIndex = 1000,
-		}, ScreenGui)
-
-		PetFilterInfoOverlay = make("Frame", {
-			Name = "PetFilterInfoOverlay",
-			Position = UDim2.fromScale(0.50, 0.035),
-			Size = UDim2.fromScale(0.465, 0.935),
-			BackgroundColor3 = COLORS.Black,
-			BackgroundTransparency = 0.10,
-			BorderSizePixel = 0,
-			Visible = false,
-			Active = true,
-			ClipsDescendants = true,
-			ZIndex = 100,
-		}, Content)
-
-		make("UIStroke", {
-			Thickness = 1.4,
-			Color = COLORS.Gray3,
-			Transparency = 0.05,
-		}, PetFilterInfoOverlay)
-
-		PetFilterInfoPanel = make("Frame", {
-			Name = "PetFilterInfoPanel",
-			Position = UDim2.fromScale(0.025, 0.020),
-			Size = UDim2.fromScale(0.95, 0.96),
-			BackgroundColor3 = COLORS.Black2,
-			BorderSizePixel = 0,
-			Active = true,
-			ClipsDescendants = true,
-			ZIndex = 101,
-		}, PetFilterInfoOverlay)
-
-		make("UIStroke", {
-			Thickness = 1.2,
-			Color = COLORS.Gray2,
-			Transparency = 0.10,
-		}, PetFilterInfoPanel)
-
-		local Title = make("TextLabel", {
-			Name = "Title",
-			Position = UDim2.fromScale(0.055, 0.035),
-			Size = UDim2.fromScale(0.69, 0.11),
-			BackgroundTransparency = 1,
-			Text = "Pet Rarity Filter",
-			TextColor3 = COLORS.White,
-			Font = Enum.Font.GothamBold,
-			TextSize = 15,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextYAlignment = Enum.TextYAlignment.Center,
-			ZIndex = 102,
-		}, PetFilterInfoPanel)
-
-		local Close = make("TextButton", {
-			Name = "Close",
-			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.fromScale(0.955, 0.035),
-			Size = UDim2.fromScale(0.095, 0.105),
-			BackgroundColor3 = COLORS.Gray,
-			BackgroundTransparency = 0.18,
-			BorderSizePixel = 0,
-			AutoButtonColor = false,
-			Text = "X",
-			TextColor3 = COLORS.White,
-			Font = Enum.Font.GothamBold,
-			TextSize = 13,
-			ZIndex = 105,
-		}, PetFilterInfoPanel)
-
-		make("UIAspectRatioConstraint", {AspectRatio = 1}, Close)
-
-		Close.MouseEnter:Connect(function()
-			tween(Close, 0.10, {BackgroundColor3 = COLORS.Gray3, BackgroundTransparency = 0})
-		end)
-
-		Close.MouseLeave:Connect(function()
-			tween(Close, 0.10, {BackgroundColor3 = COLORS.Gray, BackgroundTransparency = 0.18})
-		end)
-
-		Close.Activated:Connect(closePetFilterPanel)
-
-		local Scroll = make("ScrollingFrame", {
-			Name = "Options",
-			Position = UDim2.fromScale(0.045, 0.17),
-			Size = UDim2.fromScale(0.91, 0.77),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ScrollBarThickness = 3,
-			ScrollBarImageColor3 = COLORS.White,
-			ScrollBarImageTransparency = 0.05,
-			ScrollingDirection = Enum.ScrollingDirection.Y,
-			ScrollingEnabled = true,
-			Active = true,
-			AutomaticCanvasSize = Enum.AutomaticSize.Y,
-			CanvasSize = UDim2.fromScale(0, 1.2),
-			ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-			ZIndex = 103,
-		}, PetFilterInfoPanel)
-
-		make("UIListLayout", {
-			Padding = UDim.new(0, 7),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-		}, Scroll)
-
-		make("UIPadding", {
-			PaddingBottom = UDim.new(0, 10),
-			PaddingLeft = UDim.new(0, 25),
-			PaddingRight = UDim.new(0, 0),
-			PaddingTop = UDim.new(0, 15),
-		}, Scroll)
-
-		createPetFilterSelectionRow(Scroll, "Name", "Name", 1)
-		createPetFilterSelectionRow(Scroll, "Mutation", "Mutation", 2)
-		createPetFilterSelectionRow(Scroll, "Distance", "Distance", 3)
-		createPetFilterSelectionRow(Scroll, "Rarity", "Rarity", 4)
-
-		PetFilterInfoPanel:SetAttribute("TitleMode", "Rarity")
-		PetFilterInfoPanel:SetAttribute("PanelMode", "Rarity")
-
-		installEnglishGuard(PetFilterInfoOverlay)
-
-		registerCleanup(function()
-			if PetFilterInfoOverlay and PetFilterInfoOverlay.Parent then
-				PetFilterInfoOverlay:Destroy()
-			end
-		end)
-
-		registerCleanup(function()
-			if PetFilterInfoModal and PetFilterInfoModal.Parent then
-				PetFilterInfoModal:Destroy()
-			end
-		end)
-	end
-
-	local title = PetFilterInfoPanel:FindFirstChild("Title")
-	if title and title:IsA("TextLabel") then
-		title.Text = activePetFilterPanelMode == "Mutation" and "Pet Mutation Filter" or "Pet Rarity Filter"
-	end
-
-	PetFilterInfoPanel:SetAttribute("PanelMode", activePetFilterPanelMode)
-
-	petFilterPanelOpen = true
-	visualPanelOpen = true
-	updateResultsScrollMode()
-	updateTabListScrollMode()
-
-	PetFilterInfoModal.Visible = true
-	PetFilterInfoOverlay.Visible = true
-end
-
-local function sellFilteredPets()
-	-- The uploaded source does not contain a pet-selling remote or client
-	-- module, so the UI is prepared here without inventing an unknown server API.
-	-- The selected filter state and numeric price are retained for the future
-	-- game-specific sell implementation.
-	local filterInfo = string.format(
-		"Sell request prepared. Price: %s | Rarity filter: %s | Mutation filter: %s",
-		petSellPrice == "" and "Any" or petSellPrice,
-		petFilterSelectionState.Rarity and "ON" or "OFF",
-		petFilterSelectionState.Mutation and "ON" or "OFF"
-	)
-
-	showCopiedNotification(filterInfo, IMAGE_CLICK)
-end
 local datasets = {
 	Main = {
 		{
@@ -1635,40 +1343,23 @@ local datasets = {
 			Items = {
 				{
 					Title = "Sell All Pets",
-					Description = "Sells all pets in your inventory using the selected sell filters.",
+					Description = "Sell all pets using the currently selected filters.",
 					Icon = IMAGE_CLICK,
 					Compact = true,
-					Action = sellFilteredPets,
-				},
-				{
-					Title = "Pet Rarity Filter",
-					Description = "Select the rarity filter used when selling pets.",
-					Selector = true,
-					Icon = IMAGE_CLICK,
 					Action = function()
-						openPetFilterPanel("Rarity")
+						-- Placeholder
 					end,
+				},
+				{
+					Title = "Minimum Price",
+					Description = "Only numbers are accepted when choosing the minimum selling price.",
+					NumberInput = true,
+					Value = "0",
 					Compact = true,
 				},
 				{
-					Title = "Pet Mutation Filter",
-					Description = "Select the mutation filter used when selling pets.",
-					Selector = true,
-					Icon = IMAGE_CLICK,
-					Action = function()
-						openPetFilterPanel("Mutation")
-					end,
-					Compact = true,
-				},
-				{
-					Title = "Sell Price",
-					Description = "Set the price value used by the pet-selling filter.",
-					Input = true,
-					Compact = true,
-				},
-				{
-					Title = "Use Sell Filters",
-					Description = "Enable the selected rarity, mutation, and price filters when selling pets.",
+					Title = "Enable Filters",
+					Description = "Use the active selling filters before selling pets.",
 					Toggle = true,
 					Enabled = false,
 					Compact = true,
@@ -3509,39 +3200,6 @@ createStandardRow = function(item, layoutOrder)
 		return Row
 	end
 
-	if item.Input then
-		local Right = make("TextBox", {
-			Name = "NumericInput",
-			AnchorPoint = Vector2.new(1, 0.5),
-			Position = UDim2.fromScale(0.95, 0.5),
-			Size = UDim2.fromScale(0.21, 0.46),
-			BackgroundColor3 = COLORS.Gray,
-			BorderSizePixel = 0,
-			ClearTextOnFocus = false,
-			Text = petSellPrice,
-			PlaceholderText = "0",
-			TextColor3 = COLORS.White,
-			PlaceholderColor3 = COLORS.Muted,
-			Font = Enum.Font.GothamSemibold,
-			TextSize = 11,
-			TextXAlignment = Enum.TextXAlignment.Center,
-			TextYAlignment = Enum.TextYAlignment.Center,
-			ZIndex = 7,
-		}, Row)
-		make("UIStroke", {Thickness = 1, Color = COLORS.Gray3, Transparency = 0.10}, Right)
-		make("UICorner", {CornerRadius = UDim.new(0, 6)}, Right)
-		Right:GetPropertyChangedSignal("Text"):Connect(function()
-			local filtered = setNumericSellPrice(Right.Text)
-			if Right.Text ~= filtered then
-				Right.Text = filtered
-			end
-		end)
-		Right.FocusLost:Connect(function()
-			Right.Text = petSellPrice
-		end)
-		return Row
-	end
-
 	if item.Toggle then
 		local ToggleButton = make("TextButton", {
 			Name = "Toggle", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.fromScale(0.95, 0.5),
@@ -3929,7 +3587,6 @@ local function hideMenu()
 	ConfirmOverlay.Visible = false
 	LockOverlay.Visible = false
 	closeVisualEggInfoPanel()
-	closePetFilterPanel()
 end
 
 local function showMenu()
