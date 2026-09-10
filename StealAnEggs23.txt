@@ -1336,35 +1336,6 @@ local datasets = {
 			},
 		},
 	},
-		{
-			Type = "Category",
-			Title = "Sell Pets",
-			Icon = "rbxassetid://73980046048142",
-			Expanded = false,
-			Items = {
-				{
-					Title = "Auto Sell Pets",
-					Description = "Automatically sell pets while enabled.",
-					Toggle = true,
-					Enabled = false,
-					Compact = true,
-				},
-				{
-					Title = "Sell All Pets",
-					Description = "Sell all eligible pets with a single click.",
-					Icon = IMAGE_CLICK,
-					Compact = true,
-				},
-				{
-					Title = "Pet Value Limit",
-					Description = "Set the pet value limit using the input field on the right.",
-					Input = true,
-					InputPlaceholder = "Value",
-					Compact = true,
-				},
-			},
-		},
-	},
 	["Auto Buy"] = {
 		{
 			Type = "Category",
@@ -1529,6 +1500,41 @@ local datasets = {
 		},
 	},
 
+	{
+		Type = "Category",
+		Title = "Sell Pets",
+		Icon = "rbxassetid://73980046048142",
+		Expanded = false,
+		Items = {
+			{
+				Title = "Sell All Pets",
+				Description = "Instantly sell all pets in your inventory.",
+				Click = true,
+				Icon = IMAGE_CLICK,
+				Action = function()
+					-- Functionality to be added
+				end,
+				Compact = true,
+			},
+			{
+				Title = "Minimum Value",
+				Description = "Only sell pets with value below this threshold.",
+				Input = true,
+				InputType = "number",
+				InputPlaceholder = "Enter value",
+				Value = 0,
+				Compact = true,
+			},
+			{
+				Title = "Auto Sell Pets",
+				Description = "Automatically sell pets that meet your criteria.",
+				Toggle = true,
+				Enabled = false,
+				Compact = true,
+				Controller = "AutoSellPets",
+			},
+		},
+	},
 	Credits = {
 		{
 			Title = "By: Cleiton10HDx",
@@ -3173,30 +3179,6 @@ createStandardRow = function(item, layoutOrder)
 		Font = Enum.Font.Gotham, TextSize = 11, TextWrapped = true,
 		TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 5,
 	}, Row)
-
-	if item.Input then
-		local InputBox = make("TextBox", {
-				Name = "Input",
-				AnchorPoint = Vector2.new(1, 0.5),
-				Position = UDim2.fromScale(0.95, 0.5),
-				Size = UDim2.fromScale(0.21, 0.46),
-				BackgroundColor3 = COLORS.Black,
-				BorderSizePixel = 0,
-				ClearTextOnFocus = false,
-				PlaceholderText = item.InputPlaceholder or "",
-				Text = "",
-				TextColor3 = COLORS.White,
-				PlaceholderColor3 = COLORS.Muted,
-				Font = Enum.Font.GothamSemibold,
-				TextSize = 11,
-				TextXAlignment = Enum.TextXAlignment.Center,
-				TextYAlignment = Enum.TextYAlignment.Center,
-				ZIndex = 7,
-			}, Row)
-		make("UICorner", {CornerRadius = UDim.new(0, 8)}, InputBox)
-		make("UIStroke", {Thickness = 1, Color = COLORS.Gray3, Transparency = 0.08}, InputBox)
-		return Row
-	end
 
 	if item.Selector then
 		local Right = make("TextButton", {
