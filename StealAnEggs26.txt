@@ -1349,23 +1349,17 @@ local datasets = {
 					Compact = true,
 				},
 				{
-					Title = "Mutation Filter",
-					Description = "Select pet mutations to include in the selling filters.",
-					Selector = true,
-					Icon = IMAGE_CLICK,
-					Action = function()
-						-- Placeholder for mutation panel
-					end,
+					Title = "Mutation",
+					Description = "Choose the mutation you want to use when selling pets. (Visual only.)",
+					VisualOnly = true,
+					VisualOnlyText = "Select",
 					Compact = true,
 				},
 				{
-					Title = "Rarity Filter",
-					Description = "Select pet rarities to include in the selling filters.",
-					Selector = true,
-					Icon = IMAGE_CLICK,
-					Action = function()
-						-- Placeholder for rarity panel
-					end,
+					Title = "Rarity",
+					Description = "Choose the rarity you want to use when selling pets. (Visual only.)",
+					VisualOnly = true,
+					VisualOnlyText = "Select",
 					Compact = true,
 				},
 				{
@@ -3326,6 +3320,32 @@ createStandardRow = function(item, layoutOrder)
 			setToggleState(item, not (toggleStates[item] == true))
 			updateToggle(true)
 		end)
+		return Row
+	end
+
+	if item.VisualOnly then
+		local VisualText = make("TextLabel", {
+			Name = "VisualOnlyIndicator",
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.fromScale(0.95, 0.5),
+			Size = UDim2.fromScale(0.16, 0.46),
+			BackgroundColor3 = COLORS.Gray,
+			BorderSizePixel = 0,
+			Text = item.VisualOnlyText or "Select",
+			TextColor3 = COLORS.Muted,
+			Font = Enum.Font.GothamSemibold,
+			TextSize = 11,
+			TextXAlignment = Enum.TextXAlignment.Center,
+			TextYAlignment = Enum.TextYAlignment.Center,
+			ZIndex = 7,
+		}, Row)
+		make("UICorner", {CornerRadius = UDim.new(0, 8)}, VisualText)
+		make("UIStroke", {
+			Thickness = 1,
+			Color = COLORS.Gray3,
+			Transparency = 0.10,
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		}, VisualText)
 		return Row
 	end
 
