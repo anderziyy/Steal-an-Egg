@@ -1349,15 +1349,23 @@ local datasets = {
 					Compact = true,
 				},
 				{
-					Title = "Mutation",
-					Description = "Choose the mutation filter to use when selling pets.",
+					Title = "Mutation Filter",
+					Description = "Select pet mutations to include in the selling filters.",
 					Selector = true,
+					Icon = IMAGE_CLICK,
+					Action = function()
+						-- Placeholder for mutation panel
+					end,
 					Compact = true,
 				},
 				{
-					Title = "Rarity",
-					Description = "Choose the rarity filter to use when selling pets.",
+					Title = "Rarity Filter",
+					Description = "Select pet rarities to include in the selling filters.",
 					Selector = true,
+					Icon = IMAGE_CLICK,
+					Action = function()
+						-- Placeholder for rarity panel
+					end,
 					Compact = true,
 				},
 				{
