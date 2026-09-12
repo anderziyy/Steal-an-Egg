@@ -761,10 +761,6 @@ local tabs = {
 local tabButtons = {}
 local currentTab = "Main"
 local visualPanelOpen = false
-local sellPetPanelOpen = false
-local SellPetInfoModal
-local SellPetInfoOverlay
-local SellPetInfoPanel
 
 local ResultsScroll = make("ScrollingFrame", {
 	Name = "Results",
@@ -803,7 +799,7 @@ local resultsScrollTouchCanvasY = nil
 local resultsScrollInputConnection
 
 local function isResultsScrollingAllowed()
-	return currentTab ~= "Credits" and ResultsScroll.Visible and ResultsScroll.ScrollingEnabled and not visualPanelOpen and not sellPetPanelOpen
+	return currentTab ~= "Credits" and ResultsScroll.Visible and ResultsScroll.ScrollingEnabled and not visualPanelOpen
 end
 
 local function getResultsMaxScrollY()
@@ -828,7 +824,7 @@ local function isPointInsideResults(point)
 end
 
 local function updateResultsScrollMode()
-	local enabled = currentTab ~= "Credits" and not visualPanelOpen and not sellPetPanelOpen
+	local enabled = currentTab ~= "Credits" and not visualPanelOpen
 	ResultsScroll.ScrollingEnabled = enabled
 	ResultsScroll.Active = enabled
 	ResultsScroll.ScrollBarThickness = enabled and 3 or 0
@@ -836,7 +832,7 @@ local function updateResultsScrollMode()
 end
 
 local function updateTabListScrollMode()
-	local enabled = not visualPanelOpen and not sellPetPanelOpen
+	local enabled = not visualPanelOpen
 	TabList.ScrollingEnabled = enabled
 	TabList.Active = enabled
 	TabList.ScrollBarThickness = enabled and 3 or 0
@@ -1273,262 +1269,6 @@ local function openVisualEggInfoPanel()
 	-- the Visual settings panel itself interactive until its X button is used.
 end
 
-
-local sellPetSelectionState = {
-	Mutation = false,
-	Rarity = false,
-}
-
-local sellPetSelectorKind = "Mutation"
-
-local function setSellPetSelection(name, value)
-	sellPetSelectionState[name] = value == true
-end
-
-local function updateSellPetSelectionButton(button, knob, name)
-	local on = sellPetSelectionState[name] == true
-	local targetColor = on and COLORS.Gray3 or COLORS.Gray
-	local targetPosition = UDim2.fromScale(on and 0.77 or 0.23, 0.5)
-	tween(button, 0.14, {BackgroundColor3 = targetColor})
-	tween(knob, 0.14, {Position = targetPosition})
-end
-
-local function createSellPetSelectionRow(parent, name, text, order)
-	local Row = make("Frame", {
-		Name = name .. "Row",
-		Size = UDim2.new(1, -18, 0, 62),
-		BackgroundColor3 = COLORS.Black2,
-		BorderSizePixel = 0,
-		LayoutOrder = order,
-		ZIndex = 1004,
-	}, parent)
-	make("UIStroke", {
-		Thickness = 1.15,
-		Color = COLORS.Gray3,
-		Transparency = 0.16,
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-	}, Row)
-
-	make("TextLabel", {
-		Position = UDim2.new(0, 14, 0, 0),
-		Size = UDim2.new(1, -90, 1, 0),
-		BackgroundTransparency = 1,
-		Text = text,
-		TextColor3 = COLORS.White,
-		Font = Enum.Font.GothamSemibold,
-		TextSize = 13,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Center,
-		ZIndex = 1005,
-	}, Row)
-
-	local ToggleButton = make("TextButton", {
-		Name = "Toggle",
-		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -14, 0.5, 0),
-		Size = UDim2.fromOffset(52, 24),
-		BackgroundColor3 = COLORS.Gray,
-		BorderSizePixel = 0,
-		AutoButtonColor = false,
-		Text = "",
-		ZIndex = 1006,
-	}, Row)
-	make("UICorner", {CornerRadius = UDim.new(1, 0)}, ToggleButton)
-
-	local Knob = make("Frame", {
-		Name = "Knob",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.23, 0.5),
-		Size = UDim2.fromOffset(19, 19),
-		BackgroundColor3 = COLORS.White,
-		BorderSizePixel = 0,
-		ZIndex = 1007,
-	}, ToggleButton)
-	make("UICorner", {CornerRadius = UDim.new(1, 0)}, Knob)
-
-	updateSellPetSelectionButton(ToggleButton, Knob, name)
-	ToggleButton.Activated:Connect(function()
-		setSellPetSelection(name, not sellPetSelectionState[name])
-		updateSellPetSelectionButton(ToggleButton, Knob, name)
-	end)
-
-	return Row
-end
-
-local function closeSellPetFilterPanel()
-	sellPetPanelOpen = false
-	if SellPetInfoOverlay then
-		SellPetInfoOverlay.Visible = false
-	end
-	if SellPetInfoModal then
-		SellPetInfoModal.Visible = false
-	end
-	updateResultsScrollMode()
-	updateTabListScrollMode()
-end
-
-local function populateSellPetSelector(scroll)
-	if sellPetSelectorKind == "Mutation" then
-		createSellPetSelectionRow(scroll, "Mutation", "Silve", 1)
-	else
-		createSellPetSelectionRow(scroll, "Rarity", "Common", 1)
-	end
-end
-
-local function openSellPetFilterPanel(kind)
-	if cleanedUp or not ScreenGui.Parent then
-		return
-	end
-
-	if kind == "Mutation" or kind == "Rarity" then
-		sellPetSelectorKind = kind
-	end
-
-	if not SellPetInfoOverlay then
-		SellPetInfoModal = make("Frame", {
-			Name = "SellPetInfoModal",
-			Position = UDim2.fromScale(0, 0),
-			Size = UDim2.fromScale(1, 1),
-			BackgroundColor3 = COLORS.Black,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			Visible = false,
-			Active = false,
-			ZIndex = 1000,
-		}, ScreenGui)
-
-		SellPetInfoOverlay = make("Frame", {
-			Name = "SellPetInfoOverlay",
-			Position = UDim2.fromScale(0.50, 0.035),
-			Size = UDim2.fromScale(0.465, 0.935),
-			BackgroundColor3 = COLORS.Black,
-			BackgroundTransparency = 0.10,
-			BorderSizePixel = 0,
-			Visible = false,
-			Active = true,
-			ClipsDescendants = true,
-			ZIndex = 100,
-		}, Content)
-		make("UIStroke", {
-			Thickness = 1.4,
-			Color = COLORS.Gray3,
-			Transparency = 0.05,
-		}, SellPetInfoOverlay)
-
-		SellPetInfoPanel = make("Frame", {
-			Name = "SellPetInfoPanel",
-			Position = UDim2.fromScale(0.025, 0.020),
-			Size = UDim2.fromScale(0.95, 0.96),
-			BackgroundColor3 = COLORS.Black2,
-			BorderSizePixel = 0,
-			Active = true,
-			ClipsDescendants = true,
-			ZIndex = 101,
-		}, SellPetInfoOverlay)
-		make("UIStroke", {
-			Thickness = 1.2,
-			Color = COLORS.Gray2,
-			Transparency = 0.10,
-		}, SellPetInfoPanel)
-
-		make("TextLabel", {
-			Position = UDim2.fromScale(0.055, 0.035),
-			Size = UDim2.fromScale(0.69, 0.11),
-			BackgroundTransparency = 1,
-			Text = "Sell Pets Settings",
-			TextColor3 = COLORS.White,
-			Font = Enum.Font.GothamBold,
-			TextSize = 15,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextYAlignment = Enum.TextYAlignment.Center,
-			ZIndex = 102,
-		}, SellPetInfoPanel)
-
-		local Close = make("TextButton", {
-			Name = "Close",
-			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.fromScale(0.955, 0.035),
-			Size = UDim2.fromScale(0.095, 0.105),
-			BackgroundColor3 = COLORS.Gray,
-			BackgroundTransparency = 0.18,
-			BorderSizePixel = 0,
-			AutoButtonColor = false,
-			Text = "X",
-			TextColor3 = COLORS.White,
-			Font = Enum.Font.GothamBold,
-			TextSize = 13,
-			ZIndex = 105,
-		}, SellPetInfoPanel)
-		make("UIAspectRatioConstraint", {AspectRatio = 1}, Close)
-		Close.MouseEnter:Connect(function()
-			tween(Close, 0.10, {BackgroundColor3 = COLORS.Gray3, BackgroundTransparency = 0})
-		end)
-		Close.MouseLeave:Connect(function()
-			tween(Close, 0.10, {BackgroundColor3 = COLORS.Gray, BackgroundTransparency = 0.18})
-		end)
-		Close.Activated:Connect(closeSellPetFilterPanel)
-
-		local Scroll = make("ScrollingFrame", {
-			Name = "Options",
-			Position = UDim2.fromScale(0.045, 0.17),
-			Size = UDim2.fromScale(0.91, 0.77),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ScrollBarThickness = 3,
-			ScrollBarImageColor3 = COLORS.White,
-			ScrollBarImageTransparency = 0.05,
-			ScrollingDirection = Enum.ScrollingDirection.Y,
-			ScrollingEnabled = true,
-			Active = true,
-			AutomaticCanvasSize = Enum.AutomaticSize.Y,
-			CanvasSize = UDim2.fromScale(0, 1.2),
-			ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-			ZIndex = 103,
-		}, SellPetInfoPanel)
-		make("UIListLayout", {
-			Padding = UDim.new(0, 7),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-		}, Scroll)
-		make("UIPadding", {
-			PaddingBottom = UDim.new(0, 10),
-			PaddingLeft = UDim.new(0, 25),
-			PaddingRight = UDim.new(0, 0),
-			PaddingTop = UDim.new(0, 15),
-		}, Scroll)
-
-		installEnglishGuard(SellPetInfoOverlay)
-
-		registerCleanup(function()
-			if SellPetInfoOverlay and SellPetInfoOverlay.Parent then
-				SellPetInfoOverlay:Destroy()
-			end
-		end)
-	end
-
-	local scroll = SellPetInfoPanel and SellPetInfoPanel:FindFirstChild("Options")
-	if scroll then
-		for _, child in ipairs(scroll:GetChildren()) do
-			if not child:IsA("UIListLayout") and not child:IsA("UIPadding") then
-				child:Destroy()
-			end
-		end
-		populateSellPetSelector(scroll)
-	end
-
-	if SellPetInfoPanel then
-		local title = SellPetInfoPanel:FindFirstChildOfClass("TextLabel")
-		if title then
-			title.Text = sellPetSelectorKind == "Mutation" and "Mutation Settings" or "Rarity Settings"
-		end
-	end
-
-	sellPetPanelOpen = true
-	updateResultsScrollMode()
-	updateTabListScrollMode()
-	SellPetInfoModal.Visible = true
-	SellPetInfoOverlay.Visible = true
-end
-
 local datasets = {
 	Main = {
 		{
@@ -1610,22 +1350,14 @@ local datasets = {
 				},
 				{
 					Title = "Mutation",
-					Description = "Choose the mutation to use when filtering pets for sale.",
+					Description = "Choose the mutation filter to use when selling pets.",
 					Selector = true,
-					Icon = IMAGE_CLICK,
-					Action = function()
-						openSellPetFilterPanel("Mutation")
-					end,
 					Compact = true,
 				},
 				{
 					Title = "Rarity",
-					Description = "Choose the rarity to use when filtering pets for sale.",
+					Description = "Choose the rarity filter to use when selling pets.",
 					Selector = true,
-					Icon = IMAGE_CLICK,
-					Action = function()
-						openSellPetFilterPanel("Rarity")
-					end,
 					Compact = true,
 				},
 				{
@@ -3679,7 +3411,7 @@ end
 local function setTab(name)
 	-- The Visual panel temporarily locks tab switching.
 	-- Existing options/automation remain untouched.
-	if visualPanelOpen or sellPetPanelOpen then
+	if visualPanelOpen then
 		return
 	end
 	currentTab = name
