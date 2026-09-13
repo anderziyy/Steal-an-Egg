@@ -761,7 +761,6 @@ local tabs = {
 local tabButtons = {}
 local currentTab = "Main"
 local visualPanelOpen = false
-local sellPetPanelOpen = false
 
 local ResultsScroll = make("ScrollingFrame", {
 	Name = "Results",
@@ -800,7 +799,7 @@ local resultsScrollTouchCanvasY = nil
 local resultsScrollInputConnection
 
 local function isResultsScrollingAllowed()
-	return currentTab ~= "Credits" and ResultsScroll.Visible and ResultsScroll.ScrollingEnabled and not visualPanelOpen and not sellPetPanelOpen
+	return currentTab ~= "Credits" and ResultsScroll.Visible and ResultsScroll.ScrollingEnabled and not visualPanelOpen
 end
 
 local function getResultsMaxScrollY()
@@ -825,7 +824,7 @@ local function isPointInsideResults(point)
 end
 
 local function updateResultsScrollMode()
-	local enabled = currentTab ~= "Credits" and not visualPanelOpen and not sellPetPanelOpen
+	local enabled = currentTab ~= "Credits" and not visualPanelOpen
 	ResultsScroll.ScrollingEnabled = enabled
 	ResultsScroll.Active = enabled
 	ResultsScroll.ScrollBarThickness = enabled and 3 or 0
@@ -833,7 +832,7 @@ local function updateResultsScrollMode()
 end
 
 local function updateTabListScrollMode()
-	local enabled = not visualPanelOpen and not sellPetPanelOpen
+	local enabled = not visualPanelOpen
 	TabList.ScrollingEnabled = enabled
 	TabList.Active = enabled
 	TabList.ScrollBarThickness = enabled and 3 or 0
@@ -1270,217 +1269,6 @@ local function openVisualEggInfoPanel()
 	-- the Visual settings panel itself interactive until its X button is used.
 end
 
-local sellPetSelectionState = {
-	Mutation = false,
-	Rarity = false,
-}
-local SellPetSelectionModal
-local SellPetSelectionOverlay
-local SellPetSelectionPanel
-
-local function setSellPetSelection(name, value)
-	sellPetSelectionState[name] = value == true
-end
-
-local function createSellPetSelectionRow(parent, name, text, order)
-	local Row = make("Frame", {
-		Name = name .. "Row",
-		Size = UDim2.new(1, -18, 0, 62),
-		BackgroundColor3 = COLORS.Black2,
-		BorderSizePixel = 0,
-		LayoutOrder = order,
-		ZIndex = 1004,
-	}, parent)
-	make("UIStroke", {Thickness = 1.15, Color = COLORS.Gray3, Transparency = 0.16, ApplyStrokeMode = Enum.ApplyStrokeMode.Border}, Row)
-
-	make("TextLabel", {
-		Position = UDim2.new(0, 14, 0, 0),
-		Size = UDim2.new(1, -90, 1, 0),
-		BackgroundTransparency = 1,
-		Text = text,
-		TextColor3 = COLORS.White,
-		Font = Enum.Font.GothamSemibold,
-		TextSize = 13,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Center,
-		ZIndex = 1005,
-	}, Row)
-
-	local ToggleButton = make("TextButton", {
-		Name = "Toggle",
-		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -14, 0.5, 0),
-		Size = UDim2.fromOffset(52, 24),
-		BackgroundColor3 = COLORS.Gray,
-		BorderSizePixel = 0,
-		AutoButtonColor = false,
-		Text = "",
-		ZIndex = 1006,
-	}, Row)
-	make("UICorner", {CornerRadius = UDim.new(1, 0)}, ToggleButton)
-
-	local Knob = make("Frame", {
-		Name = "Knob",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.23, 0.5),
-		Size = UDim2.fromOffset(19, 19),
-		BackgroundColor3 = COLORS.White,
-		BorderSizePixel = 0,
-		ZIndex = 1007,
-	}, ToggleButton)
-	make("UICorner", {CornerRadius = UDim.new(1, 0)}, Knob)
-
-	local function update()
-		local on = sellPetSelectionState[name] == true
-		tween(ToggleButton, 0.14, {BackgroundColor3 = on and COLORS.Gray3 or COLORS.Gray})
-		tween(Knob, 0.14, {Position = UDim2.fromScale(on and 0.77 or 0.23, 0.5)})
-	end
-
-	update()
-	ToggleButton.Activated:Connect(function()
-		setSellPetSelection(name, not sellPetSelectionState[name])
-		update()
-	end)
-	return Row
-end
-
-local function closeSellPetSelectionPanel()
-	sellPetPanelOpen = false
-	if SellPetSelectionOverlay then
-		SellPetSelectionOverlay.Visible = false
-	end
-	if SellPetSelectionModal then
-		SellPetSelectionModal.Visible = false
-	end
-	updateResultsScrollMode()
-	updateTabListScrollMode()
-end
-
-local function openSellPetSelectionPanel(panelType)
-	if cleanedUp or not ScreenGui.Parent then
-		return
-	end
-	if not SellPetSelectionOverlay then
-		SellPetSelectionModal = make("Frame", {
-			Name = "SellPetSelectionModal",
-			Position = UDim2.fromScale(0, 0),
-			Size = UDim2.fromScale(1, 1),
-			BackgroundColor3 = COLORS.Black,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			Visible = false,
-			Active = false,
-			ZIndex = 1000,
-		}, ScreenGui)
-
-		SellPetSelectionOverlay = make("Frame", {
-			Name = "SellPetSelectionOverlay",
-			Position = UDim2.fromScale(0.50, 0.035),
-			Size = UDim2.fromScale(0.465, 0.935),
-			BackgroundColor3 = COLORS.Black,
-			BackgroundTransparency = 0.10,
-			BorderSizePixel = 0,
-			Visible = false,
-			Active = true,
-			ClipsDescendants = true,
-			ZIndex = 100,
-		}, Content)
-		make("UIStroke", {Thickness = 1.4, Color = COLORS.Gray3, Transparency = 0.05}, SellPetSelectionOverlay)
-
-		SellPetSelectionPanel = make("Frame", {
-			Name = "SellPetSelectionPanel",
-			Position = UDim2.fromScale(0.025, 0.020),
-			Size = UDim2.fromScale(0.95, 0.96),
-			BackgroundColor3 = COLORS.Black2,
-			BorderSizePixel = 0,
-			Active = true,
-			ClipsDescendants = true,
-			ZIndex = 101,
-		}, SellPetSelectionOverlay)
-		make("UIStroke", {Thickness = 1.2, Color = COLORS.Gray2, Transparency = 0.10}, SellPetSelectionPanel)
-
-		local PanelTitle = make("TextLabel", {
-			Position = UDim2.fromScale(0.055, 0.035),
-			Size = UDim2.fromScale(0.69, 0.11),
-			BackgroundTransparency = 1,
-			Text = "Mutation Settings",
-			TextColor3 = COLORS.White,
-			Font = Enum.Font.GothamBold,
-			TextSize = 15,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextYAlignment = Enum.TextYAlignment.Center,
-			ZIndex = 102,
-		}, SellPetSelectionPanel)
-
-		local Close = make("TextButton", {
-			Name = "Close",
-			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.fromScale(0.955, 0.035),
-			Size = UDim2.fromScale(0.095, 0.105),
-			BackgroundColor3 = COLORS.Gray,
-			BackgroundTransparency = 0.18,
-			BorderSizePixel = 0,
-			AutoButtonColor = false,
-			Text = "X",
-			TextColor3 = COLORS.White,
-			Font = Enum.Font.GothamBold,
-			TextSize = 13,
-			ZIndex = 105,
-		}, SellPetSelectionPanel)
-		make("UIAspectRatioConstraint", {AspectRatio = 1}, Close)
-		Close.MouseEnter:Connect(function() tween(Close, 0.10, {BackgroundColor3 = COLORS.Gray3, BackgroundTransparency = 0}) end)
-		Close.MouseLeave:Connect(function() tween(Close, 0.10, {BackgroundColor3 = COLORS.Gray, BackgroundTransparency = 0.18}) end)
-		Close.Activated:Connect(closeSellPetSelectionPanel)
-
-		local Scroll = make("ScrollingFrame", {
-			Name = "Options",
-			Position = UDim2.fromScale(0.045, 0.17),
-			Size = UDim2.fromScale(0.91, 0.77),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ScrollBarThickness = 3,
-			ScrollBarImageColor3 = COLORS.White,
-			ScrollBarImageTransparency = 0.05,
-			ScrollingDirection = Enum.ScrollingDirection.Y,
-			ScrollingEnabled = true,
-			Active = true,
-			AutomaticCanvasSize = Enum.AutomaticSize.Y,
-			CanvasSize = UDim2.fromScale(0, 1.2),
-			ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-			ZIndex = 103,
-		}, SellPetSelectionPanel)
-		make("UIListLayout", {Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder}, Scroll)
-		make("UIPadding", {PaddingBottom = UDim.new(0, 10), PaddingLeft = UDim.new(0, 25), PaddingRight = UDim.new(0, 0), PaddingTop = UDim.new(0, 15)}, Scroll)
-		installEnglishGuard(SellPetSelectionOverlay)
-		registerCleanup(function()
-			if SellPetSelectionOverlay and SellPetSelectionOverlay.Parent then
-				SellPetSelectionOverlay:Destroy()
-			end
-		end)
-	end
-
-	local title = panelType == "Mutation" and "Mutation Settings" or "Rarity Settings"
-	local option = panelType == "Mutation" and "Silve" or "Common"
-	local scroll = SellPetSelectionPanel:FindFirstChild("Options")
-	for _, child in ipairs(scroll:GetChildren()) do
-		if not child:IsA("UIListLayout") and not child:IsA("UIPadding") then
-			child:Destroy()
-		end
-	end
-
-	local panelTitle = SellPetSelectionPanel:FindFirstChildOfClass("TextLabel")
-	if panelTitle then
-		panelTitle.Text = title
-	end
-	createSellPetSelectionRow(scroll, panelType, option, 1)
-
-	sellPetPanelOpen = true
-	updateResultsScrollMode()
-	updateTabListScrollMode()
-	SellPetSelectionModal.Visible = true
-	SellPetSelectionOverlay.Visible = true
-end
-
 local datasets = {
 	Main = {
 		{
@@ -1562,22 +1350,16 @@ local datasets = {
 				},
 				{
 					Title = "Mutation",
-					Description = "Choose the mutation you want to use when selling pets.",
-					Selector = true,
-					Icon = IMAGE_CLICK,
-					Action = function()
-						openSellPetSelectionPanel("Mutation")
-					end,
+					Description = "Choose the mutation you want to use when selling pets. (Visual only.)",
+					VisualOnly = true,
+					VisualOnlyText = "Select",
 					Compact = true,
 				},
 				{
 					Title = "Rarity",
-					Description = "Choose the rarity you want to use when selling pets.",
-					Selector = true,
-					Icon = IMAGE_CLICK,
-					Action = function()
-						openSellPetSelectionPanel("Rarity")
-					end,
+					Description = "Choose the rarity you want to use when selling pets. (Visual only.)",
+					VisualOnly = true,
+					VisualOnlyText = "Select",
 					Compact = true,
 				},
 				{
@@ -1860,46 +1642,6 @@ end
 local createStandardRow
 local renderResults
 
-local function formatCompactNumber(value)
-	local numeric = tonumber(value) or 0
-	if numeric < 1000 then
-		if numeric == math.floor(numeric) then
-			return tostring(math.floor(numeric))
-		end
-		return string.format("%.2f", numeric):gsub("0+$", ""):gsub("%.$", "")
-	end
-
-	local units = {
-		{1e3, "K"}, {1e6, "M"}, {1e9, "B"}, {1e12, "T"},
-		{1e15, "QA"}, {1e18, "QI"}, {1e21, "SX"}, {1e24, "SP"},
-		{1e27, "OC"}, {1e30, "NO"}, {1e33, "DC"}, {1e36, "UD"},
-		{1e39, "DD"}, {1e42, "TD"}, {1e45, "QAD"}, {1e48, "QID"},
-		{1e51, "SXD"}, {1e54, "SPD"}, {1e57, "OCD"}, {1e60, "NOD"},
-		{1e63, "VG"}, {1e66, "UVG"}, {1e69, "DVG"}, {1e72, "TVG"},
-		{1e75, "QAVG"}, {1e78, "QIVG"},
-	}
-
-	local selectedUnit = units[1]
-	for _, unit in ipairs(units) do
-		if numeric >= unit[1] then
-			selectedUnit = unit
-		else
-			break
-		end
-	end
-
-	local scaled = numeric / selectedUnit[1]
-	local text
-	if scaled >= 100 or scaled == math.floor(scaled) then
-		text = string.format("%.0f", scaled)
-	elseif scaled >= 10 then
-		text = string.format("%.1f", scaled):gsub("0+$", ""):gsub("%.$", "")
-	else
-		text = string.format("%.2f", scaled):gsub("0+$", ""):gsub("%.$", "")
-	end
-	return text .. selectedUnit[2]
-end
-
 local function createCategoryRow(category, layoutOrder, searchQuery)
 	local expanded = category.Expanded == true
 	local children = searchQuery ~= "" and (category._SearchItems or category.Items or {}) or (category.Items or {})
@@ -1978,7 +1720,7 @@ local function createCategoryRow(category, layoutOrder, searchQuery)
 	Hit.Activated:Connect(function()
 		-- While the Visual settings panel is open, category expand/collapse
 		-- controls are temporarily disabled. Existing option states remain untouched.
-		if visualPanelOpen or sellPetPanelOpen then
+		if visualPanelOpen then
 			return
 		end
 		if searchQuery ~= "" then
@@ -3449,6 +3191,56 @@ createStandardRow = function(item, layoutOrder)
 	}, Row)
 
 	if item.NumberInput then
+		local function formatCompactNumber(value)
+			local numericValue = tonumber(value) or 0
+			if numericValue < 1000 then
+				return tostring(math.floor(numericValue))
+			end
+
+			local suffixes = {
+				{1e30, "no"},
+				{1e27, "oc"},
+				{1e24, "sp"},
+				{1e21, "sx"},
+				{1e18, "qi"},
+				{1e15, "qa"},
+				{1e12, "t"},
+				{1e9, "b"},
+				{1e6, "m"},
+				{1e3, "k"},
+			}
+
+			for _, data in ipairs(suffixes) do
+				local divisor, suffix = data[1], data[2]
+				if numericValue >= divisor then
+					local compact = numericValue / divisor
+					local formatted
+					if compact >= 100 then
+						formatted = string.format("%.0f", compact)
+					elseif compact >= 10 then
+						formatted = string.format("%.1f", compact)
+					else
+						formatted = string.format("%.2f", compact)
+					end
+					if string.find(formatted, ".", 1, true) then
+						formatted = formatted:gsub("0+$", ""):gsub("%.$", "")
+					end
+					return formatted .. suffix
+				end
+			end
+
+			return tostring(math.floor(numericValue))
+		end
+
+		local function updateNumberTitle()
+			local numericText = tostring(item.Value or "")
+			if numericText == "" then
+				TitleLabel.Text = item.Title or "Option"
+				return
+			end
+			TitleLabel.Text = string.format("%s (%s)", item.Title or "Option", formatCompactNumber(numericText))
+		end
+
 		local NumberBox = make("TextBox", {
 			Name = "NumberInput",
 			AnchorPoint = Vector2.new(1, 0.5),
@@ -3484,10 +3276,6 @@ createStandardRow = function(item, layoutOrder)
 			return digitsOnly
 		end
 
-		local function updateCompactTitle()
-			TitleLabel.Text = (item.Title or "Option") .. " (" .. formatCompactNumber(lastValidText) .. ")"
-		end
-
 		NumberBox.Focused:Connect(function()
 			NumberBox.TextEditable = true
 		end)
@@ -3501,7 +3289,7 @@ createStandardRow = function(item, layoutOrder)
 
 			lastValidText = sanitized
 			item.Value = sanitized
-			updateCompactTitle()
+			updateNumberTitle()
 		end)
 
 		NumberBox.FocusLost:Connect(function()
@@ -3509,15 +3297,14 @@ createStandardRow = function(item, layoutOrder)
 			NumberBox.Text = sanitized
 			lastValidText = sanitized
 			item.Value = sanitized
-			updateCompactTitle()
+			updateNumberTitle()
 		end)
 
 		-- Keep the initial value numeric-only even if the dataset was edited manually.
 		local initial = sanitizeNumberText(lastValidText)
 		NumberBox.Text = initial
 		item.Value = initial
-		lastValidText = initial
-		updateCompactTitle()
+		updateNumberTitle()
 
 		return Row
 	end
@@ -3711,7 +3498,7 @@ end
 local function setTab(name)
 	-- The Visual panel temporarily locks tab switching.
 	-- Existing options/automation remain untouched.
-	if visualPanelOpen or sellPetPanelOpen then
+	if visualPanelOpen then
 		return
 	end
 	currentTab = name
@@ -3792,7 +3579,7 @@ for index, tabInfo in ipairs(tabs) do
 	end)
 	Tab.Activated:Connect(function()
 		-- Do not allow changing tabs while the Visual settings panel is open.
-		if visualPanelOpen or sellPetPanelOpen then
+		if visualPanelOpen then
 			return
 		end
 		setTab(tabInfo.Name)
@@ -4061,7 +3848,7 @@ local function clampLauncher(position)
 end
 
 local function updateLauncherDrag(input)
-	if visualPanelOpen or sellPetPanelOpen then
+	if visualPanelOpen then
 		return
 	end
 	if lockEnabled and lockButtonSelected then
@@ -4085,7 +3872,7 @@ local function updateLauncherDrag(input)
 end
 
 local function beginLauncherDrag(input)
-	if visualPanelOpen or sellPetPanelOpen then
+	if visualPanelOpen then
 		return
 	end
 	if lockEnabled and lockButtonSelected then
@@ -4153,7 +3940,7 @@ for name, corner in pairs(corners) do
 		end
 	end)
 	corner.InputBegan:Connect(function(input)
-		if visualPanelOpen or sellPetPanelOpen then
+		if visualPanelOpen then
 			return
 		end
 		if lockEnabled and lockMenuSelected then
@@ -4172,7 +3959,7 @@ for name, corner in pairs(corners) do
 end
 
 function updateMenuDrag(input)
-	if visualPanelOpen or sellPetPanelOpen then
+	if visualPanelOpen then
 		return
 	end
 	if lockEnabled and lockMenuSelected then
