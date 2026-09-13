@@ -82,6 +82,37 @@ local function tween(object, time, properties, style, direction)
 	return animation
 end
 
+local function formatNumberWithSuffix(value)
+	if type(value) == "string" then
+		value = tonumber(value) or 0
+	end
+	if value == 0 then return "0" end
+	
+	local suffixes = {
+		{1e18, "QI"},
+		{1e15, "QA"},
+		{1e12, "T"},
+		{1e9, "B"},
+		{1e6, "M"},
+		{1e3, "K"},
+	}
+	
+	for _, pair in ipairs(suffixes) do
+		local threshold = pair[1]
+		local suffix = pair[2]
+		if value >= threshold then
+			local formatted = value / threshold
+			if formatted == math.floor(formatted) then
+				return tostring(math.floor(formatted)) .. suffix
+			else
+				return string.format("%.1f", formatted):gsub("%.0$", "") .. suffix
+			end
+		end
+	end
+	
+	return tostring(value)
+end
+
 local cleanupCallbacks = {}
 local cleanedUp = false
 local pendingAction = nil
@@ -3182,6 +3213,22 @@ createStandardRow = function(item, layoutOrder)
 		Font = Enum.Font.GothamSemibold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Center, ZIndex = 5,
 	}, Row)
+	
+	if item.NumberInput then
+		local function updateTitleWithValue()
+			local baseTitle = item.Title or "Option"
+			local currentValue = tonumber(item.Value or "0") or 0
+			if currentValue > 0 then
+				TitleLabel.Text = baseTitle .. " (" .. formatNumberWithSuffix(currentValue) .. ")"
+			else
+				TitleLabel.Text = baseTitle
+			end
+		end
+		updateTitleWithValue()
+		-- Store reference for later update
+		item._TitleLabel = TitleLabel
+		item._UpdateTitleFunction = updateTitleWithValue
+	end
 
 	make("TextLabel", {
 		Position = UDim2.fromScale(0.035, 0.49), Size = UDim2.fromScale(0.73, 0.34),
@@ -3191,56 +3238,6 @@ createStandardRow = function(item, layoutOrder)
 	}, Row)
 
 	if item.NumberInput then
-		local function formatCompactNumber(value)
-			local numericValue = tonumber(value) or 0
-			if numericValue < 1000 then
-				return tostring(math.floor(numericValue))
-			end
-
-			local suffixes = {
-				{1e30, "no"},
-				{1e27, "oc"},
-				{1e24, "sp"},
-				{1e21, "sx"},
-				{1e18, "qi"},
-				{1e15, "qa"},
-				{1e12, "t"},
-				{1e9, "b"},
-				{1e6, "m"},
-				{1e3, "k"},
-			}
-
-			for _, data in ipairs(suffixes) do
-				local divisor, suffix = data[1], data[2]
-				if numericValue >= divisor then
-					local compact = numericValue / divisor
-					local formatted
-					if compact >= 100 then
-						formatted = string.format("%.0f", compact)
-					elseif compact >= 10 then
-						formatted = string.format("%.1f", compact)
-					else
-						formatted = string.format("%.2f", compact)
-					end
-					if string.find(formatted, ".", 1, true) then
-						formatted = formatted:gsub("0+$", ""):gsub("%.$", "")
-					end
-					return formatted .. suffix
-				end
-			end
-
-			return tostring(math.floor(numericValue))
-		end
-
-		local function updateNumberTitle()
-			local numericText = tostring(item.Value or "")
-			if numericText == "" then
-				TitleLabel.Text = item.Title or "Option"
-				return
-			end
-			TitleLabel.Text = string.format("%s (%s)", item.Title or "Option", formatCompactNumber(numericText))
-		end
-
 		local NumberBox = make("TextBox", {
 			Name = "NumberInput",
 			AnchorPoint = Vector2.new(1, 0.5),
@@ -3289,7 +3286,11 @@ createStandardRow = function(item, layoutOrder)
 
 			lastValidText = sanitized
 			item.Value = sanitized
-			updateNumberTitle()
+			
+			-- Update title with formatted value
+			if item._UpdateTitleFunction then
+				item._UpdateTitleFunction()
+			end
 		end)
 
 		NumberBox.FocusLost:Connect(function()
@@ -3297,14 +3298,17 @@ createStandardRow = function(item, layoutOrder)
 			NumberBox.Text = sanitized
 			lastValidText = sanitized
 			item.Value = sanitized
-			updateNumberTitle()
+			
+			-- Update title with formatted value
+			if item._UpdateTitleFunction then
+				item._UpdateTitleFunction()
+			end
 		end)
 
 		-- Keep the initial value numeric-only even if the dataset was edited manually.
 		local initial = sanitizeNumberText(lastValidText)
 		NumberBox.Text = initial
 		item.Value = initial
-		updateNumberTitle()
 
 		return Row
 	end
