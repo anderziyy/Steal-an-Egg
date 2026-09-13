@@ -196,6 +196,10 @@ FloatingButton.Parent = ScreenGui
 FloatingButton.AutoButtonColor = false
 FloatingButton.ZIndex = 999999
 
+local FloatingButtonCorner = Instance.new("UICorner")
+FloatingButtonCorner.CornerRadius = UDim.new(0.5, 0)
+FloatingButtonCorner.Parent = FloatingButton
+
 local FloatingButtonStroke = Instance.new("UIStroke")
 FloatingButtonStroke.Color = Color3.fromRGB(60, 60, 60)
 FloatingButtonStroke.Thickness = 3
@@ -276,7 +280,7 @@ Subtitle.Text = "Mod Menu"
 Subtitle.TextColor3 = Color3.fromRGB(175, 175, 175)
 Subtitle.TextXAlignment = Enum.TextXAlignment.Left
 Subtitle.TextYAlignment = Enum.TextYAlignment.Center
-Subtitle.TextSize = rpx(18)
+Subtitle.TextSize = rpx(17)
 Subtitle.Parent = TopBar
 Subtitle.ZIndex = 999999
 
@@ -767,7 +771,8 @@ local function createTab(name, iconId, position)
     TabButton.Name = name
     TabButton.Size = UDim2.new(0.86, 0, 0.155, 0)
     TabButton.Position = UDim2.new(0.08, 0, position.Y.Scale, position.Y.Offset)
-    TabButton.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+    TabButton.BackgroundColor3 = Color3.fromRGB(95, 95, 95)
+    TabButton.BackgroundTransparency = 1
     TabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     TabButton.Text = ""
     TabButton.Font = Enum.Font.SourceSansBold
@@ -777,12 +782,13 @@ local function createTab(name, iconId, position)
     TabButton.ZIndex = 999999
 
     local UICorner = Instance.new("UICorner")
-    UICorner.CornerRadius = UDim.new(0, rpx(0))
+    UICorner.CornerRadius = UDim.new(0, rpx(6))
     UICorner.Parent = TabButton
 
     local BtnStroke = Instance.new("UIStroke")
     BtnStroke.Color = Color3.fromRGB(60, 60, 60)
     BtnStroke.Thickness = 1
+    BtnStroke.Transparency = 1
     BtnStroke.Parent = TabButton
 
     local IconLabel = Instance.new("ImageLabel")
@@ -808,11 +814,13 @@ local function createTab(name, iconId, position)
     TabButton.MouseButton1Click:Connect(function()
         if activeTab ~= name then
             for _, tab in pairs(tabs) do
-                tab.button.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+                tab.button.BackgroundTransparency = 1
+                tab.button.BackgroundColor3 = Color3.fromRGB(95, 95, 95)
             end
 
             activeTab = name
-            TabButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+            TabButton.BackgroundColor3 = Color3.fromRGB(120, 120, 120)
+            TabButton.BackgroundTransparency = 0.45
 
             for _, child in pairs(MainContent:GetChildren()) do
                 if child:IsA("GuiObject") and child.Name ~= "UIListLayout" then
@@ -830,8 +838,40 @@ local function createTab(name, iconId, position)
     end)
 
     if activeTab == name then
-        TabButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+        TabButton.BackgroundColor3 = Color3.fromRGB(120, 120, 120)
+        TabButton.BackgroundTransparency = 0.45
     end
+
+    TabButton.MouseEnter:Connect(function()
+        if activeTab ~= name then
+            TabButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+            TabButton.BackgroundTransparency = 0.2
+        end
+    end)
+
+    TabButton.MouseLeave:Connect(function()
+        if activeTab ~= name then
+            TabButton.BackgroundTransparency = 1
+        end
+    end)
+
+    TabButton.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            TabButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+            TabButton.BackgroundTransparency = 0.2
+        end
+    end)
+
+    TabButton.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            if activeTab == name then
+                TabButton.BackgroundColor3 = Color3.fromRGB(120, 120, 120)
+                TabButton.BackgroundTransparency = 0.45
+            else
+                TabButton.BackgroundTransparency = 1
+            end
+        end
+    end)
 
     return {
         button = TabButton,
@@ -877,7 +917,7 @@ local function createSearchToggleOption(name, tabName, isEnabled, toggleCallback
     local SwitchBG = Instance.new("TextButton")
     SwitchBG.Size = UDim2.new(0.15, 0, 0.45, 0)
     SwitchBG.Position = UDim2.new(0.8, 0, 0.275, 0)
-    SwitchBG.BackgroundColor3 = isEnabled() and Color3.fromRGB(60, 200, 90) or Color3.fromRGB(40, 40, 40)
+    SwitchBG.BackgroundColor3 = isEnabled() and Color3.fromRGB(100, 150, 200) or Color3.fromRGB(40, 40, 40)
     SwitchBG.Text = ""
     SwitchBG.Parent = Container
     SwitchBG.AutoButtonColor = false
@@ -900,11 +940,11 @@ local function createSearchToggleOption(name, tabName, isEnabled, toggleCallback
     Circle.ZIndex = 999999
 
     local CircleCorner = Instance.new("UICorner")
-    CircleCorner.CornerRadius = UDim.new(0, rpx(0))
+    CircleCorner.CornerRadius = UDim.new(0.5, 0)
     CircleCorner.Parent = Circle
 
     local function refresh()
-        SwitchBG.BackgroundColor3 = isEnabled() and Color3.fromRGB(60, 200, 90) or Color3.fromRGB(40, 40, 40)
+        SwitchBG.BackgroundColor3 = isEnabled() and Color3.fromRGB(100, 150, 200) or Color3.fromRGB(40, 40, 40)
         Circle.Position = isEnabled() and UDim2.new(0.56, 0, 0.12, 0) or UDim2.new(0.06, 0, 0.12, 0)
     end
 
@@ -1058,7 +1098,7 @@ local function createOption(name, startActive, tabName, callback)
     local SwitchBG = Instance.new("TextButton")
     SwitchBG.Size = UDim2.new(0.15, 0, 0.45, 0)
     SwitchBG.Position = UDim2.new(0.8, 0, 0.275, 0)
-    SwitchBG.BackgroundColor3 = currentActive and Color3.fromRGB(60, 200, 90) or Color3.fromRGB(40, 40, 40)
+    SwitchBG.BackgroundColor3 = currentActive and Color3.fromRGB(100, 150, 200) or Color3.fromRGB(40, 40, 40)
     SwitchBG.Text = ""
     SwitchBG.Parent = Container
     SwitchBG.AutoButtonColor = false
@@ -1081,7 +1121,7 @@ local function createOption(name, startActive, tabName, callback)
     Circle.ZIndex = 999999
 
     local CircleCorner = Instance.new("UICorner")
-    CircleCorner.CornerRadius = UDim.new(0, rpx(0))
+    CircleCorner.CornerRadius = UDim.new(0.5, 0)
     CircleCorner.Parent = Circle
 
     local function toggleSwitch()
@@ -1090,7 +1130,7 @@ local function createOption(name, startActive, tabName, callback)
             setOptionState(name, optionStates[name])
 
             Circle:TweenPosition(optionStates[name] and UDim2.new(0.56, 0, 0.12, 0) or UDim2.new(0.06, 0, 0.12, 0), "Out", "Quad", 0.2, true)
-            SwitchBG.BackgroundColor3 = optionStates[name] and Color3.fromRGB(60, 200, 90) or Color3.fromRGB(40, 40, 40)
+            SwitchBG.BackgroundColor3 = optionStates[name] and Color3.fromRGB(100, 150, 200) or Color3.fromRGB(40, 40, 40)
 
             if callback then
                 task.wait(0.05)
@@ -1172,7 +1212,7 @@ local function createSlider(name, min, max, default, tabName, callback)
     local SliderFill = Instance.new("Frame")
     local startScale = (currentVal - min) / (max - min)
     SliderFill.Size = UDim2.new(startScale, 0, 1, 0)
-    SliderFill.BackgroundColor3 = Color3.fromRGB(60, 200, 90)
+    SliderFill.BackgroundColor3 = Color3.fromRGB(100, 150, 200)
     SliderFill.Parent = SliderBG
     SliderFill.ZIndex = 999999
 
@@ -1189,7 +1229,7 @@ local function createSlider(name, min, max, default, tabName, callback)
     Circle.ZIndex = 1000000
 
     local CircleCorner = Instance.new("UICorner")
-    CircleCorner.CornerRadius = UDim.new(0, rpx(0))
+    CircleCorner.CornerRadius = UDim.new(0.5, 0)
     CircleCorner.Parent = Circle
 
     if callback then
@@ -1484,7 +1524,7 @@ local function createSelectOption(tabName, stateName, labelText, options, callba
     end
 
     local function updateSwitch(switchButton, switchCircle, active, animated)
-        switchButton.BackgroundColor3 = active and Color3.fromRGB(60, 200, 90) or Color3.fromRGB(40, 40, 40)
+        switchButton.BackgroundColor3 = active and Color3.fromRGB(100, 150, 200) or Color3.fromRGB(40, 40, 40)
         local targetPosition = active and UDim2.new(0.56, 0, 0.12, 0) or UDim2.new(0.06, 0, 0.12, 0)
         if animated then
             switchCircle:TweenPosition(targetPosition, "Out", "Quad", 0.2, true)
@@ -1546,7 +1586,7 @@ local function createSelectOption(tabName, stateName, labelText, options, callba
         SwitchButton.ZIndex = 1000007
 
         local SwitchCorner = Instance.new("UICorner")
-        SwitchCorner.CornerRadius = UDim.new(0.5, 0)
+        SwitchCorner.CornerRadius = UDim.new(0, rpx(3))
         SwitchCorner.Parent = SwitchButton
 
         local SwitchCircle = Instance.new("Frame")
@@ -1747,7 +1787,7 @@ local function createEggQuantitySelector(tabName, stateName, labelText)
     end
 
     local function updateSwitch(switchButton, switchCircle, active, animated)
-        switchButton.BackgroundColor3 = active and Color3.fromRGB(60, 200, 90) or Color3.fromRGB(40, 40, 40)
+        switchButton.BackgroundColor3 = active and Color3.fromRGB(100, 150, 200) or Color3.fromRGB(40, 40, 40)
         local targetPosition = active and UDim2.new(0.56, 0, 0.12, 0) or UDim2.new(0.06, 0, 0.12, 0)
         if animated then
             switchCircle:TweenPosition(targetPosition, "Out", "Quad", 0.2, true)
@@ -1820,7 +1860,7 @@ local function createEggQuantitySelector(tabName, stateName, labelText)
         OptionCircle.ZIndex = 1000008
 
         local OptionCircleCorner = Instance.new("UICorner")
-        OptionCircleCorner.CornerRadius = UDim.new(0, rpx(0))
+        OptionCircleCorner.CornerRadius = UDim.new(0.5, 0)
         OptionCircleCorner.Parent = OptionCircle
 
         optionControls[i] = {value = quantityOption.value, switchButton = OptionSwitch, switchCircle = OptionCircle}
@@ -2003,7 +2043,7 @@ local function createEggSelector(tabName, stateName, labelText)
 
         for _, controls in ipairs(optionControls) do
             local active = selectedEggId == controls.id
-            controls.switchButton.BackgroundColor3 = active and Color3.fromRGB(60, 200, 90) or Color3.fromRGB(40, 40, 40)
+            controls.switchButton.BackgroundColor3 = active and Color3.fromRGB(100, 150, 200) or Color3.fromRGB(40, 40, 40)
 
             local targetPosition = active and UDim2.new(0.56, 0, 0.12, 0) or UDim2.new(0.06, 0, 0.12, 0)
             if animated then
@@ -2081,7 +2121,7 @@ local function createEggSelector(tabName, stateName, labelText)
         OptionCircle.ZIndex = 1000008
 
         local OptionCircleCorner = Instance.new("UICorner")
-        OptionCircleCorner.CornerRadius = UDim.new(0, rpx(0))
+        OptionCircleCorner.CornerRadius = UDim.new(0.5, 0)
         OptionCircleCorner.Parent = OptionCircle
 
         optionControls[i] = {id = egg.id, switchButton = OptionSwitch, switchCircle = OptionCircle}
@@ -2139,10 +2179,10 @@ local function createEggSelector(tabName, stateName, labelText)
 end
 
 tabs["Main"] = createTab("Main", "139357095045310", UDim2.new(0.08, rpx(0), 0, rpx(0)))
-tabs["Auto Buy"] = createTab("Auto Buy", "110805385284419", UDim2.new(0.08, rpx(0), 0.16, rpx(0)))
-tabs["Farm"] = createTab("Farm", "102352181267949", UDim2.new(0.08, rpx(0), 0.32, rpx(0)))
-tabs["Config"] = createTab("Config", "114794077382466", UDim2.new(0.08, rpx(0), 0.48, rpx(0)))
-tabs["Credits"] = createTab("Credits", "99243311837005", UDim2.new(0.08, rpx(0), 0.64, rpx(0)))
+tabs["Auto Buy"] = createTab("Auto Buy", "110805385284419", UDim2.new(0.08, rpx(0), 0.14, rpx(0)))
+tabs["Farm"] = createTab("Farm", "102352181267949", UDim2.new(0.08, rpx(0), 0.28, rpx(0)))
+tabs["Config"] = createTab("Config", "114794077382466", UDim2.new(0.08, rpx(0), 0.42, rpx(0)))
+tabs["Credits"] = createTab("Credits", "99243311837005", UDim2.new(0.08, rpx(0), 0.56, rpx(0)))
 
 local autoRebirthActive = false
 local autoTrainPowerActive = false
@@ -2604,7 +2644,7 @@ local powerSelectorFunction = function(stateName, labelText, callback)
     end
 
     local function updateSwitch(switchButton, switchCircle, active, animated)
-        switchButton.BackgroundColor3 = active and Color3.fromRGB(60, 200, 90) or Color3.fromRGB(40, 40, 40)
+        switchButton.BackgroundColor3 = active and Color3.fromRGB(100, 150, 200) or Color3.fromRGB(40, 40, 40)
         local targetPosition = active and UDim2.new(0.56, 0, 0.12, 0) or UDim2.new(0.06, 0, 0.12, 0)
         if animated then
             switchCircle:TweenPosition(targetPosition, "Out", "Quad", 0.2, true)
@@ -2692,7 +2732,7 @@ local powerSelectorFunction = function(stateName, labelText, callback)
         OptionCircle.ZIndex = 1000008
 
         local OptionCircleCorner = Instance.new("UICorner")
-        OptionCircleCorner.CornerRadius = UDim.new(0, rpx(0))
+        OptionCircleCorner.CornerRadius = UDim.new(0.5, 0)
         OptionCircleCorner.Parent = OptionCircle
 
         optionControls[i] = {switchButton = OptionSwitch, switchCircle = OptionCircle}
@@ -2945,96 +2985,149 @@ end)
 
 local function getViewportSize()
     local camera = workspace.CurrentCamera
-    return camera and camera.ViewportSize or BASE_VIEWPORT_SIZE
+    return camera and camera.ViewportSize or Vector2.new(1600, 720)
 end
 
-local function clampFloatingButtonPosition(targetPosition)
+local function clampFloatingButtonPosition(topLeft)
     local viewport = getViewportSize()
     local size = FloatingButton.AbsoluteSize
-    local margin = rpx(8)
-    local minX = margin
-    local maxX = math.max(minX, viewport.X - size.X - margin)
-    local minY = margin
-    local maxY = math.max(minY, viewport.Y - size.Y - margin)
-    return UDim2.fromOffset(
-        math.clamp(targetPosition.X.Offset, minX, maxX),
-        math.clamp(targetPosition.Y.Offset, minY, maxY)
+    local maxX = math.max(0, viewport.X - size.X)
+    local maxY = math.max(0, viewport.Y - size.Y)
+    return Vector2.new(
+        math.clamp(topLeft.X, 0, maxX),
+        math.clamp(topLeft.Y, 0, maxY)
     )
 end
 
-local function clampMainFramePosition(centerX, centerY)
+local function setFloatingButtonPixelPosition(topLeft)
     local viewport = getViewportSize()
-    local size = MainFrame.AbsoluteSize
-    local margin = rpx(24)
-    local minX = math.min(viewport.X / 2, math.max(margin, size.X / 2 - margin))
-    local maxX = math.max(minX, viewport.X - size.X / 2 + margin)
-    local minY = math.min(viewport.Y / 2, math.max(margin, size.Y / 2 - margin))
-    local maxY = math.max(minY, viewport.Y - size.Y / 2 + margin)
-    return math.clamp(centerX, minX, maxX), math.clamp(centerY, minY, maxY)
+    local clamped = clampFloatingButtonPosition(topLeft)
+    FloatingButton.Position = UDim2.fromScale(
+        clamped.X / math.max(viewport.X, 1),
+        clamped.Y / math.max(viewport.Y, 1)
+    )
 end
 
-local function syncMainFramePosition(position)
-    MainFrame.Position = position
-    ShadowFrame.Position = position
+local mainDragActive = false
+local mainDragInput = nil
+local mainDragStart = nil
+local mainStartCenter = nil
+
+local function clampMainCenter(center)
+    local viewport = getViewportSize()
+    local halfW = MainFrame.AbsoluteSize.X * 0.5
+    local halfH = MainFrame.AbsoluteSize.Y * 0.5
+    local visibleMargin = rpx(28)
+
+    local minX = halfW - visibleMargin
+    local maxX = viewport.X - halfW + visibleMargin
+    local minY = halfH - visibleMargin
+    local maxY = viewport.Y - halfH + visibleMargin
+
+    if maxX < minX then
+        local midX = viewport.X * 0.5
+        minX, maxX = midX, midX
+    end
+    if maxY < minY then
+        local midY = viewport.Y * 0.5
+        minY, maxY = midY, midY
+    end
+
+    return Vector2.new(
+        math.clamp(center.X, minX, maxX),
+        math.clamp(center.Y, minY, maxY)
+    )
 end
 
-local draggingMenu = false
-local activeMenuDragInput = nil
-local menuDragStart = nil
-local menuStartCenter = nil
-
-local function beginMenuDrag(input)
-    draggingMenu = true
-    activeMenuDragInput = input
-    menuDragStart = input.Position
-    local center = MainFrame.AbsolutePosition + (MainFrame.AbsoluteSize / 2)
-    menuStartCenter = center
+local function setMainCenter(center)
+    local viewport = getViewportSize()
+    local clamped = clampMainCenter(center)
+    local newPosition = UDim2.fromScale(
+        clamped.X / math.max(viewport.X, 1),
+        clamped.Y / math.max(viewport.Y, 1)
+    )
+    MainFrame.Position = newPosition
+    ShadowFrame.Position = newPosition
 end
 
-local function updateMenuDrag(input)
-    if not draggingMenu or not menuDragStart or not menuStartCenter then return end
-    local delta = input.Position - menuDragStart
-    local centerX, centerY = clampMainFramePosition(menuStartCenter.X + delta.X, menuStartCenter.Y + delta.Y)
-    syncMainFramePosition(UDim2.fromOffset(centerX, centerY))
-end
-
-MainFrame.InputBegan:Connect(function(input)
+local function beginMainDrag(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        local point = input.Position
-        local absPos = MainFrame.AbsolutePosition
-        local absSize = MainFrame.AbsoluteSize
-        local cornerSize = Vector2.new(math.max(rpx(60), absSize.X * 0.16), math.max(rpx(60), absSize.Y * 0.18))
-        local localPoint = point - absPos
-        local inLeft = localPoint.X <= cornerSize.X
-        local inRight = localPoint.X >= absSize.X - cornerSize.X
-        local inTop = localPoint.Y <= cornerSize.Y
-        local inBottom = localPoint.Y >= absSize.Y - cornerSize.Y
-        if (inLeft or inRight) and (inTop or inBottom) then
-            beginMenuDrag(input)
-        end
+        mainDragActive = true
+        mainDragInput = input
+        mainDragStart = input.Position
+        mainStartCenter = MainFrame.AbsolutePosition + (MainFrame.AbsoluteSize * 0.5)
+    end
+end
+
+local function updateMainDrag(input)
+    if not mainDragActive or not mainDragStart or not mainStartCenter then
+        return
+    end
+
+    local delta = input.Position - mainDragStart
+    setMainCenter(mainStartCenter + delta)
+end
+
+local function endMainDrag(input)
+    if mainDragActive and (input == mainDragInput or input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+        mainDragActive = false
+        mainDragInput = nil
+        mainDragStart = nil
+        mainStartCenter = nil
+    end
+end
+
+-- Four unobtrusive corner handles make the main menu draggable from every corner,
+-- while the top bar keeps the center area easy to grab on both mouse and touch.
+local mainDragHandles = {
+    {position = UDim2.new(0, 0, 0, 0), anchor = Vector2.new(0, 0)},
+    {position = UDim2.new(1, 0, 0, 0), anchor = Vector2.new(1, 0)},
+    {position = UDim2.new(0, 0, 1, 0), anchor = Vector2.new(0, 1)},
+    {position = UDim2.new(1, 0, 1, 0), anchor = Vector2.new(1, 1)},
+}
+
+for index, data in ipairs(mainDragHandles) do
+    local handle = Instance.new("Frame")
+    handle.Name = "MainDragCorner" .. index
+    handle.AnchorPoint = data.anchor
+    handle.Position = data.position
+    handle.Size = UDim2.new(0, rpx(34), 0, rpx(34))
+    handle.BackgroundTransparency = 1
+    handle.BorderSizePixel = 0
+    handle.ZIndex = 1000008
+    handle.Parent = MainFrame
+
+    handle.InputBegan:Connect(beginMainDrag)
+end
+
+local topBarDragShield = Instance.new("Frame")
+topBarDragShield.Name = "TopBarDragShield"
+topBarDragShield.BackgroundTransparency = 1
+topBarDragShield.BorderSizePixel = 0
+topBarDragShield.Position = UDim2.new(0, 0, 0, 0)
+topBarDragShield.Size = UDim2.new(0.82, 0, 0.48, 0)
+topBarDragShield.ZIndex = 1000008
+topBarDragShield.Parent = TopBar
+topBarDragShield.InputBegan:Connect(beginMainDrag)
+
+MainFrame.InputChanged:Connect(function(input)
+    if mainDragActive and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        updateMainDrag(input)
     end
 end)
 
 UserInputService.InputChanged:Connect(function(input)
-    if activeMenuDragInput and (input == activeMenuDragInput or input.UserInputType == Enum.UserInputType.MouseMovement) then
-        updateMenuDrag(input)
+    if mainDragActive and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        updateMainDrag(input)
     end
 end)
 
-UserInputService.InputEnded:Connect(function(input)
-    if activeMenuDragInput and (input == activeMenuDragInput or input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
-        draggingMenu = false
-        activeMenuDragInput = nil
-        menuDragStart = nil
-        menuStartCenter = nil
-    end
-end)
+UserInputService.InputEnded:Connect(endMainDrag)
 
 local draggingBtn = false
 local activeDragInput = nil
 local dragStartBtn = nil
 local startPosBtn = nil
-local startAbsBtn = nil
 local buttonMoved = false
 
 local function toggleMenu()
@@ -3051,15 +3144,8 @@ local function updateFloatingButtonPosition(input)
             buttonMoved = true
         end
 
-        if draggingBtn and startAbsBtn then
-            local targetX = startAbsBtn.X + delta.X
-            local targetY = startAbsBtn.Y + delta.Y
-            local viewport = getViewportSize()
-            local size = FloatingButton.AbsoluteSize
-            local margin = rpx(8)
-            local x = math.clamp(targetX, margin, math.max(margin, viewport.X - size.X - margin))
-            local y = math.clamp(targetY, margin, math.max(margin, viewport.Y - size.Y - margin))
-            FloatingButton.Position = UDim2.fromOffset(x, y)
+        if draggingBtn then
+            setFloatingButtonPixelPosition(startPosBtn + delta)
         end
     end
 end
@@ -3070,8 +3156,7 @@ FloatingButton.InputBegan:Connect(function(input)
         buttonMoved = false
         activeDragInput = input
         dragStartBtn = input.Position
-        startPosBtn = FloatingButton.Position
-        startAbsBtn = FloatingButton.AbsolutePosition
+        startPosBtn = FloatingButton.AbsolutePosition
     end
 end)
 
@@ -3094,7 +3179,6 @@ UserInputService.InputEnded:Connect(function(input)
         activeDragInput = nil
         dragStartBtn = nil
         startPosBtn = nil
-        startAbsBtn = nil
     end
 end)
 
