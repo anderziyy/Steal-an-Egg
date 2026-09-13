@@ -59,7 +59,7 @@ if currentGameId ~= CORRECT_GAME_ID and not gameIdCheckDone then
     local notificationGui = Instance.new("Frame")
     notificationGui.Name = "NotificationGui"
     notificationGui.Size = UDim2.new(0.20, rpx(0), 0.09, rpx(0))
-    notificationGui.Position = UDim2.new(0.78, rpx(0), 0.89, rpx(0))
+    notificationGui.Position = UDim2.new(0.60, rpx(0), 0.89, rpx(0))
     notificationGui.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
     notificationGui.BorderSizePixel = 2
     notificationGui.BorderColor3 = Color3.fromRGB(128, 128, 128)
@@ -190,7 +190,6 @@ ScreenGui.DescendantAdded:Connect(disableAutoLocalize)
 local FloatingButton = Instance.new("TextButton")
 FloatingButton.Size = UDim2.new(0.054, rpx(0), 0.119, rpx(0))
 FloatingButton.Position = UDim2.new(0.02, rpx(0), 0.1, rpx(0))
-clampFloatingButtonPosition()
 FloatingButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 FloatingButton.Text = ""
 FloatingButton.Parent = ScreenGui
@@ -209,37 +208,6 @@ BtnLabel.BackgroundTransparency = 1
 BtnLabel.Image = "rbxassetid://121715364276099"
 BtnLabel.Parent = FloatingButton
 BtnLabel.ZIndex = 999999
-
-local function clampFloatingButtonPosition()
-    local camera = workspace.CurrentCamera
-    if not camera or not FloatingButton or not FloatingButton.Parent then
-        return
-    end
-
-    local viewport = camera.ViewportSize
-    local buttonSize = FloatingButton.AbsoluteSize
-    local maxX = math.max(0, viewport.X - buttonSize.X)
-    local maxY = math.max(0, viewport.Y - buttonSize.Y)
-
-    local current = FloatingButton.AbsolutePosition
-    local clampedX = math.clamp(current.X, 0, maxX)
-    local clampedY = math.clamp(current.Y, 0, maxY)
-
-    local parentAbs = FloatingButton.Parent:IsA("GuiObject")
-        and FloatingButton.Parent.AbsolutePosition
-        or Vector2.zero
-
-    FloatingButton.Position = UDim2.new(
-    clampFloatingButtonPosition()
-        0, math.floor(clampedX - parentAbs.X + 0.5),
-        0, math.floor(clampedY - parentAbs.Y + 0.5)
-    )
-end
-
-
-workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
-    clampFloatingButtonPosition()
-end)
 
 local ShadowFrame = Instance.new("Frame")
 ShadowFrame.Name = "ShadowFrame"
@@ -463,7 +431,7 @@ ConfirmNoStroke.Parent = ConfirmNoButton
 
 local TabContainer = Instance.new("Frame")
 TabContainer.Name = "TabContainer"
-TabContainer.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+TabContainer.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
 TabContainer.BackgroundTransparency = 0
 TabContainer.Size = UDim2.new(0.25, 0, 1, -0.158)
 TabContainer.Position = UDim2.new(0, rpx(0), 0.158, rpx(0))
@@ -668,7 +636,7 @@ local function refreshNotificationPositions()
             TweenService:Create(
                 notificationData.gui,
                 TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-                {Position = UDim2.new(0.76, rpx(0), targetY, rpx(0))}
+                {Position = UDim2.new(0.80, rpx(0), targetY, rpx(0))}
             ):Play()
         end
     end
@@ -723,7 +691,7 @@ local function showNotification(title, iconId, duration)
     local notificationGui = Instance.new("Frame")
     notificationGui.Name = "NotificationGui"
     notificationGui.Size = UDim2.new(NOTIFICATION_WIDTH, rpx(0), NOTIFICATION_HEIGHT, rpx(0))
-    notificationGui.Position = UDim2.new(0.99, rpx(0), NOTIFICATION_START_Y, rpx(0))
+    notificationGui.Position = UDim2.new(0.75, rpx(0), NOTIFICATION_START_Y, rpx(0))
     notificationGui.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
     notificationGui.BorderSizePixel = 2
     notificationGui.BorderColor3 = Color3.fromRGB(128, 128, 128)
@@ -777,7 +745,7 @@ local function showNotification(title, iconId, duration)
     local slideInTween = TweenService:Create(
         notificationGui,
         TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-        {Position = UDim2.new(0.76, rpx(0), NOTIFICATION_START_Y, rpx(0))}
+        {Position = UDim2.new(0.74, rpx(0), NOTIFICATION_START_Y, rpx(0))}
     )
     slideInTween:Play()
     task.defer(refreshNotificationPositions)
@@ -804,7 +772,7 @@ local function showNotification(title, iconId, duration)
                 local slideOutTween = TweenService:Create(
                     notificationGui,
                     TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
-                    {Position = UDim2.new(0.99, rpx(0), NOTIFICATION_START_Y, rpx(0))}
+                    {Position = UDim2.new(0.75, rpx(0), NOTIFICATION_START_Y, rpx(0))}
                 )
                 slideOutTween:Play()
 
@@ -845,7 +813,7 @@ local function createTab(name, iconId, position)
     TabButton.Name = name
     TabButton.Size = UDim2.new(0.86, 0, 0.155, 0)
     TabButton.Position = UDim2.new(0.08, 0, position.Y.Scale, position.Y.Offset)
-    TabButton.BackgroundColor3 = Color3.fromRGB(75, 75, 75)
+    TabButton.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
     TabButton.BackgroundTransparency = 1
     TabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     TabButton.Text = ""
@@ -3067,6 +3035,33 @@ local function toggleMenu()
     ShadowFrame.Visible = MainFrame.Visible
 end
 
+-- ============================================================
+-- BARREIRA PARA FLOATINGBUTTON - IMPEDE SAIR DA TELA
+-- ============================================================
+
+local function clampFloatingButtonPosition()
+    local camera = workspace.CurrentCamera
+    local viewportSize = camera and camera.ViewportSize or Vector2.new(1280, 720)
+    
+    local btnPos = FloatingButton.AbsolutePosition
+    local btnSize = FloatingButton.AbsoluteSize
+    
+    -- Clampar com 20 pixels de margem mínima visível
+    local minX = -btnSize.X + 20
+    local maxX = viewportSize.X - 20
+    local minY = -btnSize.Y + 20
+    local maxY = viewportSize.Y - 20
+    
+    local newPosX = math.clamp(btnPos.X, minX, maxX)
+    local newPosY = math.clamp(btnPos.Y, minY, maxY)
+    
+    if newPosX ~= btnPos.X or newPosY ~= btnPos.Y then
+        local scaledX = newPosX / viewportSize.X
+        local scaledY = newPosY / viewportSize.Y
+        FloatingButton.Position = UDim2.new(scaledX, 0, scaledY, 0)
+    end
+end
+
 local function updateFloatingButtonPosition(input)
     if activeDragInput and dragStartBtn and startPosBtn then
         local delta = input.Position - dragStartBtn
@@ -3105,6 +3100,8 @@ UserInputService.InputEnded:Connect(function(input)
     if activeDragInput and (input == activeDragInput or input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
         if not buttonMoved then
             toggleMenu()
+        else
+            clampFloatingButtonPosition()
         end
 
         draggingBtn = false
