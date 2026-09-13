@@ -1093,12 +1093,12 @@ local VisualEggInfoModal
 local VisualEggInfoOverlay
 local VisualEggInfoPanel
 
--- Separate Sell Pets Mutation selector panel. This intentionally does not
--- disable or block the rest of the menu while it is open.
-local SellMutationPanelOpen = false
-local SellMutationPanelOverlay
-local SellMutationPanel
-local sellMutationSilveSelected = false
+-- Mutation selection state and panel variables (Simple version - no modal blocking)
+local mutationSelectionState = {
+	Silve = false,
+}
+local MutationSelectionPanel
+local MutationSelectionOverlay
 
 local function setVisualSelection(name, value)
 	visualSelectionState[name] = value == true
@@ -1183,29 +1183,87 @@ local function closeVisualEggInfoPanel()
 	updateTabListScrollMode()
 end
 
-local function updateSellMutationSilveButton(button, knob)
-	local on = sellMutationSilveSelected == true
+local function setMutationSelection(name, value)
+	mutationSelectionState[name] = value == true
+end
+
+local function updateMutationSelectionButton(button, knob, name)
+	local on = mutationSelectionState[name] == true
 	local targetColor = on and COLORS.Gray3 or COLORS.Gray
 	local targetPosition = UDim2.fromScale(on and 0.77 or 0.23, 0.5)
 	tween(button, 0.14, {BackgroundColor3 = targetColor})
 	tween(knob, 0.14, {Position = targetPosition})
 end
 
-local function closeSellMutationPanel()
-	SellMutationPanelOpen = false
-	if SellMutationPanelOverlay then
-		SellMutationPanelOverlay.Visible = false
+local function createMutationSelectionRow(parent, name, text, order)
+	local Row = make("Frame", {
+		Name = name,
+		LayoutOrder = order,
+		Size = UDim2.fromScale(1, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ZIndex = 104,
+	}, parent)
+
+	make("TextLabel", {
+		Position = UDim2.fromScale(0, 0),
+		Size = UDim2.fromScale(0.65, 0.065),
+		BackgroundTransparency = 1,
+		Text = text,
+		TextColor3 = COLORS.White,
+		Font = Enum.Font.GothamSemibold,
+		TextSize = 12,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		ZIndex = 105,
+	}, Row)
+
+	local ToggleButton = make("TextButton", {
+		Name = "Toggle",
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.fromScale(0.98, 0.5),
+		Size = UDim2.fromScale(0.25, 0.60),
+		BackgroundColor3 = COLORS.Gray,
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		Text = "",
+		ZIndex = 106,
+	}, Row)
+	make("UICorner", {CornerRadius = UDim.new(1, 0)}, ToggleButton)
+
+	local Knob = make("Frame", {
+		Name = "Knob",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.23, 0.5),
+		Size = UDim2.fromOffset(19, 19),
+		BackgroundColor3 = COLORS.White,
+		BorderSizePixel = 0,
+		ZIndex = 107,
+	}, ToggleButton)
+	make("UICorner", {CornerRadius = UDim.new(1, 0)}, Knob)
+
+	updateMutationSelectionButton(ToggleButton, Knob, name)
+	ToggleButton.Activated:Connect(function()
+		setMutationSelection(name, not mutationSelectionState[name])
+		updateMutationSelectionButton(ToggleButton, Knob, name)
+	end)
+	return Row
+end
+
+local function closeMutationSelectionPanel()
+	if MutationSelectionOverlay then
+		MutationSelectionOverlay.Visible = false
 	end
 end
 
-local function openSellMutationPanel()
+local function openMutationSelectionPanel()
 	if cleanedUp or not ScreenGui.Parent then
 		return
 	end
-
-	if not SellMutationPanelOverlay then
-		SellMutationPanelOverlay = make("Frame", {
-			Name = "SellMutationPanelOverlay",
+	if not MutationSelectionOverlay then
+		MutationSelectionOverlay = make("Frame", {
+			Name = "MutationSelectionOverlay",
 			Position = UDim2.fromScale(0.50, 0.035),
 			Size = UDim2.fromScale(0.465, 0.935),
 			BackgroundColor3 = COLORS.Black,
@@ -1216,10 +1274,10 @@ local function openSellMutationPanel()
 			ClipsDescendants = true,
 			ZIndex = 100,
 		}, Content)
-		make("UIStroke", {Thickness = 1.4, Color = COLORS.Gray3, Transparency = 0.05}, SellMutationPanelOverlay)
+		make("UIStroke", {Thickness = 1.4, Color = COLORS.Gray3, Transparency = 0.05}, MutationSelectionOverlay)
 
-		SellMutationPanel = make("Frame", {
-			Name = "SellMutationPanel",
+		MutationSelectionPanel = make("Frame", {
+			Name = "MutationSelectionPanel",
 			Position = UDim2.fromScale(0.025, 0.020),
 			Size = UDim2.fromScale(0.95, 0.96),
 			BackgroundColor3 = COLORS.Black2,
@@ -1227,21 +1285,21 @@ local function openSellMutationPanel()
 			Active = true,
 			ClipsDescendants = true,
 			ZIndex = 101,
-		}, SellMutationPanelOverlay)
-		make("UIStroke", {Thickness = 1.2, Color = COLORS.Gray2, Transparency = 0.10}, SellMutationPanel)
+		}, MutationSelectionOverlay)
+		make("UIStroke", {Thickness = 1.2, Color = COLORS.Gray2, Transparency = 0.10}, MutationSelectionPanel)
 
 		make("TextLabel", {
 			Position = UDim2.fromScale(0.055, 0.035),
 			Size = UDim2.fromScale(0.69, 0.11),
 			BackgroundTransparency = 1,
-			Text = "Mutation Settings",
+			Text = "Mutation",
 			TextColor3 = COLORS.White,
 			Font = Enum.Font.GothamBold,
 			TextSize = 15,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextYAlignment = Enum.TextYAlignment.Center,
 			ZIndex = 102,
-		}, SellMutationPanel)
+		}, MutationSelectionPanel)
 
 		local Close = make("TextButton", {
 			Name = "Close",
@@ -1257,11 +1315,11 @@ local function openSellMutationPanel()
 			Font = Enum.Font.GothamBold,
 			TextSize = 13,
 			ZIndex = 105,
-		}, SellMutationPanel)
+		}, MutationSelectionPanel)
 		make("UIAspectRatioConstraint", {AspectRatio = 1}, Close)
 		Close.MouseEnter:Connect(function() tween(Close, 0.10, {BackgroundColor3 = COLORS.Gray3, BackgroundTransparency = 0}) end)
 		Close.MouseLeave:Connect(function() tween(Close, 0.10, {BackgroundColor3 = COLORS.Gray, BackgroundTransparency = 0.18}) end)
-		Close.Activated:Connect(closeSellMutationPanel)
+		Close.Activated:Connect(closeMutationSelectionPanel)
 
 		local Scroll = make("ScrollingFrame", {
 			Name = "Options",
@@ -1279,7 +1337,7 @@ local function openSellMutationPanel()
 			CanvasSize = UDim2.fromScale(0, 1.2),
 			ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
 			ZIndex = 103,
-		}, SellMutationPanel)
+		}, MutationSelectionPanel)
 		make("UIListLayout", {Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder}, Scroll)
 		make("UIPadding", {
 			PaddingBottom = UDim.new(0, 10),
@@ -1287,70 +1345,15 @@ local function openSellMutationPanel()
 			PaddingRight = UDim.new(0, 0),
 			PaddingTop = UDim.new(0, 15),
 		}, Scroll)
-
-		local Row = make("Frame", {
-			Name = "SilveRow",
-			Size = UDim2.new(1, -18, 0, 62),
-			BackgroundColor3 = COLORS.Black2,
-			BorderSizePixel = 0,
-			LayoutOrder = 1,
-			ZIndex = 104,
-		}, Scroll)
-		make("UIStroke", {Thickness = 1.15, Color = COLORS.Gray3, Transparency = 0.16, ApplyStrokeMode = Enum.ApplyStrokeMode.Border}, Row)
-
-		make("TextLabel", {
-			Position = UDim2.new(0, 14, 0, 0),
-			Size = UDim2.new(1, -90, 1, 0),
-			BackgroundTransparency = 1,
-			Text = "Silve",
-			TextColor3 = COLORS.White,
-			Font = Enum.Font.GothamSemibold,
-			TextSize = 13,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextYAlignment = Enum.TextYAlignment.Center,
-			ZIndex = 105,
-		}, Row)
-
-		local ToggleButton = make("TextButton", {
-			Name = "Toggle",
-			AnchorPoint = Vector2.new(1, 0.5),
-			Position = UDim2.new(1, -14, 0.5, 0),
-			Size = UDim2.fromOffset(52, 24),
-			BackgroundColor3 = COLORS.Gray,
-			BorderSizePixel = 0,
-			AutoButtonColor = false,
-			Text = "",
-			ZIndex = 106,
-		}, Row)
-		make("UICorner", {CornerRadius = UDim.new(1, 0)}, ToggleButton)
-
-		local Knob = make("Frame", {
-			Name = "Knob",
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.23, 0.5),
-			Size = UDim2.fromOffset(19, 19),
-			BackgroundColor3 = COLORS.White,
-			BorderSizePixel = 0,
-			ZIndex = 107,
-		}, ToggleButton)
-		make("UICorner", {CornerRadius = UDim.new(1, 0)}, Knob)
-
-		updateSellMutationSilveButton(ToggleButton, Knob)
-		ToggleButton.Activated:Connect(function()
-			sellMutationSilveSelected = not sellMutationSilveSelected
-			updateSellMutationSilveButton(ToggleButton, Knob)
-		end)
-
-		installEnglishGuard(SellMutationPanelOverlay)
+		createMutationSelectionRow(Scroll, "Silve", "Silve", 1)
+		installEnglishGuard(MutationSelectionOverlay)
 		registerCleanup(function()
-			if SellMutationPanelOverlay and SellMutationPanelOverlay.Parent then
-				SellMutationPanelOverlay:Destroy()
+			if MutationSelectionOverlay and MutationSelectionOverlay.Parent then
+				MutationSelectionOverlay:Destroy()
 			end
 		end)
 	end
-
-	SellMutationPanelOpen = true
-	SellMutationPanelOverlay.Visible = true
+	MutationSelectionOverlay.Visible = true
 end
 
 local function openVisualEggInfoPanel()
@@ -1560,7 +1563,8 @@ local datasets = {
 					Title = "Mutation",
 					Description = "Choose the mutation you want to use when selling pets.",
 					Selector = true,
-					Action = openSellMutationPanel,
+					Icon = IMAGE_CLICK,
+					Action = openMutationSelectionPanel,
 					Compact = true,
 				},
 				{
