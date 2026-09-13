@@ -830,7 +830,7 @@ local resultsScrollTouchCanvasY = nil
 local resultsScrollInputConnection
 
 local function isResultsScrollingAllowed()
-	return currentTab ~= "Credits" and ResultsScroll.Visible and ResultsScroll.ScrollingEnabled and not visualPanelOpen
+	return currentTab ~= "Credits" and ResultsScroll.Visible and ResultsScroll.ScrollingEnabled
 end
 
 local function getResultsMaxScrollY()
@@ -855,7 +855,7 @@ local function isPointInsideResults(point)
 end
 
 local function updateResultsScrollMode()
-	local enabled = currentTab ~= "Credits" and not visualPanelOpen
+	local enabled = currentTab ~= "Credits"
 	ResultsScroll.ScrollingEnabled = enabled
 	ResultsScroll.Active = enabled
 	ResultsScroll.ScrollBarThickness = enabled and 3 or 0
@@ -863,7 +863,7 @@ local function updateResultsScrollMode()
 end
 
 local function updateTabListScrollMode()
-	local enabled = not visualPanelOpen
+	local enabled = true
 	TabList.ScrollingEnabled = enabled
 	TabList.Active = enabled
 	TabList.ScrollBarThickness = enabled and 3 or 0
@@ -1093,13 +1093,6 @@ local VisualEggInfoModal
 local VisualEggInfoOverlay
 local VisualEggInfoPanel
 
--- Mutation selection state and panel variables (Simple version - no modal blocking)
-local mutationSelectionState = {
-	Silve = false,
-}
-local MutationSelectionPanel
-local MutationSelectionOverlay
-
 local function setVisualSelection(name, value)
 	visualSelectionState[name] = value == true
 	if refreshEggESP then
@@ -1183,179 +1176,6 @@ local function closeVisualEggInfoPanel()
 	updateTabListScrollMode()
 end
 
-local function setMutationSelection(name, value)
-	mutationSelectionState[name] = value == true
-end
-
-local function updateMutationSelectionButton(button, knob, name)
-	local on = mutationSelectionState[name] == true
-	local targetColor = on and COLORS.Gray3 or COLORS.Gray
-	local targetPosition = UDim2.fromScale(on and 0.77 or 0.23, 0.5)
-	tween(button, 0.14, {BackgroundColor3 = targetColor})
-	tween(knob, 0.14, {Position = targetPosition})
-end
-
-local function createMutationSelectionRow(parent, name, text, order)
-	local Row = make("Frame", {
-		Name = name,
-		LayoutOrder = order,
-		Size = UDim2.fromScale(1, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ZIndex = 104,
-	}, parent)
-
-	make("TextLabel", {
-		Position = UDim2.fromScale(0, 0),
-		Size = UDim2.fromScale(0.65, 0.065),
-		BackgroundTransparency = 1,
-		Text = text,
-		TextColor3 = COLORS.White,
-		Font = Enum.Font.GothamSemibold,
-		TextSize = 12,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Center,
-		ZIndex = 105,
-	}, Row)
-
-	local ToggleButton = make("TextButton", {
-		Name = "Toggle",
-		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.fromScale(0.98, 0.5),
-		Size = UDim2.fromScale(0.25, 0.60),
-		BackgroundColor3 = COLORS.Gray,
-		BorderSizePixel = 0,
-		AutoButtonColor = false,
-		Text = "",
-		ZIndex = 106,
-	}, Row)
-	make("UICorner", {CornerRadius = UDim.new(1, 0)}, ToggleButton)
-
-	local Knob = make("Frame", {
-		Name = "Knob",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.23, 0.5),
-		Size = UDim2.fromOffset(19, 19),
-		BackgroundColor3 = COLORS.White,
-		BorderSizePixel = 0,
-		ZIndex = 107,
-	}, ToggleButton)
-	make("UICorner", {CornerRadius = UDim.new(1, 0)}, Knob)
-
-	updateMutationSelectionButton(ToggleButton, Knob, name)
-	ToggleButton.Activated:Connect(function()
-		setMutationSelection(name, not mutationSelectionState[name])
-		updateMutationSelectionButton(ToggleButton, Knob, name)
-	end)
-	return Row
-end
-
-local function closeMutationSelectionPanel()
-	if MutationSelectionOverlay then
-		MutationSelectionOverlay.Visible = false
-	end
-end
-
-local function openMutationSelectionPanel()
-	if cleanedUp or not ScreenGui.Parent then
-		return
-	end
-	if not MutationSelectionOverlay then
-		MutationSelectionOverlay = make("Frame", {
-			Name = "MutationSelectionOverlay",
-			Position = UDim2.fromScale(0.50, 0.035),
-			Size = UDim2.fromScale(0.465, 0.935),
-			BackgroundColor3 = COLORS.Black,
-			BackgroundTransparency = 0.10,
-			BorderSizePixel = 0,
-			Visible = false,
-			Active = true,
-			ClipsDescendants = true,
-			ZIndex = 100,
-		}, Content)
-		make("UIStroke", {Thickness = 1.4, Color = COLORS.Gray3, Transparency = 0.05}, MutationSelectionOverlay)
-
-		MutationSelectionPanel = make("Frame", {
-			Name = "MutationSelectionPanel",
-			Position = UDim2.fromScale(0.025, 0.020),
-			Size = UDim2.fromScale(0.95, 0.96),
-			BackgroundColor3 = COLORS.Black2,
-			BorderSizePixel = 0,
-			Active = true,
-			ClipsDescendants = true,
-			ZIndex = 101,
-		}, MutationSelectionOverlay)
-		make("UIStroke", {Thickness = 1.2, Color = COLORS.Gray2, Transparency = 0.10}, MutationSelectionPanel)
-
-		make("TextLabel", {
-			Position = UDim2.fromScale(0.055, 0.035),
-			Size = UDim2.fromScale(0.69, 0.11),
-			BackgroundTransparency = 1,
-			Text = "Mutation",
-			TextColor3 = COLORS.White,
-			Font = Enum.Font.GothamBold,
-			TextSize = 15,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextYAlignment = Enum.TextYAlignment.Center,
-			ZIndex = 102,
-		}, MutationSelectionPanel)
-
-		local Close = make("TextButton", {
-			Name = "Close",
-			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.fromScale(0.955, 0.035),
-			Size = UDim2.fromScale(0.095, 0.105),
-			BackgroundColor3 = COLORS.Gray,
-			BackgroundTransparency = 0.18,
-			BorderSizePixel = 0,
-			AutoButtonColor = false,
-			Text = "X",
-			TextColor3 = COLORS.White,
-			Font = Enum.Font.GothamBold,
-			TextSize = 13,
-			ZIndex = 105,
-		}, MutationSelectionPanel)
-		make("UIAspectRatioConstraint", {AspectRatio = 1}, Close)
-		Close.MouseEnter:Connect(function() tween(Close, 0.10, {BackgroundColor3 = COLORS.Gray3, BackgroundTransparency = 0}) end)
-		Close.MouseLeave:Connect(function() tween(Close, 0.10, {BackgroundColor3 = COLORS.Gray, BackgroundTransparency = 0.18}) end)
-		Close.Activated:Connect(closeMutationSelectionPanel)
-
-		local Scroll = make("ScrollingFrame", {
-			Name = "Options",
-			Position = UDim2.fromScale(0.045, 0.17),
-			Size = UDim2.fromScale(0.91, 0.77),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ScrollBarThickness = 3,
-			ScrollBarImageColor3 = COLORS.White,
-			ScrollBarImageTransparency = 0.05,
-			ScrollingDirection = Enum.ScrollingDirection.Y,
-			ScrollingEnabled = true,
-			Active = true,
-			AutomaticCanvasSize = Enum.AutomaticSize.Y,
-			CanvasSize = UDim2.fromScale(0, 1.2),
-			ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-			ZIndex = 103,
-		}, MutationSelectionPanel)
-		make("UIListLayout", {Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder}, Scroll)
-		make("UIPadding", {
-			PaddingBottom = UDim.new(0, 10),
-			PaddingLeft = UDim.new(0, 25),
-			PaddingRight = UDim.new(0, 0),
-			PaddingTop = UDim.new(0, 15),
-		}, Scroll)
-		createMutationSelectionRow(Scroll, "Silve", "Silve", 1)
-		installEnglishGuard(MutationSelectionOverlay)
-		registerCleanup(function()
-			if MutationSelectionOverlay and MutationSelectionOverlay.Parent then
-				MutationSelectionOverlay:Destroy()
-			end
-		end)
-	end
-	MutationSelectionOverlay.Visible = true
-end
-
 local function openVisualEggInfoPanel()
 	if cleanedUp or not ScreenGui.Parent then
 		return
@@ -1385,7 +1205,7 @@ local function openVisualEggInfoPanel()
 			BackgroundTransparency = 0.10,
 			BorderSizePixel = 0,
 			Visible = false,
-			Active = true,
+			Active = false,
 			ClipsDescendants = true,
 			ZIndex = 100,
 		}, Content)
@@ -1561,10 +1381,9 @@ local datasets = {
 				},
 				{
 					Title = "Mutation",
-					Description = "Choose the mutation you want to use when selling pets.",
-					Selector = true,
-					Icon = IMAGE_CLICK,
-					Action = openMutationSelectionPanel,
+					Description = "Choose the mutation you want to use when selling pets. (Visual only.)",
+					VisualOnly = true,
+					VisualOnlyText = "Select",
 					Compact = true,
 				},
 				{
@@ -1930,11 +1749,6 @@ local function createCategoryRow(category, layoutOrder, searchQuery)
 	end)
 
 	Hit.Activated:Connect(function()
-		-- While the Visual settings panel is open, category expand/collapse
-		-- controls are temporarily disabled. Existing option states remain untouched.
-		if visualPanelOpen then
-			return
-		end
 		if searchQuery ~= "" then
 			category.Expanded = true
 		else
@@ -3681,8 +3495,8 @@ renderResults = function()
 end
 
 local function setTab(name)
-	-- The Visual panel temporarily locks tab switching.
-	-- Existing options/automation remain untouched.
+	-- Tab switching remains locked while the Visual settings panel is open.
+	-- Other menu interactions remain available.
 	if visualPanelOpen then
 		return
 	end
@@ -3763,7 +3577,7 @@ for index, tabInfo in ipairs(tabs) do
 		end
 	end)
 	Tab.Activated:Connect(function()
-		-- Do not allow changing tabs while the Visual settings panel is open.
+		-- Tab switching stays disabled while the Visual settings panel is open.
 		if visualPanelOpen then
 			return
 		end
@@ -4033,9 +3847,6 @@ local function clampLauncher(position)
 end
 
 local function updateLauncherDrag(input)
-	if visualPanelOpen then
-		return
-	end
 	if lockEnabled and lockButtonSelected then
 		return
 	end
@@ -4057,9 +3868,6 @@ local function updateLauncherDrag(input)
 end
 
 local function beginLauncherDrag(input)
-	if visualPanelOpen then
-		return
-	end
 	if lockEnabled and lockButtonSelected then
 		return
 	end
@@ -4125,9 +3933,6 @@ for name, corner in pairs(corners) do
 		end
 	end)
 	corner.InputBegan:Connect(function(input)
-		if visualPanelOpen then
-			return
-		end
 		if lockEnabled and lockMenuSelected then
 			return
 		end
@@ -4144,9 +3949,6 @@ for name, corner in pairs(corners) do
 end
 
 function updateMenuDrag(input)
-	if visualPanelOpen then
-		return
-	end
 	if lockEnabled and lockMenuSelected then
 		return
 	end
