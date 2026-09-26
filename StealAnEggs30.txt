@@ -4,6 +4,7 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -112,6 +113,239 @@ local function formatNumberWithSuffix(value)
 	
 	return tostring(value)
 end
+
+local EXPECTED_GAME_ID = 107778070777162
+local RUNTIME_GUARD_KEY = "PhantomHub_StealAnEggs_Runtime"
+local SAVE_STORE_KEY = "PhantomHub_StealAnEggs_SaveStore"
+local SAVE_FILE_PATH = "PhantomHub_StealAnEggs_Saves.json"
+local SAVE_SLOT_COUNT = 5
+
+local runtimeEnvironment
+if typeof(getgenv) == "function" then
+	runtimeEnvironment = getgenv()
+else
+	runtimeEnvironment = _G
+end
+
+local function makeStartupGui(name)
+	local gui = Instance.new("ScreenGui")
+	gui.Name = name
+	gui.ResetOnSpawn = false
+	gui.IgnoreGuiInset = true
+	gui.DisplayOrder = 1000000
+	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	gui.Parent = PlayerGui
+	return gui
+end
+
+local function showWrongGameNotice()
+	local gui = makeStartupGui("PhantomHub_GameIdNotice")
+
+	local Dim = make("Frame", {
+		Position = UDim2.fromScale(0, 0),
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = COLORS.Black,
+		BackgroundTransparency = 0.28,
+		BorderSizePixel = 0,
+		ZIndex = 1,
+	}, gui)
+
+	local Panel = make("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromScale(0.58, 0.31),
+		BackgroundColor3 = COLORS.Black2,
+		BorderSizePixel = 0,
+		Active = true,
+		ZIndex = 2,
+	}, Dim)
+
+	make("UIAspectRatioConstraint", {
+		AspectRatio = 1.85,
+	}, Panel)
+
+	make("UIStroke", {
+		Thickness = 2.0,
+		Color = COLORS.Gray3,
+		Transparency = 0.05,
+	}, Panel)
+
+	make("TextLabel", {
+		Position = UDim2.fromScale(0.07, 0.10),
+		Size = UDim2.fromScale(0.86, 0.19),
+		BackgroundTransparency = 1,
+		Text = "Wrong Game",
+		TextColor3 = COLORS.White,
+		Font = Enum.Font.GothamBold,
+		TextSize = 24,
+		TextXAlignment = Enum.TextXAlignment.Center,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		ZIndex = 3,
+	}, Panel)
+
+	make("TextLabel", {
+		Position = UDim2.fromScale(0.09, 0.31),
+		Size = UDim2.fromScale(0.82, 0.31),
+		BackgroundTransparency = 1,
+		Text = "This script only works in the supported game.\nThe mod menu was not loaded.",
+		TextColor3 = COLORS.SoftWhite,
+		Font = Enum.Font.GothamSemibold,
+		TextSize = 15,
+		TextWrapped = true,
+		TextXAlignment = Enum.TextXAlignment.Center,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		ZIndex = 3,
+	}, Panel)
+
+	make("TextLabel", {
+		Position = UDim2.fromScale(0.08, 0.63),
+		Size = UDim2.fromScale(0.84, 0.22),
+		BackgroundTransparency = 1,
+		Text = "Expected ID: " .. tostring(EXPECTED_GAME_ID) .. "\nCurrent ID: " .. tostring(game.PlaceId),
+		TextColor3 = COLORS.Muted,
+		Font = Enum.Font.Gotham,
+		TextSize = 11,
+		TextWrapped = true,
+		TextXAlignment = Enum.TextXAlignment.Center,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		ZIndex = 3,
+	}, Panel)
+
+	make("UIStroke", {
+		Thickness = 0.8,
+		Color = COLORS.White,
+		Transparency = 0.80,
+	}, Panel)
+
+	task.delay(4.5, function()
+		if not gui.Parent then
+			return
+		end
+		tween(Panel, 0.22, {
+			Size = UDim2.fromScale(0.54, 0.28),
+		})
+		task.delay(0.24, function()
+			if gui.Parent then
+				gui:Destroy()
+			end
+		end)
+	end)
+end
+
+local function copyDiscordLinkAtStartup()
+	if typeof(setclipboard) == "function" then
+		local ok = pcall(setclipboard, DISCORD_LINK)
+		if ok then
+			return true
+		end
+	end
+	if typeof(toclipboard) == "function" then
+		local ok = pcall(toclipboard, DISCORD_LINK)
+		if ok then
+			return true
+		end
+	end
+	return false
+end
+
+local function showAlreadyRunningNotice()
+	local gui = makeStartupGui("PhantomHub_AlreadyRunningNotice")
+
+	local Container = make("Frame", {
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.fromScale(0.98, 0.96),
+		Size = UDim2.fromScale(0.31, 0.17),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ZIndex = 2,
+	}, gui)
+
+	local Notice = make("Frame", {
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.fromScale(1.06, 1),
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = COLORS.Black2,
+		BackgroundTransparency = 0.04,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		ZIndex = 3,
+	}, Container)
+
+	make("UIAspectRatioConstraint", {
+		AspectRatio = 3.7,
+		DominantAxis = Enum.DominantAxis.Width,
+	}, Notice)
+
+	make("UIStroke", {
+		Thickness = 1.2,
+		Color = COLORS.Gray3,
+		Transparency = 0.10,
+	}, Notice)
+
+	local copied = copyDiscordLinkAtStartup()
+	make("TextLabel", {
+		Position = UDim2.fromScale(0.07, 0.10),
+		Size = UDim2.fromScale(0.86, 0.76),
+		BackgroundTransparency = 1,
+		Text = copied
+			and "Phantom Hub is already running!\nDiscord link copied."
+			or "Phantom Hub is already running!",
+		TextColor3 = COLORS.White,
+		Font = Enum.Font.GothamSemibold,
+		TextSize = 12,
+		TextWrapped = true,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		ZIndex = 4,
+	}, Notice)
+
+	local Progress = make("Frame", {
+		Name = "Progress",
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.fromScale(0, 1),
+		Size = UDim2.fromScale(0, 0.055),
+		BackgroundColor3 = COLORS.White,
+		BorderSizePixel = 0,
+		ZIndex = 5,
+	}, Notice)
+
+	tween(Notice, 0.24, {
+		Position = UDim2.fromScale(1, 1),
+	})
+	tween(Progress, 1.8, {
+		Size = UDim2.fromScale(1, 0.055),
+	}, Enum.EasingStyle.Linear)
+
+	task.delay(1.82, function()
+		if not Notice.Parent then
+			return
+		end
+		tween(Notice, 0.22, {
+			Position = UDim2.fromScale(1.06, 1),
+		})
+		task.delay(0.24, function()
+			if gui.Parent then
+				gui:Destroy()
+			end
+		end)
+	end)
+end
+
+if game.PlaceId ~= EXPECTED_GAME_ID then
+	showWrongGameNotice()
+	return
+end
+
+local runtimeToken = tostring(game.PlaceId) .. ":" .. tostring(game.JobId ~= "" and game.JobId or "place")
+local existingRuntimeToken = runtimeEnvironment[RUNTIME_GUARD_KEY]
+local existingMenu = PlayerGui:FindFirstChild("PhantomHub_StealAnEgg")
+
+if existingRuntimeToken == runtimeToken or (existingMenu and existingRuntimeToken == nil) then
+	showAlreadyRunningNotice()
+	return
+end
+
+runtimeEnvironment[RUNTIME_GUARD_KEY] = runtimeToken
 
 local cleanupCallbacks = {}
 local cleanedUp = false
@@ -530,6 +764,7 @@ local LockDescription = make("TextLabel", {
 local lockMenuSelected = false
 local lockButtonSelected = false
 local lockEnabled = false
+local lockChoiceControls = {}
 
 local function createLockChoice(name, text, x)
 	local Button = make("TextButton", {
@@ -588,6 +823,9 @@ local function createLockChoice(name, text, x)
 		end
 	end)
 	setState(false)
+	lockChoiceControls[name] = {
+		SetState = setState,
+	}
 	return Button
 end
 
@@ -699,7 +937,7 @@ local UserInfo = make("Frame", {
 	Name = "UserInfo",
 	AnchorPoint = Vector2.new(0, 1),
 	Position = UDim2.new(0.055, 0, 1, -5),
-	Size = UDim2.new(0.89, 0, 0, 38),
+	Size = UDim2.new(0.89, 0, 0, 34),
 	BackgroundTransparency = 1,
 	BorderSizePixel = 0,
 	ZIndex = 8,
@@ -707,8 +945,8 @@ local UserInfo = make("Frame", {
 
 local UserAvatar = make("ImageLabel", {
 	Name = "Avatar",
-	Position = UDim2.new(0, 0, 0.5, -17),
-	Size = UDim2.fromOffset(34, 34),
+	Position = UDim2.new(0, 0, 0.5, -15),
+	Size = UDim2.fromOffset(30, 30),
 	BackgroundColor3 = COLORS.DarkGray,
 	BackgroundTransparency = 0,
 	BorderSizePixel = 0,
@@ -727,14 +965,14 @@ make("UIStroke", {
 
 local UserNameLabel = make("TextLabel", {
 	Name = "Username",
-	Position = UDim2.fromOffset(42, 1),
-	Size = UDim2.new(1, -42, 0, 18),
+	Position = UDim2.fromOffset(38, 1),
+	Size = UDim2.new(1, -38, 0, 16),
 	BackgroundTransparency = 1,
 	Text = LocalPlayer.Name,
 	TextColor3 = COLORS.White,
 	TextTransparency = 0,
 	Font = Enum.Font.GothamBold,
-	TextSize = 12,
+	TextSize = 11,
 	TextXAlignment = Enum.TextXAlignment.Left,
 	TextYAlignment = Enum.TextYAlignment.Center,
 	TextTruncate = Enum.TextTruncate.AtEnd,
@@ -748,14 +986,14 @@ make("UIStroke", {
 
 local DisplayNameLabel = make("TextLabel", {
 	Name = "DisplayName",
-	Position = UDim2.fromOffset(42, 19),
-	Size = UDim2.new(1, -42, 0, 15),
+	Position = UDim2.fromOffset(38, 16),
+	Size = UDim2.new(1, -38, 0, 15),
 	BackgroundTransparency = 1,
 	Text = "",
 	TextColor3 = COLORS.Muted,
 	TextTransparency = 0,
 	Font = Enum.Font.Gotham,
-	TextSize = 10,
+	TextSize = 9,
 	TextXAlignment = Enum.TextXAlignment.Left,
 	TextYAlignment = Enum.TextYAlignment.Center,
 	TextTruncate = Enum.TextTruncate.AtEnd,
@@ -786,6 +1024,7 @@ local tabs = {
 	{Name = "Auto Buy", Icon = IMAGE_AUTOBUY},
 	{Name = "Farm", Icon = IMAGE_FARM},
 	{Name = "Config", Icon = IMAGE_CONFIG},
+	{Name = "Saves", Icon = ""},
 	{Name = "Credits", Icon = IMAGE_CREDITS},
 }
 
@@ -1300,6 +1539,11 @@ local function openVisualEggInfoPanel()
 	-- the Visual settings panel itself interactive until its X button is used.
 end
 
+local saveCurrentConfig
+local loadSelectedSave
+local restoreDefaultConfig
+local deleteSelectedSave
+
 local datasets = {
 	Main = {
 		{
@@ -1576,6 +1820,69 @@ local datasets = {
 		},
 	},
 
+	Saves = {
+		{
+			Type = "Category",
+			Title = "Save Manager",
+			Icon = "",
+			Expanded = true,
+			Items = {
+				{
+					Title = "Save Slot",
+					Description = "Choose a save slot from 1 to 5.",
+					NumberInput = true,
+					Value = "1",
+					Icon = "",
+					Compact = true,
+				},
+				{
+					Title = "Save Current",
+					Description = "Save the current configuration to the selected slot. The newest saved slot becomes the automatic load on the next execution.",
+					Icon = "",
+					Compact = true,
+					Action = function()
+						if saveCurrentConfig then
+							saveCurrentConfig()
+						end
+					end,
+				},
+				{
+					Title = "Load Save",
+					Description = "Load the configuration stored in the selected slot.",
+					Icon = "",
+					Compact = true,
+					Action = function()
+						if loadSelectedSave then
+							loadSelectedSave()
+						end
+					end,
+				},
+				{
+					Title = "Restore Defaults",
+					Description = "Restore the original script configuration without deleting saved slots.",
+					Icon = "",
+					Compact = true,
+					Action = function()
+						if restoreDefaultConfig then
+							restoreDefaultConfig()
+						end
+					end,
+				},
+				{
+					Title = "Delete Save",
+					Description = "Delete the selected save slot while keeping the current configuration unchanged.",
+					Icon = "",
+					Compact = true,
+					Action = function()
+						if deleteSelectedSave then
+							deleteSelectedSave()
+						end
+					end,
+				},
+			},
+		},
+	},
+
 	Credits = {
 		{
 			Title = "By: Cleiton10HDx",
@@ -1617,7 +1924,7 @@ local function getVisibleItems(tabName, query)
 	-- Search globally across every tab, but only return real options.
 	-- Category headers are never search results.
 	local filtered = {}
-	local searchOrder = {"Main", "Auto Buy", "Farm", "Config", "Credits"}
+	local searchOrder = {"Main", "Auto Buy", "Farm", "Config", "Saves", "Credits"}
 	for _, datasetName in ipairs(searchOrder) do
 		for _, item in ipairs(datasets[datasetName] or {}) do
 			if item.Type == "Category" then
@@ -1721,7 +2028,7 @@ local function createCategoryRow(category, layoutOrder, searchQuery)
 		Text = category.Title or "Category",
 		TextColor3 = COLORS.White,
 		Font = Enum.Font.GothamSemibold,
-		TextSize = 16,
+		TextSize = 14,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Center,
 		ZIndex = 5,
@@ -3190,6 +3497,427 @@ local function setToggleState(item, enabled)
 	end
 end
 
+local saveSlotItem = nil
+local saveStorageAvailable = typeof(readfile) == "function" and typeof(writefile) == "function"
+local saveStore = {
+	Version = 1,
+	LastSlot = nil,
+	Slots = {},
+}
+
+local function getSaveSlotItem()
+	if saveSlotItem then
+		return saveSlotItem
+	end
+
+	for _, dataset in pairs(datasets) do
+		for _, entry in ipairs(dataset or {}) do
+			if entry.Type == "Category" then
+				for _, item in ipairs(entry.Items or {}) do
+					if item.Title == "Save Slot" and item.NumberInput then
+						saveSlotItem = item
+						return item
+					end
+				end
+			elseif entry.Title == "Save Slot" and entry.NumberInput then
+				saveSlotItem = entry
+				return entry
+			end
+		end
+	end
+
+	return nil
+end
+
+local function clampSaveSlot(value)
+	local number = tonumber(value)
+	if not number then
+		number = 1
+	end
+	return math.clamp(math.floor(number), 1, SAVE_SLOT_COUNT)
+end
+
+local function sanitizeSavedNumber(value)
+	local digitsOnly = string.gsub(tostring(value or ""), "%D", "")
+	return digitsOnly
+end
+
+local function makeConfigKey(tabName, categoryName, title)
+	return tostring(tabName) .. "::" .. tostring(categoryName or "") .. "::" .. tostring(title or "")
+end
+
+local function getAllConfigItems(callback)
+	for tabName, dataset in pairs(datasets) do
+		for _, entry in ipairs(dataset or {}) do
+			if entry.Type == "Category" then
+				for _, item in ipairs(entry.Items or {}) do
+					callback(tabName, entry, item)
+				end
+			else
+				callback(tabName, nil, entry)
+			end
+		end
+	end
+end
+
+local function getPositionSnapshot(guiObject)
+	local position = guiObject.Position
+	return {
+		X = position.X.Scale,
+		Y = position.Y.Scale,
+	}
+end
+
+local function setPositionFromSnapshot(guiObject, data)
+	if typeof(data) ~= "table" then
+		return
+	end
+	if typeof(data.X) ~= "number" or typeof(data.Y) ~= "number" then
+		return
+	end
+	guiObject.Position = UDim2.fromScale(data.X, data.Y)
+end
+
+local function buildConfigSnapshot()
+	local snapshot = {
+		Version = 1,
+		Toggles = {},
+		Values = {},
+		Categories = {},
+		VisualSelection = {
+			Name = visualSelectionState.Name == true,
+			Mutation = visualSelectionState.Mutation == true,
+			Distance = visualSelectionState.Distance == true,
+			Rarity = visualSelectionState.Rarity == true,
+		},
+		Lock = {
+			Menu = lockMenuSelected == true,
+			Button = lockButtonSelected == true,
+			Enabled = lockEnabled == true,
+		},
+		Positions = {
+			Menu = getPositionSnapshot(Menu),
+			Launcher = getPositionSnapshot(LauncherFrame),
+		},
+	}
+
+	getAllConfigItems(function(tabName, category, item)
+		local categoryName = category and category.Title or ""
+		local key = makeConfigKey(tabName, categoryName, item.Title)
+
+		if item.Toggle then
+			local state = toggleStates[item]
+			if state == nil then
+				state = item.Enabled == true
+			end
+			snapshot.Toggles[key] = state == true
+		end
+
+		if item.NumberInput then
+			snapshot.Values[key] = tostring(item.Value or "")
+		end
+
+		if category then
+			local categoryKey = makeConfigKey(tabName, category.Title, "__CATEGORY__")
+			snapshot.Categories[categoryKey] = category.Expanded == true
+		end
+	end)
+
+	return snapshot
+end
+
+local function findNewestSavedSlot()
+	local newestSlot = nil
+	local newestTime = -math.huge
+
+	for key, entry in pairs(saveStore.Slots) do
+		local slot = tonumber(key)
+		if slot and slot >= 1 and slot <= SAVE_SLOT_COUNT and typeof(entry) == "table" then
+			local savedAt = typeof(entry.SavedAt) == "number" and entry.SavedAt or 0
+			if savedAt > newestTime or (savedAt == newestTime and (newestSlot == nil or slot > newestSlot)) then
+				newestTime = savedAt
+				newestSlot = slot
+			end
+		end
+	end
+
+	return newestSlot
+end
+
+local function normalizeSaveStore(raw)
+	local normalized = {
+		Version = 1,
+		LastSlot = nil,
+		Slots = {},
+	}
+
+	if typeof(raw) ~= "table" then
+		return normalized
+	end
+
+	if typeof(raw.Slots) == "table" then
+		for key, entry in pairs(raw.Slots) do
+			local slot = tonumber(key)
+			if slot and slot >= 1 and slot <= SAVE_SLOT_COUNT and typeof(entry) == "table" and typeof(entry.Config) == "table" then
+				normalized.Slots[tostring(math.floor(slot))] = entry
+			end
+		end
+	end
+
+	local lastSlot = tonumber(raw.LastSlot)
+	if lastSlot then
+		lastSlot = math.floor(lastSlot)
+		if normalized.Slots[tostring(lastSlot)] then
+			normalized.LastSlot = lastSlot
+		end
+	end
+
+	if normalized.LastSlot == nil then
+		normalized.LastSlot = findNewestSavedSlot()
+	end
+
+	return normalized
+end
+
+local function readSaveStore()
+	local runtimeStore = runtimeEnvironment[SAVE_STORE_KEY]
+	if typeof(runtimeStore) == "table" then
+		saveStore = normalizeSaveStore(runtimeStore)
+		runtimeEnvironment[SAVE_STORE_KEY] = saveStore
+		return
+	end
+
+	if not saveStorageAvailable then
+		runtimeEnvironment[SAVE_STORE_KEY] = saveStore
+		return
+	end
+
+	local okRead, raw = pcall(readfile, SAVE_FILE_PATH)
+	if not okRead or typeof(raw) ~= "string" or raw == "" then
+		runtimeEnvironment[SAVE_STORE_KEY] = saveStore
+		return
+	end
+
+	local okDecode, decoded = pcall(function()
+		return HttpService:JSONDecode(raw)
+	end)
+
+	if okDecode then
+		saveStore = normalizeSaveStore(decoded)
+	else
+		saveStore = normalizeSaveStore(nil)
+	end
+
+	runtimeEnvironment[SAVE_STORE_KEY] = saveStore
+end
+
+local function writeSaveStore()
+	runtimeEnvironment[SAVE_STORE_KEY] = saveStore
+
+	if not saveStorageAvailable then
+		return false
+	end
+
+	local okEncode, encoded = pcall(function()
+		return HttpService:JSONEncode(saveStore)
+	end)
+	if not okEncode then
+		return false
+	end
+
+	local okWrite = pcall(writefile, SAVE_FILE_PATH, encoded)
+	return okWrite
+end
+
+local function showSaveNotification(message)
+	if typeof(showCopiedNotification) == "function" then
+		showCopiedNotification(message, "")
+	end
+end
+
+local function applyConfigSnapshot(snapshot)
+	if typeof(snapshot) ~= "table" then
+		return
+	end
+
+	getAllConfigItems(function(tabName, category, item)
+		local categoryName = category and category.Title or ""
+		local key = makeConfigKey(tabName, categoryName, item.Title)
+
+		if item.Toggle then
+			local savedState = snapshot.Toggles and snapshot.Toggles[key]
+			if typeof(savedState) == "boolean" then
+				setToggleState(item, savedState)
+			else
+				setToggleState(item, item.Enabled == true)
+			end
+		end
+
+		if item.NumberInput then
+			local savedValue = snapshot.Values and snapshot.Values[key]
+			if savedValue ~= nil then
+				item.Value = sanitizeSavedNumber(savedValue)
+			else
+				item.Value = sanitizeSavedNumber(item.Value or "")
+			end
+		end
+
+		if category and snapshot.Categories then
+			local categoryKey = makeConfigKey(tabName, category.Title, "__CATEGORY__")
+			local expanded = snapshot.Categories[categoryKey]
+			if typeof(expanded) == "boolean" then
+				category.Expanded = expanded
+			end
+		end
+	end)
+
+	if typeof(snapshot.VisualSelection) == "table" then
+		visualSelectionState.Name = snapshot.VisualSelection.Name == true
+		visualSelectionState.Mutation = snapshot.VisualSelection.Mutation == true
+		visualSelectionState.Distance = snapshot.VisualSelection.Distance == true
+		visualSelectionState.Rarity = snapshot.VisualSelection.Rarity == true
+	end
+
+	if typeof(snapshot.Lock) == "table" then
+		lockMenuSelected = snapshot.Lock.Menu == true
+		lockButtonSelected = snapshot.Lock.Button == true
+		lockEnabled = snapshot.Lock.Enabled == true
+		if lockChoiceControls.MenuChoice and lockChoiceControls.MenuChoice.SetState then
+			lockChoiceControls.MenuChoice.SetState(lockMenuSelected)
+		end
+		if lockChoiceControls.ButtonChoice and lockChoiceControls.ButtonChoice.SetState then
+			lockChoiceControls.ButtonChoice.SetState(lockButtonSelected)
+		end
+		updateLockToggle()
+	end
+
+	if typeof(snapshot.Positions) == "table" then
+		setPositionFromSnapshot(Menu, snapshot.Positions.Menu)
+		setPositionFromSnapshot(LauncherFrame, snapshot.Positions.Launcher)
+	end
+
+	if refreshEggESP then
+		pcall(refreshEggESP)
+	end
+
+	if renderResults then
+		task.defer(renderResults)
+	end
+end
+
+readSaveStore()
+local defaultConfig = buildConfigSnapshot()
+
+local function getSelectedSaveSlot()
+	local item = getSaveSlotItem()
+	local selected = item and item.Value or saveStore.LastSlot or 1
+	local slot = clampSaveSlot(selected)
+
+	if item then
+		item.Value = tostring(slot)
+	end
+
+	return slot
+end
+
+local function autoLoadLastSave()
+	local lastSlot = saveStore.LastSlot
+	if not lastSlot then
+		return false
+	end
+
+	local entry = saveStore.Slots[tostring(lastSlot)]
+	if not entry or typeof(entry.Config) ~= "table" then
+		lastSlot = findNewestSavedSlot()
+		saveStore.LastSlot = lastSlot
+		entry = lastSlot and saveStore.Slots[tostring(lastSlot)] or nil
+	end
+
+	if not entry or typeof(entry.Config) ~= "table" then
+		return false
+	end
+
+	local slotItem = getSaveSlotItem()
+	if slotItem then
+		slotItem.Value = tostring(lastSlot)
+	end
+
+	applyConfigSnapshot(entry.Config)
+	return true
+end
+
+saveCurrentConfig = function()
+	local slot = getSelectedSaveSlot()
+	local snapshot = buildConfigSnapshot()
+
+	saveStore.Slots[tostring(slot)] = {
+		SavedAt = os.time(),
+		Config = snapshot,
+	}
+	saveStore.LastSlot = slot
+
+	local diskSaved = writeSaveStore()
+	if diskSaved then
+		showSaveNotification("Save " .. tostring(slot) .. " saved and set as auto-load!")
+	else
+		showSaveNotification("Save " .. tostring(slot) .. " saved for this session!")
+	end
+end
+
+loadSelectedSave = function()
+	local slot = getSelectedSaveSlot()
+	local entry = saveStore.Slots[tostring(slot)]
+
+	if not entry or typeof(entry.Config) ~= "table" then
+		showSaveNotification("No save exists in slot " .. tostring(slot) .. ".")
+		return
+	end
+
+	applyConfigSnapshot(entry.Config)
+	showSaveNotification("Save " .. tostring(slot) .. " loaded!")
+end
+
+restoreDefaultConfig = function()
+	applyConfigSnapshot(defaultConfig)
+
+	local slotItem = getSaveSlotItem()
+	if slotItem then
+		slotItem.Value = tostring(clampSaveSlot(slotItem.Value))
+	end
+
+	showSaveNotification("Default configuration restored!")
+end
+
+deleteSelectedSave = function()
+	local slot = getSelectedSaveSlot()
+	local key = tostring(slot)
+
+	if not saveStore.Slots[key] then
+		showSaveNotification("No save exists in slot " .. tostring(slot) .. ".")
+		return
+	end
+
+	saveStore.Slots[key] = nil
+
+	if saveStore.LastSlot == slot then
+		saveStore.LastSlot = findNewestSavedSlot()
+	end
+
+	local diskSaved = writeSaveStore()
+	if saveStore.LastSlot then
+		local nextSlotItem = getSaveSlotItem()
+		if nextSlotItem then
+			nextSlotItem.Value = tostring(saveStore.LastSlot)
+		end
+	end
+
+	if diskSaved then
+		showSaveNotification("Save " .. tostring(slot) .. " deleted.")
+	else
+		showSaveNotification("Save " .. tostring(slot) .. " deleted for this session.")
+	end
+end
+
 createStandardRow = function(item, layoutOrder)
 	local Row = make("Frame", {
 		Name = "Option",
@@ -3205,7 +3933,7 @@ createStandardRow = function(item, layoutOrder)
 	local TitleLabel = make("TextLabel", {
 		Position = UDim2.fromScale(0.035, 0.16), Size = UDim2.fromScale(0.73, 0.32),
 		BackgroundTransparency = 1, Text = item.Title or "Option", TextColor3 = COLORS.White,
-		Font = Enum.Font.GothamSemibold, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left,
+		Font = Enum.Font.GothamSemibold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Center, ZIndex = 5,
 	}, Row)
 	
@@ -3228,7 +3956,7 @@ createStandardRow = function(item, layoutOrder)
 	make("TextLabel", {
 		Position = UDim2.fromScale(0.035, 0.49), Size = UDim2.fromScale(0.73, 0.34),
 		BackgroundTransparency = 1, Text = item.Description or "", TextColor3 = COLORS.Muted,
-		Font = Enum.Font.Gotham, TextSize = 13, TextWrapped = true,
+		Font = Enum.Font.Gotham, TextSize = 11, TextWrapped = true,
 		TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 5,
 	}, Row)
 
@@ -4067,6 +4795,9 @@ SearchClear.Activated:Connect(function()
 end)
 
 applyEnglishOnly(ScreenGui)
+
+-- Restore the most recently saved configuration before the first menu render.
+autoLoadLastSave()
 
 local englishGuardConnection = ScreenGui.DescendantAdded:Connect(function(descendant)
 	applyEnglishOnly(descendant)
