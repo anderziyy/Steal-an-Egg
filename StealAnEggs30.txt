@@ -1,9 +1,3 @@
---[[
-  Arquivo: StealAnEggs30.txt
-  Base: StealAnEggs29.txt (com um bootstrap/fallback independente adicionado ao final)
-  Objetivo: manter o menu original e acrescentar um carregador independente
-           que aparece em fases caso o carregamento completo falhe em certos executores.
---]]
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -705,7 +699,7 @@ local UserInfo = make("Frame", {
 	Name = "UserInfo",
 	AnchorPoint = Vector2.new(0, 1),
 	Position = UDim2.new(0.055, 0, 1, -5),
-	Size = UDim2.new(0.89, 0, 0, 34),
+	Size = UDim2.new(0.89, 0, 0, 38),
 	BackgroundTransparency = 1,
 	BorderSizePixel = 0,
 	ZIndex = 8,
@@ -713,8 +707,8 @@ local UserInfo = make("Frame", {
 
 local UserAvatar = make("ImageLabel", {
 	Name = "Avatar",
-	Position = UDim2.new(0, 0, 0.5, -15),
-	Size = UDim2.fromOffset(30, 30),
+	Position = UDim2.new(0, 0, 0.5, -17),
+	Size = UDim2.fromOffset(34, 34),
 	BackgroundColor3 = COLORS.DarkGray,
 	BackgroundTransparency = 0,
 	BorderSizePixel = 0,
@@ -733,14 +727,14 @@ make("UIStroke", {
 
 local UserNameLabel = make("TextLabel", {
 	Name = "Username",
-	Position = UDim2.fromOffset(38, 1),
-	Size = UDim2.new(1, -38, 0, 16),
+	Position = UDim2.fromOffset(42, 1),
+	Size = UDim2.new(1, -42, 0, 18),
 	BackgroundTransparency = 1,
 	Text = LocalPlayer.Name,
 	TextColor3 = COLORS.White,
 	TextTransparency = 0,
 	Font = Enum.Font.GothamBold,
-	TextSize = 11,
+	TextSize = 12,
 	TextXAlignment = Enum.TextXAlignment.Left,
 	TextYAlignment = Enum.TextYAlignment.Center,
 	TextTruncate = Enum.TextTruncate.AtEnd,
@@ -754,14 +748,14 @@ make("UIStroke", {
 
 local DisplayNameLabel = make("TextLabel", {
 	Name = "DisplayName",
-	Position = UDim2.fromOffset(38, 16),
-	Size = UDim2.new(1, -38, 0, 15),
+	Position = UDim2.fromOffset(42, 19),
+	Size = UDim2.new(1, -42, 0, 15),
 	BackgroundTransparency = 1,
 	Text = "",
 	TextColor3 = COLORS.Muted,
 	TextTransparency = 0,
 	Font = Enum.Font.Gotham,
-	TextSize = 9,
+	TextSize = 10,
 	TextXAlignment = Enum.TextXAlignment.Left,
 	TextYAlignment = Enum.TextYAlignment.Center,
 	TextTruncate = Enum.TextTruncate.AtEnd,
@@ -1727,7 +1721,7 @@ local function createCategoryRow(category, layoutOrder, searchQuery)
 		Text = category.Title or "Category",
 		TextColor3 = COLORS.White,
 		Font = Enum.Font.GothamSemibold,
-		TextSize = 14,
+		TextSize = 16,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Center,
 		ZIndex = 5,
@@ -3211,7 +3205,7 @@ createStandardRow = function(item, layoutOrder)
 	local TitleLabel = make("TextLabel", {
 		Position = UDim2.fromScale(0.035, 0.16), Size = UDim2.fromScale(0.73, 0.32),
 		BackgroundTransparency = 1, Text = item.Title or "Option", TextColor3 = COLORS.White,
-		Font = Enum.Font.GothamSemibold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left,
+		Font = Enum.Font.GothamSemibold, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Center, ZIndex = 5,
 	}, Row)
 	
@@ -3234,7 +3228,7 @@ createStandardRow = function(item, layoutOrder)
 	make("TextLabel", {
 		Position = UDim2.fromScale(0.035, 0.49), Size = UDim2.fromScale(0.73, 0.34),
 		BackgroundTransparency = 1, Text = item.Description or "", TextColor3 = COLORS.Muted,
-		Font = Enum.Font.Gotham, TextSize = 11, TextWrapped = true,
+		Font = Enum.Font.Gotham, TextSize = 13, TextWrapped = true,
 		TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 5,
 	}, Row)
 
@@ -4117,341 +4111,3 @@ registerCleanup(function()
 	searchTextConnection:Disconnect()
 	renderSteppedConnection:Disconnect()
 end)
-
---[[
-  START: Robust phased fallback bootstrap
-  This section implements an independent, phased minimal UI that appears when
-  something in the main initialization fails in certain executors.
-  It loads in stages with small waits and pcall guards to maximize compatibility.
---]]
-
-local function createFallbackUI()
-	-- If main UI already present and visible, we skip fallback.
-	if cleanedUp then return end
-	local mainGuiPresent = pcall(function() return ScreenGui and ScreenGui.Parent and ScreenGui:IsDescendantOf(PlayerGui) end)
-	if mainGuiPresent then
-		-- If the main GUI is present and the menu is visible, no fallback required.
-		local ok, menuVis = pcall(function() return Menu and Menu.Visible end)
-		if ok and menuVis then return end
-	end
-
-	-- Create an isolated fallback ScreenGui name so it doesn't conflict with main GUI objects.
-	local ok, fallback = pcall(function()
-		local parent = PlayerGui or game:GetService("CoreGui")
-		local gui = Instance.new("ScreenGui")
-		gui.Name = "PhantomHub_StealAnEgg_Fallback"
-		gui.ResetOnSpawn = false
-		gui.IgnoreGuiInset = true
-		gui.DisplayOrder = 999998
-		gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-		gui.Parent = parent
-		return gui
-	end)
-	if not ok or not fallback then
-		-- If we cannot create any GUI, give up silently (executor probably blocks).
-		return
-	end
-
-	-- Register cleanup for the fallback GUI
-	registerCleanup(function()
-		pcall(function()
-			if fallback and fallback.Parent then
-				fallback:Destroy()
-			end
-		end)
-	end)
-
-	-- Phase 1: Root scale & background small initialization
-	pcall(function()
-		local rootScale = Instance.new("UIScale")
-		rootScale.Scale = 1
-		rootScale.Parent = fallback
-		-- small update from camera if present
-		local function safeUpdate()
-			local cam = workspace.CurrentCamera
-			if cam then
-				local v = cam.ViewportSize
-				local reference = math.min(v.X, v.Y)
-				rootScale.Scale = math.clamp(reference / 720, 0.82, 1.22)
-			end
-		end
-		pcall(safeUpdate)
-		if workspace.CurrentCamera then
-			local con = workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(safeUpdate)
-			registerCleanup(function()
-				pcall(function() con:Disconnect() end)
-			end)
-		end
-	end)
-	task.wait(0.04)
-
-	-- Phase 2: Create a small launcher button (movable + opens fallback menu)
-	local FLauncherFrame, FLauncher, FLauncherStroke
-	pcall(function()
-		FLauncherFrame = Instance.new("Frame")
-		FLauncherFrame.Name = "Launcher"
-		FLauncherFrame.AnchorPoint = Vector2.new(0, 0)
-		FLauncherFrame.Position = UDim2.fromScale(0.04, 0.32)
-		FLauncherFrame.Size = UDim2.fromScale(0.09, 0.09)
-		FLauncherFrame.BackgroundTransparency = 1
-		FLauncherFrame.Parent = fallback
-
-		local aspect = Instance.new("UIAspectRatioConstraint")
-		aspect.AspectRatio = 1
-		aspect.DominantAxis = Enum.DominantAxis.Width
-		aspect.Parent = FLauncherFrame
-
-		FLauncher = Instance.new("ImageButton")
-		FLauncher.Name = "OpenButton"
-		FLauncher.AnchorPoint = Vector2.new(0.5, 0.5)
-		FLauncher.Position = UDim2.fromScale(0.5, 0.5)
-		FLauncher.Size = UDim2.fromScale(1, 1)
-		FLauncher.BackgroundColor3 = COLORS.Black
-		FLauncher.BorderSizePixel = 0
-		FLauncher.AutoButtonColor = false
-		FLauncher.Image = IMAGE_MENU_BUTTON
-		FLauncher.ImageColor3 = COLORS.White
-		FLauncher.ScaleType = Enum.ScaleType.Crop
-		FLauncher.Active = true
-		FLauncher.Parent = FLauncherFrame
-
-		FLauncherStroke = Instance.new("UIStroke")
-		FLauncherStroke.Thickness = 2
-		FLauncherStroke.Color = COLORS.Gray3
-		FLauncherStroke.Transparency = 0.08
-		FLauncherStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-		FLauncherStroke.Parent = FLauncher
-	end)
-	task.wait(0.03)
-
-	-- Phase 3: Minimal menu (title + close)
-	local FMenu, FHeader, FTitle, FClose
-	pcall(function()
-		FMenu = Instance.new("Frame")
-		FMenu.Name = "Menu"
-		FMenu.Size = UDim2.fromScale(0.4, 0.45)
-		FMenu.AnchorPoint = Vector2.new(0.5, 0.5)
-		FMenu.Position = UDim2.fromScale(0.5, 0.5)
-		FMenu.BackgroundColor3 = COLORS.Black
-		FMenu.BorderSizePixel = 0
-		FMenu.ZIndex = 50
-		FMenu.ClipsDescendants = true
-		FMenu.Visible = false
-		FMenu.Parent = fallback
-
-		local asp = Instance.new("UIAspectRatioConstraint")
-		asp.AspectRatio = 1.3
-		asp.Parent = FMenu
-
-		local stroke = Instance.new("UIStroke")
-		stroke.Thickness = 2
-		stroke.Color = COLORS.Gray3
-		stroke.Transparency = 0.12
-		stroke.Parent = FMenu
-
-		FHeader = Instance.new("Frame")
-		FHeader.Size = UDim2.fromScale(1, 0.12)
-		FHeader.Position = UDim2.fromScale(0, 0)
-		FHeader.BackgroundColor3 = COLORS.Black2
-		FHeader.BorderSizePixel = 0
-		FHeader.Parent = FMenu
-
-		FTitle = Instance.new("TextLabel")
-		FTitle.Name = "Title"
-		FTitle.Position = UDim2.fromScale(0.04, 0.10)
-		FTitle.Size = UDim2.fromScale(0.7, 0.8)
-		FTitle.BackgroundTransparency = 1
-		FTitle.Text = "Phantom Hub (Fallback)"
-		FTitle.TextColor3 = COLORS.White
-		FTitle.Font = Enum.Font.GothamBold
-		FTitle.TextSize = 16
-		FTitle.TextXAlignment = Enum.TextXAlignment.Left
-		FTitle.TextYAlignment = Enum.TextYAlignment.Center
-		FTitle.Parent = FHeader
-
-		FClose = Instance.new("TextButton")
-		FClose.Name = "Close"
-		FClose.AnchorPoint = Vector2.new(1, 0.5)
-		FClose.Position = UDim2.fromScale(0.96, 0.5)
-		FClose.Size = UDim2.fromScale(0.07, 0.7)
-		FClose.BackgroundColor3 = COLORS.Gray
-		FClose.BackgroundTransparency = 0.18
-		FClose.BorderSizePixel = 0
-		FClose.AutoButtonColor = false
-		FClose.Text = "X"
-		FClose.TextColor3 = COLORS.White
-		FClose.Font = Enum.Font.GothamBold
-		FClose.TextSize = 14
-		FClose.Parent = FHeader
-	end)
-	task.wait(0.02)
-
-	-- Phase 4: Basic content (one sample button)
-	local FBody, FContentButton
-	pcall(function()
-		FBody = Instance.new("Frame")
-		FBody.Name = "Body"
-		FBody.Position = UDim2.fromScale(0, 0.12)
-		FBody.Size = UDim2.fromScale(1, 0.88)
-		FBody.BackgroundTransparency = 1
-		FBody.Parent = FMenu
-
-		FContentButton = Instance.new("TextButton")
-		FContentButton.Name = "SampleButton"
-		FContentButton.Size = UDim2.fromScale(0.9, 0.15)
-		FContentButton.Position = UDim2.fromScale(0.05, 0.06)
-		FContentButton.BackgroundColor3 = COLORS.Gray
-		FContentButton.BorderSizePixel = 0
-		FContentButton.AutoButtonColor = false
-		FContentButton.Text = "Open primary menu (if available)"
-		FContentButton.TextColor3 = COLORS.White
-		FContentButton.Font = Enum.Font.GothamSemibold
-		FContentButton.TextSize = 13
-		FContentButton.Parent = FBody
-	end)
-	task.wait(0.02)
-
-	-- Interactivity: toggle fallback menu and try to open main menu if possible
-	local function showFallbackMenu()
-		if FMenu and FMenu.Parent then
-			FMenu.Visible = true
-		end
-	end
-	local function hideFallbackMenu()
-		if FMenu and FMenu.Parent then
-			FMenu.Visible = false
-		end
-	end
-
-	-- When fallback button clicked: if main ScreenGui exists and has setTab/showMenu functions, try to open it, else toggle fallback menu.
-	if FLauncher then
-		pcall(function()
-			FLauncher.Activated:Connect(function()
-				-- Try to open main menu first (non-destructive)
-				local ok, _ = pcall(function() return ScreenGui and ScreenGui.Parent end)
-				if ok and ScreenGui and ScreenGui.Parent then
-					-- If main Menu object exists and has showMenu function in this script, attempt to toggle it.
-					local suc, _ = pcall(function()
-						-- showMenu is defined in main script scope; call it safely
-						if showMenu then
-							showMenu()
-						end
-					end)
-					if suc then return end
-				end
-				-- else toggle fallback
-				if FMenu then
-					FMenu.Visible = not FMenu.Visible
-				end
-			end)
-		end)
-	end
-
-	if FClose then
-		FClose.Activated:Connect(function()
-			if FMenu then
-				FMenu.Visible = false
-			end
-		end)
-	end
-
-	if FContentButton then
-		FContentButton.Activated:Connect(function()
-			-- Try to make main menu visible if possible
-			local suc = pcall(function()
-				if showMenu then
-					showMenu()
-				end
-			end)
-			-- If main failed, show a tiny notification inside fallback.
-			if not suc and FMenu then
-				local note = Instance.new("TextLabel")
-				note.Position = UDim2.fromScale(0.05, 0.26)
-				note.Size = UDim2.fromScale(0.9, 0.12)
-				note.BackgroundTransparency = 0.12
-				note.BackgroundColor3 = COLORS.Black2
-				note.TextColor3 = COLORS.Muted
-				note.Font = Enum.Font.Gotham
-				note.TextSize = 12
-				note.Text = "Main menu unavailable in this executor. Fallback active."
-				note.Parent = FBody
-				task.delay(2.0, function() pcall(function() note:Destroy() end) end)
-			end
-		end)
-	end
-
-	-- Movement for fallback launcher: basic drag support
-	local dragging = false
-	local dragStartPos, startPos
-	FLauncher.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			dragging = true
-			dragStartPos = input.Position
-			startPos = FLauncherFrame.Position
-		end
-	end)
-	UserInputService.InputChanged:Connect(function(input)
-		if not dragging then return end
-		if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-			local delta = input.Position - dragStartPos
-			local viewport = getViewport()
-			if viewport.X <= 0 or viewport.Y <= 0 then return end
-			local dx = delta.X / viewport.X
-			local dy = delta.Y / viewport.Y
-			local newPos = UDim2.fromScale(math.clamp(startPos.X.Scale + dx, 0.01, 0.94), math.clamp(startPos.Y.Scale + dy, 0.01, 0.94))
-			FLauncherFrame.Position = newPos
-		end
-	end)
-	UserInputService.InputEnded:Connect(function(input)
-		if dragging and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
-			dragging = false
-		end
-	end)
-
-	-- If at any time the principal ScreenGui becomes available and Menu visible, destroy fallback.
-	local fallbackWatcher
-	fallbackWatcher = RunService.Heartbeat:Connect(function()
-		if cleanedUp then
-			pcall(function() fallbackWatcher:Disconnect() end)
-			return
-		end
-		local okMain = pcall(function() return ScreenGui and ScreenGui.Parent and Menu and Menu.Visible end)
-		if okMain and ScreenGui and ScreenGui.Parent and Menu and Menu.Visible then
-			-- Main menu loaded: destroy fallback GUI and disconnect watcher
-			pcall(function()
-				if fallback and fallback.Parent then
-					fallback:Destroy()
-				end
-			end)
-			pcall(function() fallbackWatcher:Disconnect() end)
-		end
-	end)
-	registerCleanup(function()
-		pcall(function() if fallbackWatcher then fallbackWatcher:Disconnect() end end)
-	end)
-end
-
--- Try to run fallback after a short wait so main initialization has time to succeed.
-task.delay(0.35, function()
-	-- If main menu isn't visible or some critical files failed, spawn fallback UI to ensure usability.
-	local okMain, mainPresent = pcall(function() return ScreenGui and ScreenGui.Parent and Menu and Menu.Parent end)
-	if not okMain or not mainPresent then
-		pcall(createFallbackUI)
-		return
-	end
-	-- If main exists but Menu never became visible (possible partial failure), still ensure fallback
-	local okVis, menuVis = pcall(function() return Menu and Menu.Visible end)
-	if not okVis or not menuVis then
-		-- If some error occurred during renderResults, try to call renderResults safely; else fallback.
-		local suc, err = pcall(function()
-			if renderResults then renderResults() end
-		end)
-		if not suc then
-			pcall(createFallbackUI)
-		end
-	end
-end)
-
--- END: Robust phased fallback bootstrap
-
--- fim do arquivo
